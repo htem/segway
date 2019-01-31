@@ -183,6 +183,12 @@ def aggregateConfigs(configs):
         config['train_dir'] = network_config['train_dir']
         config['iteration'] = network_config['iteration']
         config['log_dir'] = input_config['log_dir']
+        config['output_shape'] = network_config['output_shape']
+        config['out_dtype'] = network_config['out_dtype']
+        config['net_voxel_size'] = network_config['net_voxel_size']
+        config['input_shape'] = network_config['input_shape']
+        config['out_dims'] = network_config['out_dims']
+        config['predict_file'] = network_config['predict_file']
 
     if "ExtractFragmentTask" in configs:
         config = configs["ExtractFragmentTask"]

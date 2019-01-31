@@ -64,6 +64,13 @@ class PredictTask(task_helper.SlurmTask):
     out_dataset = daisy.Parameter()
     block_size_in_chunks = daisy.Parameter()
     num_workers = daisy.Parameter()
+    predict_file = daisy.Parameter(None)
+
+    output_shape = daisy.Parameter(None)
+    out_dtype = daisy.Parameter(None)
+    out_dims = daisy.Parameter(None)
+    net_voxel_size = daisy.Parameter(None)
+    input_shape = daisy.Parameter(None)
 
     log_to_stdout = daisy.Parameter(default=True)
     log_to_files = daisy.Parameter(default=False)
@@ -94,33 +101,36 @@ class PredictTask(task_helper.SlurmTask):
             source.shape, source.roi, source.voxel_size))
 
         # load config
-        with open(os.path.join(self.setup, 'config.json')) as f:
-            logger.info("Reading setup config from %s"%os.path.join(self.setup, 'config.json'))
-            net_config = json.load(f)
+        # with open(os.path.join(self.setup, 'config.json')) as f:
+        #     logger.info("Reading setup config from %s"%os.path.join(self.setup, 'config.json'))
+        #     net_config = json.load(f)
 
-        out_dims = net_config['out_dims']
-        out_dtype = net_config['out_dtype']
-        logger.info('Number of dimensions is %i'%out_dims)
+        # out_dims = net_config['out_dims']
+        # out_dtype = net_config['out_dtype']
+        logger.info('Number of dimensions is %i' % self.out_dims)
 
         # get chunk size and context
         voxel_size = source.voxel_size
-        net_voxel_size = daisy.Coordinate(net_config['voxel_size'])
-        if net_voxel_size != source.voxel_size:
+        self.net_voxel_size = tuple(self.net_voxel_size)
+        # net_voxel_size = daisy.Coordinate(self.voxel_size)
+        # print(voxel_size)
+        # print(self.net_voxel_size)
+        if self.net_voxel_size != source.voxel_size:
             logger.info("Mismatched net and source voxel size. "
                         "Assuming downsampling")
             # force same voxel size for net in and output dataset
-            voxel_size = net_voxel_size
+            voxel_size = self.net_voxel_size
 
-        net_input_size = daisy.Coordinate(net_config['input_shape'])*voxel_size
-        net_output_size = daisy.Coordinate(net_config['output_shape'])*voxel_size
+        net_input_size = daisy.Coordinate(self.input_shape)*voxel_size
+        net_output_size = daisy.Coordinate(self.output_shape)*voxel_size
         chunk_size = net_output_size
         context = (net_input_size - net_output_size)/2
 
         logger.info("Following sizes in world units:")
-        logger.info("net input size  = %s"%(net_input_size,))
-        logger.info("net output size = %s"%(net_output_size,))
-        logger.info("context         = %s"%(context,))
-        logger.info("chunk size      = %s"%(chunk_size,))
+        logger.info("net input size  = %s" % (net_input_size,))
+        logger.info("net output size = %s" % (net_output_size,))
+        logger.info("context         = %s" % (context,))
+        logger.info("chunk size      = %s" % (chunk_size,))
 
         # compute sizes of blocks
         block_output_size = chunk_size*tuple(self.block_size_in_chunks)
@@ -135,10 +145,10 @@ class PredictTask(task_helper.SlurmTask):
         block_write_roi = daisy.Roi((0, 0, 0), block_output_size)
 
         logger.info("Following ROIs in world units:")
-        logger.info("Total input ROI  = %s"%input_roi)
-        logger.info("Block read  ROI  = %s"%block_read_roi)
-        logger.info("Block write ROI  = %s"%block_write_roi)
-        logger.info("Total output ROI = %s"%output_roi)
+        logger.info("Total input ROI  = %s" % input_roi)
+        logger.info("Block read  ROI  = %s" % block_read_roi)
+        logger.info("Block write ROI  = %s" % block_write_roi)
+        logger.info("Total output ROI = %s" % output_roi)
 
         logging.info('Preparing output dataset')
 
@@ -147,9 +157,9 @@ class PredictTask(task_helper.SlurmTask):
             self.out_dataset,
             output_roi,
             voxel_size,
-            out_dtype,
+            self.out_dtype,
             write_roi=daisy.Roi((0, 0, 0), chunk_size),
-            num_channels=out_dims,
+            num_channels=self.out_dims,
             # temporary fix until
             # https://github.com/zarr-developers/numcodecs/pull/87 gets approved
             # (we want gzip to be the default)
@@ -171,11 +181,23 @@ class PredictTask(task_helper.SlurmTask):
             'read_size': 0,
             'out_file': self.out_file,
             'out_dataset': self.out_dataset,
+            'output_shape': self.output_shape,
+            # 'out_dtype': self.out_dtype,
+            'voxel_size': self.net_voxel_size,
+            'input_shape': self.input_shape,
+            'train_dir': self.train_dir,
             'write_begin': 0,
             'write_size': 0
         }
 
-        predict_script = '%s/predict.py' % (self.train_dir)
+        if self.predict_file is not None:
+            predict_script = self.predict_file
+        else:
+            # use the one included in folder
+            predict_script = '%s/predict.py' % (self.train_dir)
+        print(self.predict_file)
+        print(predict_script)
+
         self.slurmSetup(config,
                         predict_script,
                         num_core=4,
