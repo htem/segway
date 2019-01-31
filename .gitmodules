@@ -1,0 +1,4 @@
+[submodule "repos/daisy"]
+	path = repos/daisy
+	url = https://github.com/funkelab/daisy
+	branch = release-v0.2
