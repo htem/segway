@@ -51,14 +51,20 @@ def segment(
     # slice
     logging.info("Reading fragments and RAG in %s" % total_roi)
     fragments = fragments[total_roi]
-    rag = parallel_read_rag(
-        total_roi,
-        db_host,
+    # rag = parallel_read_rag(
+    #     total_roi,
+    #     db_host,
+    #     db_name,
+    #     edges_collection=edges_collection,
+    #     block_size=(4096, 4096, 4096),
+    #     num_workers=num_workers,
+    #     retry=0)
+    rag_provider = lsd.persistence.MongoDbRagProvider(
         db_name,
-        edges_collection=edges_collection,
-        block_size=(4096, 4096, 4096),
-        num_workers=num_workers,
-        retry=0)
+        host=db_host,
+        mode='r+',
+        edges_collection=edges_collection)
+    rag = rag_provider[total_roi]
 
     logging.info(
         "%s: finished reading DB" % datetime.datetime.now()
