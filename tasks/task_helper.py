@@ -22,8 +22,13 @@ class SlurmTask(daisy.Task):
         `new_actor_cmd`. We also keep track of new jobs so to kill them
         when the task is finished.'''
 
-        print(actor_script)
         logname = (actor_script.split('.'))[-2].split('/')[-1]
+
+        # assume that actor_script resides in the same folder
+        actor_script = (os.path.dirname(os.path.realpath(__file__)) +
+                        '/' + actor_script)
+        print(actor_script)
+
         self.slurmtask_run_cmd, self.new_actor_cmd = generateActorSbatch(
             config,
             actor_script,
