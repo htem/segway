@@ -1,4 +1,4 @@
-import json
+# import json
 import logging
 import sys
 
@@ -66,24 +66,32 @@ class SegmentationTask(task_helper.SlurmTask):
     def requires(self):
         if self.no_check:
             return []
-        return [AgglomerateTask()]
+        return [AgglomerateTask(global_config=self.global_config)]
 
 
 if __name__ == "__main__":
 
     logging.basicConfig(level=logging.INFO)
 
-    configs = {}
-    user_configs = {}
-    for config in sys.argv[1:]:
-        if "=" in config:
-            key, val = config.split('=')
-            user_configs[key] = val
-        else:
-            with open(config, 'r') as f:
-                configs = {**json.load(f), **configs}
-    task_helper.aggregateConfigs(configs)
-    print(configs)
+    user_configs, global_config = task_helper.parseConfigs(sys.argv[1:])
 
-    daisy.distribute([{'task': SegmentationTask(**user_configs), 'request': None}],
-                     global_config=configs)
+    daisy.distribute(
+        [{'task': SegmentationTask(global_config=global_config,
+                                   **user_configs),
+         'request': None}],
+        global_config=global_config)
+
+    # configs = {}
+    # user_configs = {}
+    # for config in sys.argv[1:]:
+    #     if "=" in config:
+    #         key, val = config.split('=')
+    #         user_configs[key] = val
+    #     else:
+    #         with open(config, 'r') as f:
+    #             configs = {**json.load(f), **configs}
+    # task_helper.aggregateConfigs(configs)
+    # print(configs)
+
+    # daisy.distribute([{'task': SegmentationTask(**user_configs), 'request': None}],
+    #                  global_config=configs)

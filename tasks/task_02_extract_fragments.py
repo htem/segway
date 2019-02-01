@@ -1,15 +1,13 @@
-import json
+# import json
 import logging
 import numpy as np
-import os
+# import os
 import sys
 
 import daisy
 import lsd
-# from lsd.parallel_aff_agglomerate import agglomerate_in_block
-from lsd.parallel_fragments import watershed_in_block
 
-from task_helper import *
+import task_helper
 from task_01_predict_blockwise import PredictTask
 
 logging.getLogger('lsd.parallel_fragments').setLevel(logging.DEBUG)
@@ -17,7 +15,8 @@ logging.getLogger('lsd.parallel_fragments').setLevel(logging.DEBUG)
 
 logger = logging.getLogger(__name__)
 
-class ExtractFragmentTask(SlurmTask):
+
+class ExtractFragmentTask(task_helper.SlurmTask):
 
     '''
     Parameters:
@@ -59,7 +58,7 @@ class ExtractFragmentTask(SlurmTask):
             Whether to mask fragments for a specified region. Requires that the
             original sample dataset contains a dataset ``volumes/labels/mask``.
     '''
-    
+
     affs_file = daisy.Parameter()
     affs_dataset = daisy.Parameter()
     block_size = daisy.Parameter()
@@ -87,7 +86,8 @@ class ExtractFragmentTask(SlurmTask):
 
         if self.mask_fragments:
             logging.info("Reading mask from %s", self.mask_file)
-            self.mask = daisy.open_ds(self.mask_file, self.mask_dataset, mode='r')
+            self.mask = daisy.open_ds(self.mask_file, self.mask_dataset,
+                                      mode='r')
         else:
             self.mask = None
 
@@ -100,9 +100,9 @@ class ExtractFragmentTask(SlurmTask):
             np.uint64,
             daisy.Roi((0, 0, 0), self.block_size),
             # temporary fix until
-            # https://github.com/zarr-developers/numcodecs/pull/87 gets approved
+            # https://github.com/zarr-developers/numcodecs/pull/87 gets approve
             # (we want gzip to be the default)
-            compressor={'id': 'zlib', 'level':5}
+            compressor={'id': 'zlib', 'level': 5}
             )
 
         # open RAG DB
@@ -121,7 +121,8 @@ class ExtractFragmentTask(SlurmTask):
             self.context = daisy.Coordinate(self.context)
 
         total_roi = self.affs.roi.grow(self.context, self.context)
-        read_roi = daisy.Roi((0,)*self.affs.roi.dims(), self.block_size).grow(self.context, self.context)
+        read_roi = daisy.Roi((0,)*self.affs.roi.dims(),
+                             self.block_size).grow(self.context, self.context)
         write_roi = daisy.Roi((0,)*self.affs.roi.dims(), self.block_size)
 
         config = {
@@ -157,19 +158,27 @@ class ExtractFragmentTask(SlurmTask):
         return self.rag_provider.num_nodes(block.write_roi) > 0
 
     def requires(self):
-        return [PredictTask()]
+        return [PredictTask(global_config=self.global_config)]
 
 
 if __name__ == "__main__":
 
     logging.basicConfig(level=logging.INFO)
 
-    configs = {}
-    for config in sys.argv[1:]:
-        with open(config, 'r') as f:
-            configs = {**json.load(f), **configs}
-    aggregateConfigs(configs)
-    print(configs)
+    user_configs, global_config = task_helper.parseConfigs(sys.argv[1:])
 
-    daisy.distribute([{'task': ExtractFragmentTask(), 'request': None}],
-                     global_config=global_config)
+    daisy.distribute(
+        [{'task': ExtractFragmentTask(global_config=global_config,
+                                      **user_configs),
+         'request': None}],
+        global_config=global_config)
+
+    # configs = {}
+    # for config in sys.argv[1:]:
+    #     with open(config, 'r') as f:
+    #         configs = {**json.load(f), **configs}
+    # aggregateConfigs(configs)
+    # print(configs)
+
+    # daisy.distribute([{'task': ExtractFragmentTask(), 'request': None}],
+    #                  global_config=global_config)

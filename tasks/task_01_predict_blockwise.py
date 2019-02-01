@@ -226,7 +226,9 @@ class PredictTask(task_helper.SlurmTask):
             logger.debug("Block outside of output ROI")
             return True
 
-        center_values = ds[block.write_roi.get_begin()]
+        center_coord = (block.write_roi.get_begin() +
+                        block.write_roi.get_end()) / 2
+        center_values = ds[center_coord]
         s = np.sum(center_values)
         logger.debug("Sum of center values in %s is %f"%(block.write_roi, s))
 

@@ -7,7 +7,7 @@ import sys
 
 from lsd.parallel_aff_agglomerate import agglomerate_in_block
 
-from task_helper import *
+import task_helper
 from task_02_extract_fragments import ExtractFragmentTask
 
 # logging.getLogger('lsd.parallel_fragments').setLevel(logging.DEBUG)
@@ -16,7 +16,7 @@ from task_02_extract_fragments import ExtractFragmentTask
 logger = logging.getLogger(__name__)
 
 
-class AgglomerateTask(SlurmTask):
+class AgglomerateTask(task_helper.SlurmTask):
     '''
     Run agglomeration in parallel blocks. Requires that affinities have been
     predicted before.
@@ -73,19 +73,19 @@ class AgglomerateTask(SlurmTask):
         '''Daisy calls `prepare` for each task prior to scheduling
         any block.'''
 
-        waterz_merge_function = {
-            'hist_quant_10': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 10, ScoreValue, 256, false>>',
-            'hist_quant_10_initmax': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 10, ScoreValue, 256, true>>',
-            'hist_quant_25': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 25, ScoreValue, 256, false>>',
-            'hist_quant_25_initmax': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 25, ScoreValue, 256, true>>',
-            'hist_quant_50': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 50, ScoreValue, 256, false>>',
-            'hist_quant_50_initmax': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 50, ScoreValue, 256, true>>',
-            'hist_quant_75': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 75, ScoreValue, 256, false>>',
-            'hist_quant_75_initmax': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 75, ScoreValue, 256, true>>',
-            'hist_quant_90': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 90, ScoreValue, 256, false>>',
-            'hist_quant_90_initmax': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 90, ScoreValue, 256, true>>',
-            'mean': 'OneMinus<MeanAffinity<RegionGraphType, ScoreValue>>',
-        }[self.merge_function]
+        # waterz_merge_function = {
+        #     'hist_quant_10': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 10, ScoreValue, 256, false>>',
+        #     'hist_quant_10_initmax': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 10, ScoreValue, 256, true>>',
+        #     'hist_quant_25': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 25, ScoreValue, 256, false>>',
+        #     'hist_quant_25_initmax': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 25, ScoreValue, 256, true>>',
+        #     'hist_quant_50': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 50, ScoreValue, 256, false>>',
+        #     'hist_quant_50_initmax': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 50, ScoreValue, 256, true>>',
+        #     'hist_quant_75': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 75, ScoreValue, 256, false>>',
+        #     'hist_quant_75_initmax': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 75, ScoreValue, 256, true>>',
+        #     'hist_quant_90': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 90, ScoreValue, 256, false>>',
+        #     'hist_quant_90_initmax': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 90, ScoreValue, 256, true>>',
+        #     'mean': 'OneMinus<MeanAffinity<RegionGraphType, ScoreValue>>',
+        # }[self.merge_function]
 
         logging.info("Reading affs from %s", self.affs_file)
         affs = daisy.open_ds(self.affs_file, self.affs_dataset, mode='r')
@@ -142,20 +142,29 @@ class AgglomerateTask(SlurmTask):
             self.rag_provider.num_nodes(block.write_roi) == 0)
 
     def requires(self):
-        return [ExtractFragmentTask()]
+        return [ExtractFragmentTask(global_config=self.global_config)]
 
 
 if __name__ == "__main__":
 
     logging.basicConfig(level=logging.INFO)
-    logging.getLogger('lsd.parallel_aff_agglomerate').setLevel(logging.DEBUG)
 
-    configs = {}
-    for config in sys.argv[1:]:
-        with open(config, 'r') as f:
-            configs = {**json.load(f), **configs}
-    aggregateConfigs(configs)
-    print(configs)
+    user_configs, global_config = task_helper.parseConfigs(sys.argv[1:])
 
-    daisy.distribute([{'task': AgglomerateTask(), 'request': None}],
-        global_config=configs)
+    daisy.distribute(
+        [{'task': AgglomerateTask(global_config=global_config,
+                                  **user_configs),
+         'request': None}],
+        global_config=global_config)
+
+    # logging.getLogger('lsd.parallel_aff_agglomerate').setLevel(logging.DEBUG)
+
+    # configs = {}
+    # for config in sys.argv[1:]:
+    #     with open(config, 'r') as f:
+    #         configs = {**json.load(f), **configs}
+    # aggregateConfigs(configs)
+    # print(configs)
+
+    # daisy.distribute([{'task': AgglomerateTask(), 'request': None}],
+    #     global_config=configs)
