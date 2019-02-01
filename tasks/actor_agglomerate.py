@@ -60,7 +60,7 @@ if __name__ == "__main__":
     write_roi = daisy.Roi((0,)*affs.roi.dims(), block_size)
 
     print("WORKER: Running with context %s"%os.environ['DAISY_CONTEXT'])
-    client_scheduler = daisy.ClientScheduler()
+    client_scheduler = daisy.Client()
 
     while True:
         block = client_scheduler.acquire_block()

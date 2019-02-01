@@ -120,7 +120,7 @@ if __name__ == "__main__":
         globals()['%s' % key] = run_config[key]
 
     logging.info("WORKER: Running with context %s" % os.environ['DAISY_CONTEXT'])
-    client_scheduler = daisy.ClientScheduler()
+    client_scheduler = daisy.Client()
 
     while True:
 
