@@ -17,6 +17,10 @@ class SlurmTask(daisy.Task):
     log_dir = daisy.Parameter()
     started_jobs = []
 
+    cpu_cores = daisy.Parameter(2)
+    cpu_time = daisy.Parameter(0)
+    cpu_mem = daisy.Parameter(4)
+
     def slurmSetup(self, config, actor_script, **kwargs):
         '''Write config file and sbatch file for the actor, and generate
         `new_actor_cmd`. We also keep track of new jobs so to kill them
@@ -34,6 +38,9 @@ class SlurmTask(daisy.Task):
             actor_script,
             log_dir=self.log_dir,
             logname=logname,
+            cpu_cores=self.cpu_cores,
+            cpu_time=self.cpu_time,
+            cpu_mem=self.cpu_mem,
             **kwargs)
         self.started_jobs = multiprocessing.Manager().list()
 
@@ -89,7 +96,9 @@ def generateActorSbatch(config, actor_script, log_dir, logname, **kwargs):
         ])
 
     sbatch_script = os.path.join('.run_configs', '%s_%d.sh'%(logname, config_hash))
-    generateSbatchScript(sbatch_script, run_cmd, log_dir, logname, **kwargs)
+    generateSbatchScript(
+        sbatch_script, run_cmd, log_dir, logname,
+        **kwargs)
 
     new_actor_cmd = [
         'sbatch',
@@ -107,7 +116,7 @@ def generateSbatchScript(
         logname,
         cpu_time=0,
         queue='short',
-        num_core=1,
+        cpu_cores=1,
         cpu_mem=6,
         gpu=None):
     text = []
@@ -122,7 +131,7 @@ def generateSbatchScript(
             text.append("#SBATCH --gres=gpu:{}:1".format(gpu))
     else:
         text.append("#SBATCH -p %s" % queue)
-    text.append("#SBATCH -c %d" % num_core)
+    text.append("#SBATCH -c %d" % cpu_cores)
     text.append("#SBATCH --mem=%dGB" % cpu_mem)
     text.append("#SBATCH -o {}/{}_%j.out".format(log_dir, logname))
     text.append("#SBATCH -e {}/{}_%j.err".format(log_dir, logname))

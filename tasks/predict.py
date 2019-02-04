@@ -7,12 +7,11 @@ from gunpowder.contrib import ZeroOutConstSections
 from gunpowder.tensorflow import *
 import json
 import logging
-import numpy as np
+# import numpy as np
 import os
 
 # sys.path.insert(0, "/groups/funke/home/nguyent3/programming/daisy/")
 # import daisy
-
 
 
 def predict(
@@ -25,7 +24,8 @@ def predict(
         voxel_size,
         out_file,
         out_dataset,
-        train_dir):
+        train_dir,
+        predict_num_core):
 
     # setup_dir = os.path.dirname(os.path.realpath(__file__))
     setup_dir = train_dir
@@ -108,7 +108,7 @@ def predict(
 
     pipeline += PrintProfilingStats(every=10)
 
-    pipeline += DaisyScan(chunk_request, mapping, num_workers=2)
+    pipeline += DaisyScan(chunk_request, mapping, num_workers=predict_num_core)
     # pipeline += DaisyScan(chunk_request, mapping)
 
     print("Starting prediction...")
@@ -148,4 +148,5 @@ if __name__ == "__main__":
         run_config['out_file'],
         run_config['out_dataset'],
         run_config['train_dir'],
+        run_config['predict_num_core']
         )

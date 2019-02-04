@@ -75,6 +75,10 @@ class PredictTask(task_helper.SlurmTask):
     log_to_stdout = daisy.Parameter(default=True)
     log_to_files = daisy.Parameter(default=False)
 
+    cpu_cores = daisy.Parameter(4)
+
+    # predict_num_core = daisy.Parameter(2)
+
     def prepare(self):
         '''Daisy calls `prepare` for each task prior to scheduling
         any block.'''
@@ -187,7 +191,8 @@ class PredictTask(task_helper.SlurmTask):
             'input_shape': self.input_shape,
             'train_dir': self.train_dir,
             'write_begin': 0,
-            'write_size': 0
+            'write_size': 0,
+            'predict_num_core': self.cpu_cores
         }
 
         if self.predict_file is not None:
@@ -198,10 +203,9 @@ class PredictTask(task_helper.SlurmTask):
         print(self.predict_file)
         print(predict_script)
 
+        self.cpu_mem = self.cpu_cores*1
         self.slurmSetup(config,
                         predict_script,
-                        num_core=4,
-                        cpu_mem=8,
                         gpu='any')
 
         # any task must call schedule() at the end of prepare
@@ -219,18 +223,19 @@ class PredictTask(task_helper.SlurmTask):
 
     def check_block(self, block):
 
-        logger.debug("Checking if block %s is complete..."%block.write_roi)
+        logger.debug("Checking if block %s is complete..." % block.write_roi)
 
         ds = daisy.open_ds(self.out_file, self.out_dataset)
-        if ds.roi.intersect(block.write_roi).empty():
+        write_roi = ds.roi.intersect(block.write_roi)
+        if write_roi.empty():
             logger.debug("Block outside of output ROI")
             return True
 
-        center_coord = (block.write_roi.get_begin() +
-                        block.write_roi.get_end()) / 2
+        center_coord = (write_roi.get_begin() +
+                        write_roi.get_end()) / 2
         center_values = ds[center_coord]
         s = np.sum(center_values)
-        logger.debug("Sum of center values in %s is %f"%(block.write_roi, s))
+        logger.debug("Sum of center values in %s is %f" % (write_roi, s))
 
         return s != 0
 
