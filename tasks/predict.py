@@ -10,38 +10,46 @@ import logging
 import numpy as np
 import os
 
-sys.path.insert(0, "/groups/funke/home/nguyent3/programming/daisy/")
-import daisy
+# sys.path.insert(0, "/groups/funke/home/nguyent3/programming/daisy/")
+# import daisy
 
 
-setup_dir = os.path.dirname(os.path.realpath(__file__))
-
-with open(os.path.join(setup_dir, 'config.json'), 'r') as f:
-    net_config = json.load(f)
-
-# voxels
-input_shape = Coordinate(net_config['input_shape'])
-output_shape = Coordinate(net_config['output_shape'])
-context = (input_shape - output_shape)//2
-# voxel_size = Coordinate(tuple(cfg.get("voxel_size",(40,4,4))))
-# input_size = Coordinate(tuple(cfg.get("input_size_pixels",(84,268,268))))*voxel_size
-# output_size = Coordinate(tuple(cfg.get("output_size_pixels",(56,56,56))))*voxel_size
-
-print("Context is %s"%(context,))
-# nm
-# voxel_size = Coordinate((40, 4, 4))
-voxel_size = Coordinate(net_config["voxel_size"])
-context_nm = context*voxel_size
-input_size = input_shape*voxel_size
-output_size = output_shape*voxel_size
 
 def predict(
         iteration,
         raw_file,
         raw_dataset,
         # read_roi,
+        input_shape,
+        output_shape,
+        voxel_size,
         out_file,
-        out_dataset):
+        out_dataset,
+        train_dir):
+
+    # setup_dir = os.path.dirname(os.path.realpath(__file__))
+    setup_dir = train_dir
+
+    with open(os.path.join(setup_dir, 'net_io_names.json'), 'r') as f:
+        net_config = json.load(f)
+
+    # voxels
+    input_shape = Coordinate(input_shape)
+    output_shape = Coordinate(output_shape)
+    voxel_size = Coordinate(tuple(voxel_size))
+
+    context = (input_shape - output_shape)//2
+    # voxel_size = Coordinate(tuple(cfg.get("voxel_size",(40,4,4))))
+    # input_size = Coordinate(tuple(cfg.get("input_size_pixels",(84,268,268))))*voxel_size
+    # output_size = Coordinate(tuple(cfg.get("output_size_pixels",(56,56,56))))*voxel_size
+
+    print("Context is %s"%(context,))
+    # nm
+    # voxel_size = Coordinate((40, 4, 4))
+    # voxel_size = Coordinate(net_config["voxel_size"])
+    # context_nm = context*voxel_size
+    input_size = input_shape*voxel_size
+    output_size = output_shape*voxel_size
 
     raw = ArrayKey('RAW')
     affs = ArrayKey('AFFS')
@@ -86,7 +94,7 @@ def predict(
             outputs={
                 net_config['affs']: affs
             },
-            graph=os.path.join(setup_dir, 'config.meta')
+            # graph=os.path.join(setup_dir, 'config.meta')
         )
 
     pipeline += IntensityScaleShift(affs, 255, 0)
@@ -134,5 +142,10 @@ if __name__ == "__main__":
         run_config['raw_file'],
         run_config['raw_dataset'],
         # read_roi,
+        run_config['input_shape'],
+        run_config['output_shape'],
+        run_config['voxel_size'],
         run_config['out_file'],
-        run_config['out_dataset'])
+        run_config['out_dataset'],
+        run_config['train_dir'],
+        )
