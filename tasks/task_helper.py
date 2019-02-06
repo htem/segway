@@ -8,6 +8,7 @@ import os
 import collections
 
 import daisy
+import ast
 
 logger = logging.getLogger(__name__)
 
@@ -158,7 +159,7 @@ def parseConfigs(args):
                 task, param = key.split('.')
                 hierarchy_configs[task][param] = val
             else:
-                user_configs[key] = val
+                user_configs[key] = ast.literal_eval(val)
         else:
             with open(config, 'r') as f:
                 global_configs = {**json.load(f), **global_configs}

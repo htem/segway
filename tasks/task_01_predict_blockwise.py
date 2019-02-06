@@ -156,7 +156,7 @@ class PredictTask(task_helper.SlurmTask):
 
         logging.info('Preparing output dataset')
 
-        ds = daisy.prepare_ds(
+        self.ds = daisy.prepare_ds(
             self.out_file,
             self.out_dataset,
             output_roi,
@@ -203,7 +203,7 @@ class PredictTask(task_helper.SlurmTask):
         print(self.predict_file)
         print(predict_script)
 
-        self.cpu_mem = self.cpu_cores*1
+        self.cpu_mem = int(self.cpu_cores*1.5)
         self.slurmSetup(config,
                         predict_script,
                         gpu='any')
@@ -225,7 +225,8 @@ class PredictTask(task_helper.SlurmTask):
 
         logger.debug("Checking if block %s is complete..." % block.write_roi)
 
-        ds = daisy.open_ds(self.out_file, self.out_dataset)
+        # ds = daisy.open_ds(self.out_file, self.out_dataset)
+        ds = self.ds
         write_roi = ds.roi.intersect(block.write_roi)
         if write_roi.empty():
             logger.debug("Block outside of output ROI")
