@@ -23,8 +23,6 @@ class SegmentationTask(task_helper.SlurmTask):
     # roi_offset = daisy.Parameter(default=None)
     # roi_shape = daisy.Parameter()
     num_workers = daisy.Parameter(default=4)
-    # cpu_time = daisy.Parameter(default=1)
-    # cpu_mem = daisy.Parameter(default=16)
     no_check = daisy.Parameter(default=0)
 
     def prepare(self):
@@ -50,9 +48,7 @@ class SegmentationTask(task_helper.SlurmTask):
         }
         self.slurmSetup(
             config,
-            'actor_segmentation.py',
-            cpu_time=self.cpu_time,
-            cpu_mem=self.cpu_mem)
+            'actor_segmentation.py')
 
         self.schedule(
             total_roi,
