@@ -9,6 +9,7 @@ import json
 import logging
 # import numpy as np
 import os
+import glob
 
 # sys.path.insert(0, "/groups/funke/home/nguyent3/programming/daisy/")
 # import daisy
@@ -30,8 +31,23 @@ def predict(
     # setup_dir = os.path.dirname(os.path.realpath(__file__))
     setup_dir = train_dir
 
-    with open(os.path.join(setup_dir, 'net_io_names.json'), 'r') as f:
-        net_config = json.load(f)
+    try:
+        with open(os.path.join(setup_dir, 'unet.json'), 'r') as f:
+            net_config = json.load(f)
+    except:
+        with open(os.path.join(setup_dir, 'net_io_names.json'), 'r') as f:
+            net_config = json.load(f)
+
+    # try to find checkpoint name
+    pattern = '*checkpoint_%d.*' % iteration
+    checkpoint_files = glob.glob(train_dir + '/' + pattern)
+    if len(checkpoint_files) == 0:
+        print("Cannot find checkpoints with pattern %s in directory %s" % (
+            pattern, train_dir))
+        os._exit(1)
+
+    checkpoint_file = checkpoint_files[0].split('.')[0]
+    checkpoint_file = checkpoint_file.split('/')[-1]
 
     # voxels
     input_shape = Coordinate(input_shape)
@@ -87,7 +103,7 @@ def predict(
     pipeline += ZeroOutConstSections(raw)
 
     pipeline += Predict(
-            os.path.join(setup_dir, 'unet_checkpoint_%d'%iteration),
+            os.path.join(setup_dir, checkpoint_file),
             inputs={
                 net_config['raw']: raw
             },

@@ -44,6 +44,7 @@ class SlurmTask(daisy.Task):
             cpu_mem=self.cpu_mem,
             **kwargs)
         self.started_jobs = multiprocessing.Manager().list()
+        self.started_jobs_local = []
 
         # if self.dry_run:
         #     self.new_actor = lambda b: 0
@@ -69,10 +70,26 @@ class SlurmTask(daisy.Task):
         self.started_jobs.append(id)
 
     def cleanup(self):
-        if len(self.started_jobs) > 0:
-            all_jobs = " ".join(self.started_jobs)
+        try:
+            started_slurm_jobs = self.started_jobs._getvalue()
+        except:
+            started_slurm_jobs = self.started_jobs_local
+
+        # print(started_slurm_jobs._getvalue())
+        # print(started_slurm_jobs._getvalue())
+        if len(started_slurm_jobs) > 0:
+            all_jobs = " ".join(started_slurm_jobs)
             cmd = "scancel {}".format(all_jobs)
+            print(cmd)
             subprocess.run(cmd, shell=True)
+        else:
+            print("No jobs to cleanup")
+
+    def _periodic_callback(self):
+        try:
+            self.started_jobs_local = self.started_jobs._getvalue()
+        except:
+            pass
 
 
 def generateActorSbatch(config, actor_script, log_dir, logname, **kwargs):
@@ -152,6 +169,16 @@ def parseConfigs(args):
     global_configs = {}
     user_configs = {}
     hierarchy_configs = collections.defaultdict(dict)
+
+    # first load default configs if avail
+    try:
+        config_file = "segway/tasks/task_defaults.json"
+        with open(config_file, 'r') as f:
+            global_configs = {**json.load(f), **global_configs}
+    except Exception:
+        logger.info("Default task config not loaded")
+        pass
+
     for config in args:
         if "=" in config:
             key, val = config.split('=')
@@ -162,7 +189,19 @@ def parseConfigs(args):
                 user_configs[key] = ast.literal_eval(val)
         else:
             with open(config, 'r') as f:
-                global_configs = {**json.load(f), **global_configs}
+                print("helper: loading %s" % f)
+                new_configs = json.load(f)
+                print(list(global_configs.keys()))
+                keys = set(list(global_configs.keys())).union(list(new_configs.keys()))
+                for k in keys:
+                    if k in global_configs:
+                        if k in new_configs:
+                            global_configs[k].update(new_configs[k])
+                    else:
+                        global_configs[k] = new_configs[k]
+                # global_configs = {**global_configs, **json.load(f)}
+    print("helper: final config")
+    print(global_configs)
     print(hierarchy_configs)
     global_configs = {**hierarchy_configs, **global_configs}
     aggregateConfigs(global_configs)
@@ -184,10 +223,10 @@ def aggregateConfigs(configs):
     parameters['iteration'] = network_config['iteration']
 
     for config in input_config:
-        print(input_config[config])
+        # print(input_config[config])
         input_config[config] = input_config[config].format(**parameters)
 
-    print(input_config)
+    # print(input_config)
     os.makedirs(input_config['log_dir'], exist_ok=True)
 
     if "PredictTask" in configs:
