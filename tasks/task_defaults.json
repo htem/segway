@@ -1,0 +1,80 @@
+{
+    "GlobalConfig":
+        {
+            "dry_run": 0
+        },
+
+    "PredictTask":
+        {
+            "out_dataset" : "volumes/affs",
+            "block_size_in_chunks" : [1, 8, 8],
+            "num_workers": 16
+        },
+        
+    "ExtractFragmentTask":
+        {
+            "affs_dataset": "/volumes/affs",
+            "fragments_dataset": "/volumes/fragments",
+            "block_size": [2240, 2048, 2048],
+            "context": [320, 256, 256],
+            "num_workers": 8,
+            "fragments_in_xy": 1,
+            "mask_fragments": 0
+        },
+
+    "AgglomerateTask":
+        {
+            "affs_dataset": "/volumes/affs",
+            "fragments_dataset": "/volumes/fragments",
+            "block_size": [2240, 2048, 2048],
+            "context": [320, 256, 256],
+            "num_workers": 8,
+            "merge_function": "hist_quant_50"
+        },
+
+    "SegmentationTask":
+        {
+            "fragments_dataset": "/volumes/fragments",
+            "out_dataset": "volumes/segmentation",
+            "thresholds": [0.2, 0.3, 0.4, 0.5, 0.6, 0.7],
+            "edges_collection": "edges_hist_quant_50",
+            "cpu_mem": 32,
+            "num_workers": 1
+        },
+
+    "BlockwiseSegmentationTask":
+        {
+            "fragments_dataset": "/volumes/fragments",
+            "out_dataset": "volumes/sparse_segmentation",
+            "block_size": [2240, 2048, 2048],
+            "threshold": 0.5,
+            "edges_collection": "edges_hist_quant_50",
+            "num_workers": 8
+        },
+
+    "SparseSegmentationTask":
+        {
+            "fragments_dataset": "/volumes/fragments",
+            "out_dataset": "volumes/sparse_segmentation",
+            "block_size": [2240, 2048, 2048],
+            "context": [320, 256, 256],
+            "threshold": 0.5,
+            "edges_collection": "edges_hist_quant_50",
+            "seed_zyxs": [[12440, 264372, 343814]]
+        },
+
+    "SparseSegmentationServer":
+        {
+            "fragments_dataset": "/volumes/fragments",
+            "segment_dataset": "volumes/sparse_segmentation",
+            "block_size": [2240, 2048, 2048],
+            "context": [320, 256, 256],
+            "threshold": 0.5,
+            "edges_collection": "edges_hist_quant_50",
+            "segment_id": 123458,
+            "seeds": [[10160, 261968, 341408]],
+            "iterations": 1,
+            "reinitialize": 0,
+            "continuous": 1
+        }
+}

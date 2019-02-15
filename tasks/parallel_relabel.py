@@ -5,11 +5,15 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
+
 def relabel_in_block(block, segmentation_ds, fragments_ds, fragments_map):
 
     logger.info("Relabeling in %s", block.read_roi)
+    logger.info("Reading fragment...")
     volume = fragments_ds[block.read_roi].to_ndarray()
+    logger.info("Getting and sorting unique fragments...")
     fragments = np.unique(volume)
+    logger.info("Making segments...")
     segments = np.array([
         fragments_map.get(fragment, fragment)
         for fragment in fragments

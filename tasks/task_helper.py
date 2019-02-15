@@ -139,7 +139,7 @@ def generateSbatchScript(
         gpu=None):
     text = []
     text.append("#!/bin/bash")
-    text.append("#SBATCH -t %d:30:00" % cpu_time)
+    text.append("#SBATCH -t %d:40:00" % cpu_time)
 
     if gpu is not None:
         text.append("#SBATCH -p gpu")
