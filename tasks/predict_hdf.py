@@ -83,7 +83,7 @@ def predict(
 
     pipeline = Hdf5Source(
                    raw_file,
-                   datasets = { raw: 'volumes/raw'})
+                   datasets = {raw: raw_dataset})
 
     pipeline += Pad(raw, size=None)
 
