@@ -81,15 +81,24 @@ def predict(
         affs: "write_roi"
     }
 
-    pipeline = ZarrSource(
+    if raw_file.endswith(".hdf"):
+        pipeline = Hdf5Source(
             raw_file,
-            datasets = {
+            datasets={raw: raw_dataset},
+            array_specs={
+                raw: ArraySpec(interpolatable=True),
+            })
+    elif raw_file.endswith(".zarr"):
+        pipeline = ZarrSource(
+            raw_file,
+            datasets={
                 raw: raw_dataset
             },
-            array_specs = {
+            array_specs={
                 raw: ArraySpec(interpolatable=True),
-            }
-        )
+            })
+    else:
+        raise RuntimeError("Unknown raw file type!")
 
     pipeline += Pad(raw, size=None)
 
