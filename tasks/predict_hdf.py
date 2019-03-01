@@ -94,7 +94,7 @@ def predict(
     pipeline += IntensityScaleShift(raw, 2,-1)
 
     # new from logan's
-    pipeline += ZeroOutConstSections(raw)
+    # pipeline += ZeroOutConstSections(raw)
 
     pipeline += Predict(
             os.path.join(setup_dir, checkpoint_file),

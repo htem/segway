@@ -8,7 +8,7 @@
         {
             "out_dataset" : "volumes/affs",
             "block_size_in_chunks" : [1, 8, 8],
-            "num_workers": 16
+            "num_workers": 8
         },
         
     "ExtractFragmentTask":
@@ -52,7 +52,7 @@
             "num_workers": 8
         },
 
-    "SparseSegmentationTask":
+    "GrowSegmentationTask":
         {
             "fragments_dataset": "/volumes/fragments",
             "out_dataset": "volumes/sparse_segmentation",
@@ -61,6 +61,14 @@
             "threshold": 0.5,
             "edges_collection": "edges_hist_quant_50",
             "seed_zyxs": [[12440, 264372, 343814]]
+        },
+
+    "SplitFixTask":
+        {
+            "fragments_dataset": "/volumes/fragments",
+            "segment_dataset": "volumes/segmentation",
+            "context": [320, 256, 256],
+            "edges_collection": "edges_hist_quant_50"
         },
 
     "SparseSegmentationServer":

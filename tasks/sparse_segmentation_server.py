@@ -8,7 +8,7 @@ import sys
 import numpy as np
 
 import task_helper
-from task_sparse_segmentation import SparseSegmentationTask
+from task_sparse_segmentation import GrowSegmentationTask
 
 
 logger = logging.getLogger(__name__)
@@ -67,7 +67,7 @@ if __name__ == "__main__":
             write_roi)
 
     daisy.distribute(
-        [{'task': SparseSegmentationTask(
+        [{'task': GrowSegmentationTask(
             global_config=global_config,
             segment_id=segment_id,
             seed_zyxs=[seed],
@@ -153,8 +153,8 @@ if __name__ == "__main__":
 
             # make one task per block
             task = {
-                'task': SparseSegmentationTask(
-                    task_id="SparseSegmentationTask_%d" % i,
+                'task': GrowSegmentationTask(
+                    task_id="GrowSegmentationTask_%d" % i,
                     global_config=global_config,
                     segment_id=segment_id,
                     seed_zyxs=[n["zyx"] for n in blocks[block]],

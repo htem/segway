@@ -43,7 +43,7 @@ def get_segmentation(rag, threshold, fragments):
     rag.__relabel(fragments, components, segments)
 
 
-class SparseSegmentationTask(task_helper.SlurmTask):
+class GrowSegmentationTask(task_helper.SlurmTask):
     '''Run sparse segmentation from one or more seeds positions.
 
     These seeds are assumed to belong to the same segment.
@@ -325,11 +325,11 @@ if __name__ == "__main__":
     user_configs, global_config = task_helper.parseConfigs(sys.argv[1:])
 
     # seed = user_configs["seed_zyxs"][0]
-    seed = tuple(global_config["SparseSegmentationTask"]["seed_zyxs"][0])
+    seed = tuple(global_config["GrowSegmentationTask"]["seed_zyxs"][0])
     # seed = [1, 1, 1]
 
-    block_size = global_config["SparseSegmentationTask"]["block_size"]
-    # context = global_config["SparseSegmentationTask"]["context"]
+    block_size = global_config["GrowSegmentationTask"]["block_size"]
+    # context = global_config["GrowSegmentationTask"]["context"]
     write_roi = daisy.Roi((0, 0, 0), block_size)
     # read_roi = write_roi.grow(tuple(context), tuple(context))
 
@@ -337,7 +337,7 @@ if __name__ == "__main__":
             Roi(seed, (1, 1, 1)),
             write_roi)
 
-    task = SparseSegmentationTask(
+    task = GrowSegmentationTask(
             global_config=global_config,
             grow_db_collection="test_grow_db",
             skipped_db_collection="test_skip_db",

@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class SlurmTask(daisy.Task):
 
     log_dir = daisy.Parameter()
-    started_jobs = []
+    # started_jobs = []
 
     cpu_cores = daisy.Parameter(2)
     cpu_time = daisy.Parameter(0)
@@ -73,7 +73,10 @@ class SlurmTask(daisy.Task):
         try:
             started_slurm_jobs = self.started_jobs._getvalue()
         except:
-            started_slurm_jobs = self.started_jobs_local
+            try:
+                started_slurm_jobs = self.started_jobs_local
+            except:
+                started_slurm_jobs = []
 
         # print(started_slurm_jobs._getvalue())
         # print(started_slurm_jobs._getvalue())
@@ -180,6 +183,7 @@ def parseConfigs(args):
         pass
 
     for config in args:
+        print(config)
         if "=" in config:
             key, val = config.split('=')
             if '.' in key:
@@ -189,9 +193,8 @@ def parseConfigs(args):
                 user_configs[key] = ast.literal_eval(val)
         else:
             with open(config, 'r') as f:
-                print("helper: loading %s" % f)
+                print("\nhelper: loading %s" % config)
                 new_configs = json.load(f)
-                print(list(global_configs.keys()))
                 keys = set(list(global_configs.keys())).union(list(new_configs.keys()))
                 for k in keys:
                     if k in global_configs:
@@ -199,8 +202,9 @@ def parseConfigs(args):
                             global_configs[k].update(new_configs[k])
                     else:
                         global_configs[k] = new_configs[k]
-                # global_configs = {**global_configs, **json.load(f)}
-    print("helper: final config")
+                print(list(global_configs.keys()))
+
+    print("\nhelper: final config")
     print(global_configs)
     print(hierarchy_configs)
     global_configs = {**hierarchy_configs, **global_configs}
@@ -240,9 +244,13 @@ def aggregateConfigs(configs):
         config['output_shape'] = network_config['output_shape']
         config['out_dtype'] = network_config['out_dtype']
         config['net_voxel_size'] = network_config['net_voxel_size']
+        # config['effective_net_voxel_size'] = network_config['effective_net_voxel_size']
         config['input_shape'] = network_config['input_shape']
         config['out_dims'] = network_config['out_dims']
         config['predict_file'] = network_config['predict_file']
+        if 'xy_downsample' in network_config:
+            config['xy_downsample'] = network_config['xy_downsample']
+        config['mem_per_core'] = network_config['mem_per_core']
 
     if "ExtractFragmentTask" in configs:
         config = configs["ExtractFragmentTask"]
@@ -268,8 +276,8 @@ def aggregateConfigs(configs):
         config['db_host'] = input_config['db_host']
         config['log_dir'] = input_config['log_dir']
 
-    if "SparseSegmentationTask" in configs:
-        config = configs["SparseSegmentationTask"]
+    if "GrowSegmentationTask" in configs:
+        config = configs["GrowSegmentationTask"]
         config['fragments_file'] = input_config['output_file']
         config['out_file'] = input_config['output_file']
         # config['out_file'] = input_config['output_file']
@@ -288,6 +296,15 @@ def aggregateConfigs(configs):
     if "BlockwiseSegmentationTask" in configs:
         config = configs["BlockwiseSegmentationTask"]
         config['fragments_file'] = input_config['output_file']
+        config['db_name'] = input_config['db_name']
+        config['db_host'] = input_config['db_host']
+        config['log_dir'] = input_config['log_dir']
+        config['out_file'] = input_config['output_file']
+
+    if "SplitFixTask" in configs:
+        config = configs["SplitFixTask"]
+        config['fragments_file'] = input_config['output_file']
+        config['segment_file'] = input_config['output_file']
         config['db_name'] = input_config['db_name']
         config['db_host'] = input_config['db_host']
         config['log_dir'] = input_config['log_dir']

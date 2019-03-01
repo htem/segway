@@ -1,18 +1,12 @@
 from __future__ import print_function
-
 import sys
-
 from gunpowder import *
 from gunpowder.contrib import ZeroOutConstSections
 from gunpowder.tensorflow import *
 import json
 import logging
-# import numpy as np
 import os
 import glob
-
-# sys.path.insert(0, "/groups/funke/home/nguyent3/programming/daisy/")
-# import daisy
 
 
 def predict(
@@ -26,7 +20,8 @@ def predict(
         out_file,
         out_dataset,
         train_dir,
-        predict_num_core):
+        predict_num_core,
+        xy_downsample):
 
     # setup_dir = os.path.dirname(os.path.realpath(__file__))
     setup_dir = train_dir
@@ -74,42 +69,50 @@ def predict(
     chunk_request.add(raw, input_size)
     chunk_request.add(affs, output_size)
 
+    if xy_downsample > 0:
+        rawfr = ArrayKey('RAWFR')
+        chunk_request.add(rawfr, input_size)
+
     mapping = {
-        # 'RAW': "read_roi",
-        # 'AFFS': "write_roi"
         raw: "read_roi",
         affs: "write_roi"
     }
+    initial_raw = raw
+
+    if xy_downsample > 0:
+        mapping = {
+            raw: "read_roi",
+            rawfr: "read_roi",
+            affs: "write_roi"
+        }
+        initial_raw = rawfr
 
     if raw_file.endswith(".hdf"):
         pipeline = Hdf5Source(
             raw_file,
-            datasets={raw: raw_dataset},
-            array_specs={
-                raw: ArraySpec(interpolatable=True),
-            })
+            datasets={initial_raw: raw_dataset},
+            array_specs={initial_raw: ArraySpec(interpolatable=True)})
     elif raw_file.endswith(".zarr"):
         pipeline = ZarrSource(
             raw_file,
-            datasets={
-                raw: raw_dataset
-            },
-            array_specs={
-                raw: ArraySpec(interpolatable=True),
-            })
+            datasets={initial_raw: raw_dataset},
+            array_specs={initial_raw: ArraySpec(interpolatable=True)})
     else:
         raise RuntimeError("Unknown raw file type!")
 
-    pipeline += Pad(raw, size=None)
+    pipeline += Pad(initial_raw, size=None)
+
+    if xy_downsample > 0:
+        pipeline += DownSample(rawfr, (1, xy_downsample, xy_downsample), raw)
 
     # pipeline += Crop(raw, read_roi)
 
     pipeline += Normalize(raw)
 
-    pipeline += IntensityScaleShift(raw, 2,-1)
+    pipeline += IntensityScaleShift(raw, 2, -1)
 
     # new from logan's
-    pipeline += ZeroOutConstSections(raw)
+    # pipeline += ZeroOutConstSections(raw)
 
     pipeline += Predict(
             os.path.join(setup_dir, checkpoint_file),
@@ -173,5 +176,6 @@ if __name__ == "__main__":
         run_config['out_file'],
         run_config['out_dataset'],
         run_config['train_dir'],
-        run_config['predict_num_core']
+        run_config['predict_num_core'],
+        run_config['xy_downsample']
         )

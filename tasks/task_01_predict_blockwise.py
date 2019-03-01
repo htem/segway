@@ -70,12 +70,15 @@ class PredictTask(task_helper.SlurmTask):
     out_dtype = daisy.Parameter(None)
     out_dims = daisy.Parameter(None)
     net_voxel_size = daisy.Parameter(None)
+    # effective_net_voxel_size = daisy.Parameter(None)
     input_shape = daisy.Parameter(None)
+    xy_downsample = daisy.Parameter(1)
 
     log_to_stdout = daisy.Parameter(default=True)
     log_to_files = daisy.Parameter(default=False)
 
     cpu_cores = daisy.Parameter(4)
+    mem_per_core = daisy.Parameter(1.75)
 
     # predict_num_core = daisy.Parameter(2)
 
@@ -116,6 +119,7 @@ class PredictTask(task_helper.SlurmTask):
         # get chunk size and context
         voxel_size = source.voxel_size
         self.net_voxel_size = tuple(self.net_voxel_size)
+        # self.effective_net_voxel_size = tuple(self.effective_net_voxel_size)
         # net_voxel_size = daisy.Coordinate(self.voxel_size)
         # print(voxel_size)
         # print(self.net_voxel_size)
@@ -192,6 +196,7 @@ class PredictTask(task_helper.SlurmTask):
             'train_dir': self.train_dir,
             'write_begin': 0,
             'write_size': 0,
+            'xy_downsample': self.xy_downsample,
             'predict_num_core': self.cpu_cores
         }
 
@@ -203,7 +208,7 @@ class PredictTask(task_helper.SlurmTask):
         print(self.predict_file)
         print(predict_script)
 
-        self.cpu_mem = int(self.cpu_cores*1.5)
+        self.cpu_mem = int(self.cpu_cores*self.mem_per_core)
         self.slurmSetup(config,
                         predict_script,
                         gpu='any')
