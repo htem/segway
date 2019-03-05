@@ -250,7 +250,8 @@ def aggregateConfigs(configs):
         config['predict_file'] = network_config['predict_file']
         if 'xy_downsample' in network_config:
             config['xy_downsample'] = network_config['xy_downsample']
-        config['mem_per_core'] = network_config['mem_per_core']
+        if 'mem_per_core' in network_config:
+            config['mem_per_core'] = network_config['mem_per_core']
 
     if "ExtractFragmentTask" in configs:
         config = configs["ExtractFragmentTask"]
