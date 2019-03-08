@@ -4,6 +4,11 @@
             "dry_run": 0
         },
 
+    "Network":
+        {
+            "mem_per_core": 4.5
+        },
+
     "PredictTask":
         {
             "out_dataset" : "volumes/affs",
