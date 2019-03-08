@@ -145,8 +145,8 @@ class PredictTask(task_helper.SlurmTask):
         block_input_size = block_output_size + context*2
 
         # get total input and output ROIs
-        input_roi = source.roi.grow(context, context)
-        output_roi = source.roi
+        input_roi = source.roi
+        output_roi = source.roi.grow(-context, -context)
 
         # create read and write ROI
         block_read_roi = daisy.Roi((0, 0, 0), block_input_size) - context
@@ -171,7 +171,7 @@ class PredictTask(task_helper.SlurmTask):
             # temporary fix until
             # https://github.com/zarr-developers/numcodecs/pull/87 gets approved
             # (we want gzip to be the default)
-            compressor={'id': 'zlib', 'level':5}
+            compressor={'id': 'zlib', 'level': 5}
             )
 
         if self.raw_file.endswith('.json'):
