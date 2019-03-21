@@ -58,6 +58,8 @@ class PredictTask(task_helper.SlurmTask):
     iteration = daisy.Parameter()
     raw_file = daisy.Parameter()
     raw_dataset = daisy.Parameter()
+    roi_offset = daisy.Parameter(None)
+    roi_shape = daisy.Parameter(None)
     # lsds_file = daisy.Parameter()
     # lsds_dataset = daisy.Parameter()
     out_file = daisy.Parameter()
@@ -145,8 +147,18 @@ class PredictTask(task_helper.SlurmTask):
         block_input_size = block_output_size + context*2
 
         # get total input and output ROIs
-        input_roi = source.roi
-        output_roi = source.roi.grow(-context, -context)
+        if self.roi_offset is None and self.roi_shape is None:
+            # if no ROI is given, we need to shrink output ROI
+            # to account for the context
+            input_roi = source.roi
+            output_roi = source.roi.grow(-context, -context)
+        else:
+            # both have to be defined if one is
+            assert(self.roi_offset is not None)
+            assert(self.roi_shape is not None)
+            output_roi = daisy.Roi(
+                tuple(self.roi_offset), tuple(self.roi_shape))
+            input_roi = output_roi.grow(context, context)
 
         # create read and write ROI
         block_read_roi = daisy.Roi((0, 0, 0), block_input_size) - context

@@ -12,6 +12,8 @@ import ast
 
 logger = logging.getLogger(__name__)
 
+RUNNING_REMOTELY = os.path.isfile("~/CONFIG_LOCAL_DAISY")
+
 
 class SlurmTask(daisy.Task):
 
@@ -62,7 +64,18 @@ class SlurmTask(daisy.Task):
                 context,
                 ' '.join(self.new_actor_cmd)))
 
-        cp = subprocess.run(' '.join(self.new_actor_cmd),
+        run_cmd = "cd %s" % os.getcwd() + "; "
+        run_cmd += "source /home/tmn7/daisy/bin/activate;" + " "
+        run_cmd += "DAISY_CONTEXT=%s" % context + " "
+        run_cmd += ' '.join(self.new_actor_cmd)
+
+        if RUNNING_REMOTELY:
+            process_cmd = "ssh o2 " + "\"" + run_cmd + "\""
+        else:
+            process_cmd = run_cmd
+
+        print(process_cmd)
+        cp = subprocess.run(process_cmd,
                             stdout=subprocess.PIPE,
                             shell=True
                             )
@@ -82,7 +95,10 @@ class SlurmTask(daisy.Task):
         # print(started_slurm_jobs._getvalue())
         if len(started_slurm_jobs) > 0:
             all_jobs = " ".join(started_slurm_jobs)
-            cmd = "scancel {}".format(all_jobs)
+            if RUNNING_REMOTELY:
+                cmd = "ssh o2 scancel {}".format(all_jobs)
+            else:
+                cmd = "scancel {}".format(all_jobs)
             print(cmd)
             subprocess.run(cmd, shell=True)
         else:
@@ -127,7 +143,7 @@ def generateActorSbatch(config, actor_script, log_dir, logname, **kwargs):
         '%s' % sbatch_script
         ]
 
-    return run_cmd,new_actor_cmd
+    return run_cmd, new_actor_cmd
 
 
 def generateSbatchScript(
@@ -227,8 +243,8 @@ def aggregateConfigs(configs):
     parameters['iteration'] = network_config['iteration']
 
     for config in input_config:
-        # print(input_config[config])
-        input_config[config] = input_config[config].format(**parameters)
+        if isinstance(input_config[config], str):
+            input_config[config] = input_config[config].format(**parameters)
 
     # print(input_config)
     os.makedirs(input_config['log_dir'], exist_ok=True)
@@ -250,8 +266,10 @@ def aggregateConfigs(configs):
         config['predict_file'] = network_config['predict_file']
         if 'xy_downsample' in network_config:
             config['xy_downsample'] = network_config['xy_downsample']
-        if 'mem_per_core' in network_config:
-            config['mem_per_core'] = network_config['mem_per_core']
+        if 'roi_offset' in input_config:
+            config['roi_offset'] = input_config['roi_offset']
+        if 'roi_shape' in input_config:
+            config['roi_shape'] = input_config['roi_shape']
 
     if "ExtractFragmentTask" in configs:
         config = configs["ExtractFragmentTask"]
