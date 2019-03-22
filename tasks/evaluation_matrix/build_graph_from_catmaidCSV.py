@@ -3,6 +3,7 @@ import networkx as nx
 import numpy as np
 import daisy
 from daisy import Coordinate, Roi
+
 #data = pd.read_csv('skeleton_coordinates.csv')
 #data.columns = ['skeleton_id','treenode_id','parent_treenode_id','x','y','z','r']
 ##data = [['skeleton_id','treenode_id','parent_treenode_id','x','y','z','r']]
@@ -30,15 +31,16 @@ def add_edges_from_catamaidCSV(CSVdata,graph):
    return graph
 
 def add_segId_from_prediction(graph,segmentation_path,threshold):
+    print(segmentation_path)
+    print(threshold)
     segment_ds = daisy.open_ds(
     segmentation_path,
-    threshold,
-    mode='r+')
+    threshold)
     for treenode_id, attr in graph.nodes(data=True):
         treenode_zyx = (attr['z'],attr['y'],attr['x'])
         if segment_ds.roi.contains(Coordinate(treenode_zyx)):
             seg_id = segment_ds[Coordinate(treenode_zyx)]
             #graph.add_nodes_from([treenode_id], seg_pred = seg_id)
             attr['segId_pred'] = seg_id
-    
+
     return graph

@@ -1,5 +1,8 @@
 import math 
 from daisy import Coordinate
+import pandas as pd
+import numpy as np
+
 def shortest_euclidean_bw_two_sk(set1,set2):
     shortest_len = math.inf
     shortest_datapoint = set()
@@ -11,4 +14,27 @@ def shortest_euclidean_bw_two_sk(set1,set2):
                 shortest_datapoint = (Coordinate(point1),Coordinate(point2))
     return shortest_datapoint
     
-    
+##deprecated: graph_with_segId_prediction() is now more robust, no restriction 
+#in csv files, among the treenode with the same skeleton_id, the treenode with no parent should be above others      
+def swap_rows_in_catmaidCSV(CSVdata):
+    #CSVdata = pd.read_csv('/n/groups/htem/temcagt/datasets/cb2/segmentation/python_scripts/yh231/cb2_cutout4.csv')
+    #CSVdata.columns = ['skeleton_id','treenode_id','parent_treenode_id','x','y','z','r']
+    skeleton_id = -1
+    startrow_skeleton = 0
+    for i, nrow in CSVdata.iterrows():
+        if nrow['skeleton_id'] != skeleton_id:
+            skeleton_id = nrow['skeleton_id']
+            startrow_skeleton = i
+            if np.isnan(nrow['parent_treenode_id']):
+                continue
+        elif np.isnan(nrow['parent_treenode_id']):
+            temp = CSVdata.iloc[i]
+            CSVdata.iloc[i] = CSVdata.iloc[startrow_skeleton]
+            CSVdata.iloc[startrow_skeleton] = temp
+        else:
+            continue
+    print(CSVdata.head(80))
+    return CSVdata  
+
+if __name__ == "__main__":
+    swap_rows_in_catmaidCSV()

@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import os
 import re
 import daisy
+from daisy import Coordinate
 
 def to_pixel_coord_xyz(zyx):
     zyx = (daisy.Coordinate(zyx) / daisy.Coordinate((40, 4, 4)))
@@ -34,8 +35,14 @@ def compare_threshold_graph_with_dict():
     plt.savefig('test.png')
 def compare_threshold_graph():
     skeleton_path = '/n/groups/htem/temcagt/datasets/cb2/segmentation/python_scripts/yh231/cb2_cutout4.csv'
-    parent_path = '/home/yh231/segmentation/cb2_segmentation/outputs/2019_03/pl2_yumin/cb2_v2/100000/output.zarr'
+    segment_ds = daisy.open_ds(
+            "/home/yh231/segmentation/cb2_segmentation/outputs/2019_03/cb2_synapse_cutout4/cb2/130000/output.zarr",
+            "volumes/segmentation_0.500")
+    #parent_path = '/home/yh231/segmentation/cb2_segmentation/outputs/2019_03/pl2_yumin/cb2_v2/100000/output.zarr'
+    parent_path = '/home/yh231/segmentation/cb2_segmentation/outputs/2019_03/cb2_synapse_cutout4/cb2/130000/output.zarr'
     files = [f for f in os.listdir(parent_path+'/volumes') if re.match(r'segmentation.*',f)]
+
+    #files = ['segmentation_0.500']
     files.sort()
     numb_split = []
     numb_merge = []
@@ -55,16 +62,16 @@ def compare_threshold_graph():
     plt.subplot(212)
     plt.plot(list(map(lambda x: x.replace("segmentation_",""),files)),numb_split,color = 'r')
     plt.ylabel('split error')
-    plt.savefig('test2.png')
+    plt.savefig('cutouts4.png')
     # print (split_error_dict.keys())
-    # for skel_id in split_error_dict["segmentation_0.700"]:
+    # for skel_id in split_error_dict['segmentation_0.500']:
     #     print("Skeleton: ", skel_id)
-    #     errors = split_error_dict["segmentation_0.700"][skel_id]
+    #     errors = split_error_dict['segmentation_0.500'][skel_id]
     #     for error in errors:
     #         for point in error:
     #             #print(point)
     #             print(to_pixel_coord_xyz(point))
-
+    #             print('segid is: %d'%segment_ds[Coordinate(point)])
 
     return merge_error_dict,split_error_dict
 
