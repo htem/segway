@@ -84,9 +84,7 @@ def merge_dict(segment_ds,skeleton_data,gNodeEdge):
     return seg_dict
     
 ############
-def skeleton(segment_ds,skeleton_data,gNodeEdge):
-    pass
-    
+
 
 def show_networkx(skeleton_data,gNodeEdge):
     # sk_dict = {}

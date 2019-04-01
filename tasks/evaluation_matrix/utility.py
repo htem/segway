@@ -2,6 +2,7 @@ import math
 from daisy import Coordinate
 import pandas as pd
 import numpy as np
+import re
 
 def shortest_euclidean_bw_two_sk(set1,set2):
     shortest_len = math.inf
@@ -35,6 +36,14 @@ def swap_rows_in_catmaidCSV(CSVdata):
             continue
     print(CSVdata.head(80))
     return CSVdata  
+def testCode():
+    # seg_path ="/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_segmentation/outputs/2019_03/cb2_synapse_cutout4/cb2/130000/output.zarr"
+    # model=re.search(r'[0-9]+000',seg_path).group(0)
+
+    # print(model) 
+    testset = (['a','b','c'])
+    if 'a' and 'bc' in testset:
+        print("you are correct")
 
 if __name__ == "__main__":
-    swap_rows_in_catmaidCSV()
+    testCode()
