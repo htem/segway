@@ -12,7 +12,8 @@ import ast
 
 logger = logging.getLogger(__name__)
 
-RUNNING_REMOTELY = os.path.isfile("~/CONFIG_LOCAL_DAISY")
+home = os.path.expanduser("~")
+RUNNING_REMOTELY = os.path.isfile(home + "/CONFIG_LOCAL_DAISY")
 
 
 class SlurmTask(daisy.Task):
@@ -184,7 +185,7 @@ def generateSbatchScript(
         f.write('\n'.join(text))
 
 
-def parseConfigs(args):
+def parseConfigs(args, aggregate_configs=True):
     global_configs = {}
     user_configs = {}
     hierarchy_configs = collections.defaultdict(dict)
@@ -224,7 +225,8 @@ def parseConfigs(args):
     print(global_configs)
     print(hierarchy_configs)
     global_configs = {**hierarchy_configs, **global_configs}
-    aggregateConfigs(global_configs)
+    if aggregate_configs:
+        aggregateConfigs(global_configs)
     return (user_configs, global_configs)
 
 
@@ -328,3 +330,12 @@ def aggregateConfigs(configs):
         config['db_host'] = input_config['db_host']
         config['log_dir'] = input_config['log_dir']
         config['out_file'] = input_config['output_file']
+
+    if "FixMergeTask" in configs:
+        config = configs["FixMergeTask"]
+        config['fragments_file'] = input_config['output_file']
+        config['segment_file'] = input_config['output_file']
+        config['db_name'] = input_config['db_name']
+        config['db_host'] = input_config['db_host']
+        config['log_dir'] = input_config['log_dir']
+        # config['out_file'] = input_config['output_file']

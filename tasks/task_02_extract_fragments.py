@@ -76,6 +76,7 @@ class ExtractFragmentTask(task_helper.SlurmTask):
     fragments_in_xy = daisy.Parameter(default=False)
 
     epsilon_agglomerate = daisy.Parameter(default=0)
+    use_mahotas = daisy.Parameter()
 
     def prepare(self):
         '''Daisy calls `prepare` for each task prior to scheduling
@@ -140,6 +141,7 @@ class ExtractFragmentTask(task_helper.SlurmTask):
             'fragments_file': self.fragments_file,
             'fragments_dataset': self.fragments_dataset,
             'epsilon_agglomerate': self.epsilon_agglomerate,
+            'use_mahotas': self.use_mahotas
         }
 
         self.slurmSetup(config, 'actor_fragment_extract.py')
