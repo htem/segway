@@ -43,7 +43,7 @@ def num_splits(graph):
             else:
                 seg_list.append(treenode_id)
 '''  
-def splits_error(graph):
+def splits_error(graph): #dict === {sk_id:(((zyx),(zyx)),....),...}
     error_count = 0
     error_dict = {}
     sk_id = -1 
@@ -65,14 +65,14 @@ def splits_error(graph):
                 error_count += 1
                 error_dict[sk_id].add( (Coordinate((attr['z'],attr['y'],attr['x'])), Coordinate((parent_node['z'],parent_node['y'],parent_node['x']))) )
     return error_count, error_dict
-def merge_error(graph):
+def merge_error(graph):##dict === {seg_id:([{(zyx),(zyx)},sk1,sk2],....),...} 
     seg_dict = {}
     seg_error_dict = {}
     for treenode_id, attr in graph.nodes(data=True):
         if attr['segId_pred'] == -1:
             continue
-        elif attr['segId_pred'] not in seg_dict:
-            seg_dict[attr['segId_pred']] = {}
+        elif attr['segId_pred'] not in seg_dict: 
+            seg_dict[attr['segId_pred']] = {}#collections.dafaultdict(dict) did the same thing
             seg_dict[attr['segId_pred']][attr['skeleton_id']] = set()
             seg_dict[attr['segId_pred']][attr['skeleton_id']].add((attr['z'],attr['y'],attr['x']))
         elif attr['skeleton_id'] not in seg_dict[attr['segId_pred']]:
