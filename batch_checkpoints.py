@@ -4,7 +4,6 @@ import sys
 import glob
 import daisy
 import copy
-
 sys.path.insert(0, 'segway/tasks')
 import task_helper
 from task_04_extract_segmentation import SegmentationTask
@@ -25,7 +24,18 @@ if __name__ == "__main__":
     checkpoints = glob.glob(
         network_path + "/" + "*.data-00000-of-00001")
     checkpoints = [int(c.split('.')[0].split('_')[-1]) for c in checkpoints]
-    # print(checkpoints)
+
+    if ("batch_min_iteration" in network_conf or
+            "batch_max_iteration" in network_conf):
+        assert("batch_min_iteration" in network_conf)
+        assert("batch_max_iteration" in network_conf)
+
+        checkpoints = [
+            c for c in checkpoints if (
+                c >= network_conf["batch_min_iteration"] and
+                c <= network_conf["batch_max_iteration"])]
+
+    # print(checkpoints); exit(0)
 
     for c in checkpoints:
         global_config = copy.deepcopy(orig_global_config)

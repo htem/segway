@@ -6,6 +6,7 @@ import hashlib
 import subprocess
 import os
 import collections
+import pymongo
 
 import daisy
 import ast
@@ -19,13 +20,15 @@ RUNNING_REMOTELY = os.path.isfile(home + "/CONFIG_LOCAL_DAISY")
 class SlurmTask(daisy.Task):
 
     log_dir = daisy.Parameter()
-    # started_jobs = []
 
     cpu_cores = daisy.Parameter(2)
     cpu_time = daisy.Parameter(0)
     cpu_mem = daisy.Parameter(4)
 
-    def slurmSetup(self, config, actor_script, **kwargs):
+    def slurmSetup(
+            self, config, actor_script,
+            python_interpreter='python',
+            **kwargs):
         '''Write config file and sbatch file for the actor, and generate
         `new_actor_cmd`. We also keep track of new jobs so to kill them
         when the task is finished.'''
@@ -40,6 +43,7 @@ class SlurmTask(daisy.Task):
         self.slurmtask_run_cmd, self.new_actor_cmd = generateActorSbatch(
             config,
             actor_script,
+            python_interpreter=python_interpreter,
             log_dir=self.log_dir,
             logname=logname,
             cpu_cores=self.cpu_cores,
@@ -57,7 +61,7 @@ class SlurmTask(daisy.Task):
         '''Submit new actor job using sbatch'''
         context = os.environ['DAISY_CONTEXT']
 
-        logger.info("Srun command: DAISY_CONTEXT={} {}".format(
+        logger.info("Srun command: DAISY_CONTEXT={} CUDA_VISIBLE_DEVICES=0 {}".format(
                 context,
                 self.slurmtask_run_cmd))
 
@@ -112,7 +116,10 @@ class SlurmTask(daisy.Task):
             pass
 
 
-def generateActorSbatch(config, actor_script, log_dir, logname, **kwargs):
+def generateActorSbatch(
+        config, actor_script, log_dir, logname,
+        python_interpreter,
+        **kwargs):
 
     config_str = ''.join(['%s' % (v,) for v in config.values()])
     config_hash = abs(int(hashlib.md5(config_str.encode()).hexdigest(), 16))
@@ -128,7 +135,7 @@ def generateActorSbatch(config, actor_script, log_dir, logname, **kwargs):
         json.dump(config, f)
 
     run_cmd = ' '.join([
-        'python -u',
+        python_interpreter,
         '%s' % actor_script,
         '%s' % config_file,
         ])
@@ -248,14 +255,28 @@ def aggregateConfigs(configs):
         if isinstance(input_config[config], str):
             input_config[config] = input_config[config].format(**parameters)
 
-    # print(input_config)
+    # add a hash based on directory path to the mongodb dataset
+    # so that other users can run the same config without name conflicts
+    # though if the db already exists, don't change it to avoid confusion
+    db_host, db_name = (input_config['db_host'], input_config['db_name'])
+    myclient = pymongo.MongoClient(db_host)
+    if db_name not in myclient.database_names():
+        output_path = os.path.abspath(input_config["output_file"])
+        config_hash = hashlib.blake2b(
+            output_path.encode(), digest_size=4).hexdigest()
+        input_config['db_name'] = input_config['db_name'] + "_" + config_hash
+        # print(config_hash)
+    # print(input_config['db_name'])
+    # exit(0)
+
     os.makedirs(input_config['log_dir'], exist_ok=True)
 
     if "PredictTask" in configs:
         config = configs["PredictTask"]
         config['raw_file'] = input_config['raw_file']
         config['raw_dataset'] = input_config['raw_dataset']
-        config['out_file'] = input_config['output_file']
+        if 'out_file' not in config:
+            config['out_file'] = input_config['output_file']
         config['train_dir'] = network_config['train_dir']
         config['iteration'] = network_config['iteration']
         config['log_dir'] = input_config['log_dir']
@@ -273,9 +294,28 @@ def aggregateConfigs(configs):
         if 'roi_shape' in input_config:
             config['roi_shape'] = input_config['roi_shape']
 
+    if "PredictMyelinTask" in configs:
+        config = configs["PredictMyelinTask"]
+        config['raw_file'] = input_config['raw_file']
+        config['myelin_file'] = input_config['output_file']
+        config['log_dir'] = input_config['log_dir']
+        if 'roi_offset' in input_config:
+            config['roi_offset'] = input_config['roi_offset']
+        if 'roi_shape' in input_config:
+            config['roi_shape'] = input_config['roi_shape']
+
+    if "MergeMyelinTask" in configs:
+        config = configs["MergeMyelinTask"]
+        if 'affs_file' not in config:
+            config['affs_file'] = input_config['output_file']
+        config['myelin_file'] = input_config['output_file']
+        config['merged_affs_file'] = input_config['output_file']
+        config['log_dir'] = input_config['log_dir']
+
     if "ExtractFragmentTask" in configs:
         config = configs["ExtractFragmentTask"]
-        config['affs_file'] = input_config['output_file']
+        if 'affs_file' not in config:
+            config['affs_file'] = input_config['output_file']
         config['fragments_file'] = input_config['output_file']
         config['db_name'] = input_config['db_name']
         config['db_host'] = input_config['db_host']
@@ -283,7 +323,8 @@ def aggregateConfigs(configs):
 
     if "AgglomerateTask" in configs:
         config = configs["AgglomerateTask"]
-        config['affs_file'] = input_config['output_file']
+        if 'affs_file' not in config:
+            config['affs_file'] = input_config['output_file']
         config['fragments_file'] = input_config['output_file']
         config['db_name'] = input_config['db_name']
         config['db_host'] = input_config['db_host']

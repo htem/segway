@@ -15,6 +15,30 @@
             "block_size_in_chunks" : [1, 8, 8],
             "num_workers": 8
         },
+
+    "PredictMyelinTask":
+        {
+            "raw_dataset" : "volumes/raw",
+            "myelin_dataset" : "volumes/myelin_affs",
+            "num_workers": 1,
+            "cpu_cores": 4,
+            "cpu_mem": 10,
+            "lazyflow_num_threads": 4,
+            "lazyflow_mem": 8000,
+            "ilastik_project_path": "/n/groups/htem/Segmentation/ml488/Myelin5_snapshot.ilp",
+            "downsample_xy": 8,
+            "block_size": [2240, 2048, 2048]
+        },
+
+    "MergeMyelinTask":
+        {
+            "affs_dataset": "/volumes/affs",
+            "myelin_dataset" : "volumes/myelin_affs",
+            "merged_affs_dataset" : "volumes/merged_affs",
+            "low_threshold": 128,
+            "num_workers": 1,
+            "block_size": [2240, 2048, 2048]
+        },
         
     "ExtractFragmentTask":
         {

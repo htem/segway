@@ -72,7 +72,7 @@ class SegmentationTask(task_helper.SlurmTask):
         # check if one of the segment dataset is written
         out_dataset = self.out_dataset + "_%.3f" % self.thresholds[-1]
         try:
-            segmentation_ds = daisy.open_ds(self.out_file, out_dataset)
+            daisy.open_ds(self.out_file, out_dataset)
         except:
             return False
         return True
