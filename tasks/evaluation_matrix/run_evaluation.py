@@ -2,6 +2,8 @@ from task_05_graph_evaluation_print_error import get_multi_merge_split_error, qu
 import argparse
 import json
 import os
+
+
 def parseConfigs(path):
     global_configs = {}
     user_configs = {}
@@ -9,7 +11,8 @@ def parseConfigs(path):
 
     # first load default configs if avail
     try:
-        config_file = "task_defaults.json"
+        default_filepath = os.path.dirname(os.path.realpath(__file__))
+        config_file = default_filepath + '/' + "task_defaults.json"
         with open(config_file, 'r') as f:
             global_configs = json.load(f)
     except Exception:
@@ -27,6 +30,7 @@ def parseConfigs(path):
                 global_configs[k] = new_configs[k]
     print("\nconfig loaded")
     return global_configs
+
 
 def run_evaluation(config_path, mode, num_process,with_interpolation,filename):
     config = parseConfigs(config_path)
