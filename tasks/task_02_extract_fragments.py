@@ -9,6 +9,7 @@ import lsd
 
 import task_helper
 from task_01_predict_blockwise import PredictTask
+from task_merge_myelin import MergeMyelinTask
 
 logging.getLogger('lsd.parallel_fragments').setLevel(logging.DEBUG)
 # logging.getLogger('lsd.persistence.sqlite_rag_provider').setLevel(logging.DEBUG)
@@ -76,6 +77,9 @@ class ExtractFragmentTask(task_helper.SlurmTask):
     fragments_in_xy = daisy.Parameter(default=False)
 
     epsilon_agglomerate = daisy.Parameter(default=0)
+    use_mahotas = daisy.Parameter()
+
+    use_myelin_net = daisy.Parameter(default=False)
 
     def prepare(self):
         '''Daisy calls `prepare` for each task prior to scheduling
@@ -140,6 +144,7 @@ class ExtractFragmentTask(task_helper.SlurmTask):
             'fragments_file': self.fragments_file,
             'fragments_dataset': self.fragments_dataset,
             'epsilon_agglomerate': self.epsilon_agglomerate,
+            'use_mahotas': self.use_mahotas
         }
 
         self.slurmSetup(config, 'actor_fragment_extract.py')
@@ -158,7 +163,10 @@ class ExtractFragmentTask(task_helper.SlurmTask):
         return self.rag_provider.num_nodes(block.write_roi) > 0
 
     def requires(self):
-        return [PredictTask(global_config=self.global_config)]
+        if self.use_myelin_net:
+            return [MergeMyelinTask(global_config=self.global_config)]
+        else:
+            return [PredictTask(global_config=self.global_config)]
 
 
 if __name__ == "__main__":

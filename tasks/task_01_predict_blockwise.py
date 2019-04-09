@@ -58,6 +58,8 @@ class PredictTask(task_helper.SlurmTask):
     iteration = daisy.Parameter()
     raw_file = daisy.Parameter()
     raw_dataset = daisy.Parameter()
+    roi_offset = daisy.Parameter(None)
+    roi_shape = daisy.Parameter(None)
     # lsds_file = daisy.Parameter()
     # lsds_dataset = daisy.Parameter()
     out_file = daisy.Parameter()
@@ -145,8 +147,20 @@ class PredictTask(task_helper.SlurmTask):
         block_input_size = block_output_size + context*2
 
         # get total input and output ROIs
-        input_roi = source.roi
-        output_roi = source.roi.grow(-context, -context)
+        if self.roi_offset is None and self.roi_shape is None:
+            # if no ROI is given, we need to shrink output ROI
+            # to account for the context
+            input_roi = source.roi
+            output_roi = source.roi.grow(-context, -context)
+        else:
+            # both have to be defined if one is
+            assert(self.roi_offset is not None)
+            assert(self.roi_shape is not None)
+            output_roi = daisy.Roi(
+                tuple(self.roi_offset), tuple(self.roi_shape))
+            input_roi = output_roi.grow(context, context)
+            assert input_roi.intersect(source.roi) == input_roi, \
+                "output_roi + context has to be within raw ROI"
 
         # create read and write ROI
         block_read_roi = daisy.Roi((0, 0, 0), block_input_size) - context
@@ -160,7 +174,7 @@ class PredictTask(task_helper.SlurmTask):
 
         logging.info('Preparing output dataset')
 
-        self.ds = daisy.prepare_ds(
+        self.affs_ds = daisy.prepare_ds(
             self.out_file,
             self.out_dataset,
             output_roi,
@@ -219,28 +233,42 @@ class PredictTask(task_helper.SlurmTask):
             read_roi=block_read_roi,
             write_roi=block_write_roi,
             process_function=self.new_actor,
-            check_function=(self.check_block, lambda b: True),
+            check_function=(self.check_block, self.check_block),
             read_write_conflict=False,
             fit='overhang',
             num_workers=self.num_workers,
             # log_to_file=True
             )
 
+    # def check_block(self, block):
+
+    #     logger.debug("Checking if block %s is complete..." % block.write_roi)
+
+    #     write_roi = self.affs_ds.roi.intersect(block.write_roi)
+    #     if write_roi.empty():
+    #         logger.debug("Block outside of output ROI")
+    #         return True
+
+    #     center_coord = (write_roi.get_begin() +
+    #                     write_roi.get_end()) / 2
+    #     center_values = self.affs_ds[center_coord]
+    #     s = np.sum(center_values)
+    #     logger.debug("Sum of center values in %s is %f" % (write_roi, s))
+
+    #     return s != 0
+
     def check_block(self, block):
-
         logger.debug("Checking if block %s is complete..." % block.write_roi)
-
-        # ds = daisy.open_ds(self.out_file, self.out_dataset)
-        ds = self.ds
-        write_roi = ds.roi.intersect(block.write_roi)
+        write_roi = self.affs_ds.roi.intersect(block.write_roi)
         if write_roi.empty():
             logger.debug("Block outside of output ROI")
             return True
 
-        center_coord = (write_roi.get_begin() +
-                        write_roi.get_end()) / 2
-        center_values = ds[center_coord]
-        s = np.sum(center_values)
+        s = 0
+        quarter = (write_roi.get_end() - write_roi.get_begin()) / 4
+        s += np.sum(self.affs_ds[write_roi.get_begin() + quarter*1])
+        s += np.sum(self.affs_ds[write_roi.get_begin() + quarter*2])
+        s += np.sum(self.affs_ds[write_roi.get_begin() + quarter*3])
         logger.debug("Sum of center values in %s is %f" % (write_roi, s))
 
         return s != 0

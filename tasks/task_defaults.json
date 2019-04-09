@@ -15,6 +15,30 @@
             "block_size_in_chunks" : [1, 8, 8],
             "num_workers": 8
         },
+
+    "PredictMyelinTask":
+        {
+            "raw_dataset" : "volumes/raw",
+            "myelin_dataset" : "volumes/myelin_affs",
+            "num_workers": 1,
+            "cpu_cores": 4,
+            "cpu_mem": 10,
+            "lazyflow_num_threads": 4,
+            "lazyflow_mem": 8000,
+            "ilastik_project_path": "/n/groups/htem/Segmentation/ml488/Myelin5_snapshot.ilp",
+            "downsample_xy": 8,
+            "block_size": [2240, 2048, 2048]
+        },
+
+    "MergeMyelinTask":
+        {
+            "affs_dataset": "/volumes/affs",
+            "myelin_dataset" : "volumes/myelin_affs",
+            "merged_affs_dataset" : "volumes/merged_affs",
+            "low_threshold": 128,
+            "num_workers": 1,
+            "block_size": [2240, 2048, 2048]
+        },
         
     "ExtractFragmentTask":
         {
@@ -24,7 +48,8 @@
             "context": [320, 256, 256],
             "num_workers": 8,
             "fragments_in_xy": 1,
-            "mask_fragments": 0
+            "mask_fragments": 0,
+            "use_mahotas": 0
         },
 
     "AgglomerateTask":
@@ -34,6 +59,7 @@
             "block_size": [2240, 2048, 2048],
             "context": [320, 256, 256],
             "num_workers": 8,
+            "cpu_mem": 8,
             "merge_function": "hist_quant_50"
         },
 
@@ -41,7 +67,7 @@
         {
             "fragments_dataset": "/volumes/fragments",
             "out_dataset": "volumes/segmentation",
-            "thresholds": [0.2, 0.3, 0.4, 0.5, 0.6, 0.7],
+            "thresholds": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
             "edges_collection": "edges_hist_quant_50",
             "cpu_mem": 32,
             "num_workers": 1
@@ -73,6 +99,12 @@
             "fragments_dataset": "/volumes/fragments",
             "segment_dataset": "volumes/segmentation",
             "context": [320, 256, 256],
+            "edges_collection": "edges_hist_quant_50"
+        },
+
+    "FixMergeTask":
+        {
+            "fragments_dataset": "/volumes/fragments",
             "edges_collection": "edges_hist_quant_50"
         },
 

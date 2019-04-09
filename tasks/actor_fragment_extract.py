@@ -89,6 +89,7 @@ if __name__ == "__main__":
                            fragments_out,
                            fragments_in_xy,
                            epsilon_agglomerate,
-                           mask)
+                           mask,
+                           use_mahotas=use_mahotas)
 
         client_scheduler.release_block(block, ret=0)

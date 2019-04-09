@@ -55,14 +55,27 @@ class SegmentationTask(task_helper.SlurmTask):
             total_roi,
             total_roi,
             process_function=self.new_actor,
+            check_function=(self.block_done, lambda b: True),
             num_workers=1,
             read_write_conflict=False,
             fit='shrink')
 
     def requires(self):
-        if self.no_check:
+        if self.no_check or self.is_written():
             return []
         return [AgglomerateTask(global_config=self.global_config)]
+
+    def block_done(self, block):
+        return self.is_written()
+
+    def is_written(self):
+        # check if one of the segment dataset is written
+        out_dataset = self.out_dataset + "_%.3f" % self.thresholds[-1]
+        try:
+            daisy.open_ds(self.out_file, out_dataset)
+        except:
+            return False
+        return True
 
 
 if __name__ == "__main__":
