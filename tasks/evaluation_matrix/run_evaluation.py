@@ -1,7 +1,7 @@
 from task_05_graph_evaluation_print_error import get_multi_merge_split_error, quick_compare_with_graph,compare_threshold_multi_model
 import argparse
 import json
-
+import os
 def parseConfigs(path):
     global_configs = {}
     user_configs = {}
@@ -46,7 +46,8 @@ def run_evaluation(config_path, mode, num_process,with_interpolation,filename):
             config["Input"]["skeleton_csv"],
             config["Input"]["segment_volumes"],
             num_process,
-            config["Output"]["output_path"],
+            os.path.dirname(config_path),
+            #config["Output"]["output_path"],
             with_interpolation          
         )
     elif mode == "plot":
@@ -57,7 +58,8 @@ def run_evaluation(config_path, mode, num_process,with_interpolation,filename):
             config["Input"]["segment_volumes"],
             config["GraphMatricesTask"]["chosen_matrices"],
             num_process,
-            config["Output"]["output_path"],
+            os.path.dirname(config_path),
+            #config["Output"]["output_path"],
             with_interpolation            
         )
     else:
@@ -71,11 +73,13 @@ if __name__ == "__main__":
     parser.add_argument("mode",choices = ["print","quickplot","plot"],help="print the coordinate of errors; quickplot means you get the rand, voi and split merge error directly, plot means you can choose any combination of matrices") 
     parser.add_argument("-p","--processes",help="Number of processes to use, default to 1",type=int,default=1)
     parser.add_argument("-i","--interpolation",default="True",choices = ["True","False"],help="graph with interpolation or not")
-    parser.add_argument("-f","--filename",help="name for the graph",default="test")
+    #parser.add_argument("-f","--filename",help="name for the graph",default="test")
     args = parser.parse_args()
 
     # if len(args.config) == 0:
     #     print("Please provide configs, now running default task with config task_defaults.json")
     # if len(args.mode) == 0:
     #     print("Please provide the mode from 'quickplot','plot','print'")
-    run_evaluation(args.config, args.mode, args.processes,args.interpolation,args.filename)
+    
+    run_evaluation(args.config, args.mode, args.processes,args.interpolation,args.config.split("/")[-1].split(".")[0])
+    
