@@ -71,7 +71,7 @@ def compare_threshold(threshold_list,filename,chosen_matrice,output_path,markers
         ax.set_xlim(left=-0.01)
         plt.xlabel('Merge VOI')
         plt.ylabel('Split VOI')
-    plt.savefig(output_path+filename+'_'+chosen_matrice, dpi=300)
+    plt.savefig(output_path+"/"+filename+'_'+chosen_matrice, dpi=300)
 
 def find_model_name(seg_path):
     if re.search(r"setup[0-9]{2}",seg_path):
