@@ -9,7 +9,6 @@ you need to provide the configs file and mode("print","quickplot","plot"). You c
 
 *-i*  means build the graph with interpolation or not, default is True
 
-*-f*  just provide the name of graph file.
 
 ### A few things noteworthy
 A few segmentation Markers are dismissed intentionally to provide clean figure. If you don't want that or the number of threshold is more than 9, you should provide your own markers. 
@@ -18,6 +17,7 @@ Also, make sure first seg_path file in list_seg_path have complete threshold_lis
 
 Same thing for colors, if the number of model you would like to compare is more than 10, provide your own color. 
 
+Output path is the same as the path of config file you provided
 
 ### Example code 
-`python run_evaluation.py current_task.json print -p 5 -i False -f test01`
+`python run_evaluation.py current_task.json print -p 5 -i False`
