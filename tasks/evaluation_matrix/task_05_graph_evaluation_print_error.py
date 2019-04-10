@@ -1,6 +1,9 @@
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 from extract_segId_from_prediction import graph_with_segId_prediction
 from evaluation_matrix import splits_error,merge_error,rand_voi_split_merge
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import os
 import re
 import json
@@ -43,9 +46,17 @@ def get_rand_voi(skeleton_path,seg_path,threshold_list,num_process,with_interpol
     return rand_split_list, rand_merge_list, voi_split_list, voi_merge_list
 
 
-##compare with lines with any model and cutouts
-def compare_threshold(threshold_list,filename,chosen_matrice,output_path,markers,colors,*split_and_merge):#split_and_merge should be modelname,merge,split
+# compare with lines with any model and cutouts
+def compare_threshold(
+        threshold_list,
+        filename,
+        chosen_matrice,
+        output_path,
+        markers,
+        colors,
+        *split_and_merge):
 
+    #split_and_merge should be modelname,merge,split
     fig, ax = plt.subplots(figsize=(8, 6))
     #print(len(split_and_merge))
     for j in range(int(len(split_and_merge)/3)): # zorder; to make points(markers) over the line
@@ -73,33 +84,38 @@ def compare_threshold(threshold_list,filename,chosen_matrice,output_path,markers
         plt.ylabel('Split VOI')
     plt.savefig(output_path+"/"+filename+'_'+chosen_matrice, dpi=300)
 
-def find_model_name(seg_path):
-    if re.search(r"setup[0-9]{2}",seg_path):
-        model = re.search(r"setup[0-9]{2}",seg_path).group(0)+"_"+re.search(r"[0-9]+000",seg_path).group(0)
+def get_model_name(volume_path, name_dictionary={}):
+
+    if volume_path in name_dictionary:
+        return name_dictionary[volume_path]
+
+    if re.search(r"setup[0-9]{2}",volume_path):
+        model = re.search(r"setup[0-9]{2}",volume_path).group(0)+"_"+re.search(r"[0-9]+000",volume_path).group(0)
     else:
-        #model = re.search(r"[0-9]+000",seg_path).group(0)
+        #model = re.search(r"[0-9]+000",volume_path).group(0)
         model = "cb2_130000"
     return model
 
 
 def compare_threshold_multi_model(
-    threshold_list,
-    filename,
-    skeleton_path,
-    list_seg_path,
-    chosen_matrices,
-    num_process,
-    output_path,
-    with_interpolation,
-    markers = ['.',',','o','v','^','<','>','1','2'],
-    colors=['b','g','r','c','m','y','k','coral','gold','purple']):
+        threshold_list,
+        filename,
+        skeleton_path,
+        list_seg_path,
+        chosen_matrices,
+        num_process,
+        output_path,
+        with_interpolation,
+        markers = ['.',',','o','v','^','<','>','1','2'],
+        colors=['b','g','r','c','m','y','k','coral','gold','purple']):
+
     markers = ['o','','^','','s','','p','','D']
     works = False 
     if 'number' in chosen_matrices:
         split_and_merge = []
         for seg_path in list_seg_path: 
             numb_split,numb_merge,_,_ = get_error_dict(skeleton_path,seg_path,threshold_list,num_process,with_interpolation)
-            model = find_model_name(seg_path)
+            model = get_model_name(seg_path)
             split_and_merge.extend((model,numb_merge,numb_split))
         compare_threshold(threshold_list,filename,'number',output_path,markers,colors,*split_and_merge)
         works = True
@@ -108,7 +124,7 @@ def compare_threshold_multi_model(
         split_and_merge_rand,split_and_merge_voi = [],[]
         for seg_path in list_seg_path:
             rand_split_list, rand_merge_list,voi_split_list, voi_merge_list = get_rand_voi(skeleton_path,seg_path,threshold_list,num_process,with_interpolation)
-            model = find_model_name(seg_path)
+            model = get_model_name(seg_path)
             split_and_merge_rand.extend((model,rand_merge_list,rand_split_list))
             split_and_merge_voi.extend((model,voi_merge_list,voi_split_list))
         compare_threshold(threshold_list,filename,'rand',markers,colors,*split_and_merge_rand)
@@ -119,7 +135,7 @@ def compare_threshold_multi_model(
         split_and_merge_rand = []
         for seg_path in list_seg_path:
             rand_split_list, rand_merge_list,_,_ = get_rand_voi(skeleton_path,seg_path,threshold_list,num_process,with_interpolation)
-            model = find_model_name(seg_path)
+            model = get_model_name(seg_path)
             split_and_merge_rand.extend((model,rand_merge_list,rand_split_list))
         compare_threshold(threshold_list,filename,'rand',output_path,markers,colors,*split_and_merge_rand)
         works = True
@@ -127,7 +143,7 @@ def compare_threshold_multi_model(
         split_and_merge_voi = []
         for seg_path in list_seg_path:
             _,_, voi_split_list, voi_merge_list = get_rand_voi(skeleton_path,seg_path,threshold_list,num_process,with_interpolation)
-            model = find_model_name(seg_path)
+            model = get_model_name(seg_path)
             split_and_merge_voi.extend((model,voi_merge_list,voi_split_list))            
         compare_threshold(threshold_list,filename,'voi',output_path,markers,colors,*split_and_merge_voi)
         works = True
@@ -137,15 +153,16 @@ def compare_threshold_multi_model(
 
 
 def quick_compare_with_graph(
-    threshold_list,
-    filename,
-    skeleton_path,
-    list_seg_path,
-    num_process,
-    output_path,
-    with_interpolation,
-    markers = ['o','','^','','s','','p','','D','h'],
-    colors=['b','g','r','c','m','y','k','coral','gold','purple']):
+        threshold_list,
+        filename,
+        skeleton_path,
+        list_seg_path,
+        model_name_mapping,
+        num_process,
+        output_path,
+        with_interpolation,
+        markers=['o', '', '^', '', 's', '', 'p', '', 'D', 'h'],
+        colors=['b', 'g', 'r', 'c', 'm', 'y', 'k', 'coral', 'gold', 'purple']):
 
     split_and_merge,split_and_merge_rand,split_and_merge_voi = [],[],[]
     for seg_path in list_seg_path:
@@ -153,8 +170,8 @@ def quick_compare_with_graph(
         rand_split_list, rand_merge_list, voi_split_list, voi_merge_list = [], [], [], []
         p = Pool(num_process)
         graph_list = p.map(partial(graph_with_segId_prediction,skeleton_path=skeleton_path,segmentation_path=seg_path,with_interpolation=with_interpolation),['volumes/'+threshold for threshold in threshold_list])
-        #for threshold in threshold_list:
-            #graph = graph_with_segId_prediction(skeleton_path,seg_path,'volumes/'+ threshold)
+        # for threshold in threshold_list:
+        # graph = graph_with_segId_prediction(skeleton_path,seg_path,'volumes/'+ threshold)
         for graph in graph_list:
             if graph is None:
                 numb_split.append(np.nan)
@@ -174,7 +191,7 @@ def quick_compare_with_graph(
                 voi_split_list.append(voi_split)
                 voi_merge_list.append(voi_merge)
 
-        model = find_model_name(seg_path)
+        model = get_model_name(seg_path, model_name_mapping)
         split_and_merge.extend((model,numb_merge,numb_split))
         split_and_merge_rand.extend((model,rand_merge_list,rand_split_list))
         split_and_merge_voi.extend((model,voi_merge_list,voi_split_list))

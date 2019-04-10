@@ -1,3 +1,4 @@
+
 from task_05_graph_evaluation_print_error import get_multi_merge_split_error, quick_compare_with_graph,compare_threshold_multi_model
 import argparse
 import json
@@ -32,8 +33,25 @@ def parseConfigs(path):
     return global_configs
 
 
-def run_evaluation(config_path, mode, num_process,with_interpolation,filename):
+def construct_name_mapping(paths, names):
+    d = {}
+    for p, n in zip(paths, names):
+        d[p] = n
+    return d
+
+
+def run_evaluation(
+        config_path, mode, num_process, with_interpolation, filename):
+
     config = parseConfigs(config_path)
+
+    model_name_mapping = {}
+    if "segment_names" in config["Input"]:
+        model_name_mapping = construct_name_mapping(
+            config["Input"]["segment_volumes"],
+            config["Input"]["segment_names"])
+        print(model_name_mapping)
+
     if mode == "print":
         get_multi_merge_split_error(
             config["Input"]["skeleton_csv"],
@@ -49,6 +67,7 @@ def run_evaluation(config_path, mode, num_process,with_interpolation,filename):
             filename,
             config["Input"]["skeleton_csv"],
             config["Input"]["segment_volumes"],
+            model_name_mapping,
             num_process,
             os.path.dirname(config_path),
             #config["Output"]["output_path"],
@@ -73,9 +92,19 @@ def run_evaluation(config_path, mode, num_process,with_interpolation,filename):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="plot the graph with evaluation matrices num_split_merge_error, rand, voi  || or  just print out the coordinates of split error and merge error")
-    parser.add_argument("config",help="provide the path to configs with input information")
-    parser.add_argument("mode",choices = ["print","quickplot","plot"],help="print the coordinate of errors; quickplot means you get the rand, voi and split merge error directly, plot means you can choose any combination of matrices") 
-    parser.add_argument("-p","--processes",help="Number of processes to use, default to 1",type=int,default=1)
+    parser.add_argument("config", help="provide the path to configs with input information")
+    parser.add_argument(
+        "-m",
+        "--mode",
+        choices=["print", "quickplot", "plot"],
+        default="quickplot",
+        help="print the coordinate of errors; quickplot means you get the rand, voi and split merge error directly, plot means you can choose any combination of matrices")
+    parser.add_argument(
+        "-p",
+        "--processes",
+        help="Number of processes to use, default to 8",
+        type=int,
+        default=16)
     parser.add_argument("-i","--interpolation",default="True",choices = ["True","False"],help="graph with interpolation or not")
     #parser.add_argument("-f","--filename",help="name for the graph",default="test")
     args = parser.parse_args()

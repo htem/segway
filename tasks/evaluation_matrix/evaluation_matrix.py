@@ -58,7 +58,7 @@ def splits_error(graph): #dict === {sk_id:(((zyx),(zyx)),....),...}
         elif math.isnan(attr['parent_id']):
             continue
         else:
-            parent_node = graph.nodes[attr['parent_id']]
+            parent_node = graph.node[attr['parent_id']]
             if parent_node['segId_pred'] == -1:
                 continue
             if attr['segId_pred'] != parent_node['segId_pred']:
