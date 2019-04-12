@@ -25,6 +25,7 @@ class MergeMyelinTask(task_helper.SlurmTask):
     low_threshold = daisy.Parameter()
     block_size = daisy.Parameter()
     num_workers = daisy.Parameter()
+    downsample_xy = daisy.Parameter()
 
     def prepare(self):
         '''Daisy calls `prepare` for each task prior to scheduling
@@ -54,6 +55,7 @@ class MergeMyelinTask(task_helper.SlurmTask):
             'merged_affs_file': self.merged_affs_file,
             'merged_affs_dataset': self.merged_affs_dataset,
             'low_threshold': self.low_threshold,
+            'downsample_xy': self.downsample_xy,
         }
 
         self.slurmSetup(

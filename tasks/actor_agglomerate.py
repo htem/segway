@@ -67,6 +67,8 @@ if __name__ == "__main__":
         if block is None:
             break
 
+        logging.info("Running agglomeration for block %s" % block)
+
         agglomerate_in_block(
                 affs,
                 fragments,

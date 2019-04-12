@@ -38,7 +38,7 @@ class SlurmTask(daisy.Task):
         # assume that actor_script resides in the same folder
         actor_script = (os.path.dirname(os.path.realpath(__file__)) +
                         '/' + actor_script)
-        print(actor_script)
+        # print("Actor script: %s" % actor_script)
 
         self.slurmtask_run_cmd, self.new_actor_cmd = generateActorSbatch(
             config,

@@ -83,6 +83,8 @@ if __name__ == "__main__":
         if block is None:
             break
 
+        logging.info("Running fragment extraction for block %s" % block)
+
         watershed_in_block(affs,
                            block,
                            rag_provider,

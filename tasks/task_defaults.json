@@ -37,6 +37,7 @@
             "merged_affs_dataset" : "volumes/merged_affs",
             "low_threshold": 128,
             "num_workers": 1,
+            "downsample_xy": 8,
             "block_size": [2240, 2048, 2048]
         },
         

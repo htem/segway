@@ -15,6 +15,7 @@ def merge_myelin_in_block(
         affs_ds,
         myelin_ds,
         merged_affs_ds,
+        downsample_xy,
         low_threshold
         ):
 
@@ -26,8 +27,8 @@ def merge_myelin_in_block(
     np.place(myelin_array, myelin_array < low_threshold, [0])
 
     # up-sample myelin array
-    myelin_array = np.repeat(myelin_array, 8, axis=1)
-    myelin_array = np.repeat(myelin_array, 8, axis=2)
+    myelin_array = np.repeat(myelin_array, downsample_xy, axis=1)
+    myelin_array = np.repeat(myelin_array, downsample_xy, axis=2)
     for n, m in zip(affs_array.shape[2:3], myelin_array.shape[1:2]):
         assert(m == n)
 
@@ -64,7 +65,7 @@ if __name__ == "__main__":
     merged_affs_file = None
     merged_affs_dataset = None
     low_threshold = None
-    # downsample_xy = None
+    downsample_xy = None
 
     for key in run_config:
         globals()['%s' % key] = run_config[key]
@@ -75,6 +76,7 @@ if __name__ == "__main__":
         merged_affs_file, merged_affs_dataset, mode="r+")
     assert merged_affs_ds.data.dtype == np.uint8
     assert(low_threshold <= 255 and low_threshold >= 0)
+    assert(downsample_xy is not None)
 
     # block_roi = affs_ds.roi
     # block = daisy.Block(block_roi, block_roi, block_roi)
@@ -98,6 +100,7 @@ if __name__ == "__main__":
             affs_ds,
             myelin_ds,
             merged_affs_ds,
+            downsample_xy,
             low_threshold,
             )
 
