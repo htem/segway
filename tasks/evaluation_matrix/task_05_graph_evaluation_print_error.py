@@ -2,6 +2,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from extract_segId_from_prediction import graph_with_segId_prediction
+from extract_segId_from_prediction import graph_with_segId_prediction2
 from evaluation_matrix import splits_error,merge_error,rand_voi_split_merge
 # import matplotlib.pyplot as plt
 import os
@@ -200,59 +201,64 @@ def quick_compare_with_graph(
     compare_threshold(threshold_list,filename,'voi',output_path,markers,colors,*split_and_merge_voi)    
 
 
-################following code is to find the coordinate of split or merge error 
+# following code is to find the coordinate of split or merge error 
 def to_pixel_coord_xyz(zyx):
     zyx = (daisy.Coordinate(zyx) / daisy.Coordinate((40, 4, 4)))
     return daisy.Coordinate((zyx[2], zyx[1], zyx[0]))
 
-def print_the_split_error(split_error_dict,seg_path,threshold):
-    segment_ds = daisy.open_ds(
-             seg_path,
-             "volumes/"+threshold)
-    print (threshold)
+
+def print_split_errors(split_error_dict, seg_path, seg_vol):
+
+    segment_ds = daisy.open_ds(seg_path, seg_vol)
+    print(seg_vol)
+
     for skel_id in split_error_dict:
-        print("Skeleton: ", skel_id)
         errors = split_error_dict[skel_id]
-        for error in errors:
-            for point in error:
-                #print(point)
-                print(to_pixel_coord_xyz(point))
-                print('segid is: %d'%segment_ds[Coordinate(point)])
-
-    #return merge_error_dict,split_error_dict
-
+        if len(errors):
+            print("Skeleton: ", skel_id)
+            for error in errors:
+                for point in error:
+                    print("\t%s (%s)" % (to_pixel_coord_xyz(point), segment_ds[Coordinate(point)]))
+                    # print('segid is: %d'%segment_ds[Coordinate(point)])
 
 
-def print_the_merge_error(merge_error_dict,threshold):
-    print (threshold)
+def print_merge_errors(merge_error_dict, seg_vol):
+    print(seg_vol)
     for seg_id in merge_error_dict:
-        print("Segmentation:", seg_id)
         errors = merge_error_dict[seg_id]
-        for error in errors:
-            print (to_pixel_coord_xyz(error[0][0]))
-            print ('sk_id is: %d'%error[1])
-            print (to_pixel_coord_xyz(error[0][1]))
-            print ('sk_id is: %d'%error[2])
+        if len(errors):
+            print("Segmentation:", seg_id)
+            for error in errors:
+                print("%s merged to %s" % (
+                    to_pixel_coord_xyz(error[0][0]),
+                    to_pixel_coord_xyz(error[0][1])))
 
-def get_merge_split_error(skeleton_path,seg_path,threshold_list,error_type,num_process,with_interpolation):
-    works = False
-    #p = Pool(num_process)
-    #graph_list = p.map(partial(graph_with_segId_prediction,skeleton_path=skeleton_path,segmentation_path=seg_path,with_interpolation=with_interpolation),['volumes/'+threshold for threshold in threshold_list])
-    for threshold in threshold_list:
-        graph = graph_with_segId_prediction('volumes/'+ threshold,skeleton_path,seg_path,with_interpolation) # graph
-    #for graph in graph_list:
-        if 'merge' in error_type:
-            works = True
-            _,merge_dict = merge_error(graph)
-            print('following are merge error')
-            print_the_merge_error(merge_dict,threshold)
-        if 'split' in error_type:
-            works = True
-            _,split_dict = splits_error(graph)
-            print('following are split error') 
-            print_the_split_error(split_dict,seg_path,threshold)
-    if not works:
-        print("please provide the correct string for error type from 'merge' and 'split'") 
+
+def get_merge_split_error(
+        skeleton_path,
+        seg_path,
+        seg_vol,
+        error_type,
+        num_process,
+        with_interpolation):
+
+    graph = graph_with_segId_prediction2(
+        seg_vol,
+        skeleton_path,
+        seg_path,
+        with_interpolation)
+    print(graph)
+
+    if "merge" in error_type:
+        _, merge_dict = merge_error(graph)
+        print('Merge errors:')
+        print_merge_errors(merge_dict, seg_vol)
+
+    if "split" in error_type:
+        _, split_dict = splits_error(graph)
+        print('Split errors:')
+        print_split_errors(split_dict, seg_path, seg_vol)
+
 
 def get_multi_merge_split_error(skeleton_path,seg_path_list,threshold_list,error_type,num_process,with_interpolation):
     for seg_path in seg_path_list:
