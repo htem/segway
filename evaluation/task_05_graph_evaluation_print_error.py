@@ -108,9 +108,26 @@ def compare_threshold_multi_model(
         output_path,
         with_interpolation,
         markers = ['.',',','o','v','^','<','>','1','2'],
-        colors=['b','g','r','c','m','y','k','coral','gold','purple']):
+        colors=None):
 
-    markers = ['o','','^','','s','','p','','D']
+    if colors is None:
+        colors = [
+            'b',
+            'g',
+            'r',
+            'c',
+            'm',
+            'y',
+            'k',
+            'coral',
+            'gold',
+            'purple',
+            'navy',
+            'lime',
+            'salmon',
+            'saddlebrown']
+
+    markers = ['o', '', '^', '', 's', '', 'p', '', 'D']
     works = False 
     if 'number' in chosen_matrices:
         split_and_merge = []
@@ -162,8 +179,28 @@ def quick_compare_with_graph(
         num_process,
         output_path,
         with_interpolation,
-        markers=['o', '', '^', '', 's', '', 'p', '', 'D', 'h'],
-        colors=['b', 'g', 'r', 'c', 'm', 'y', 'k', 'coral', 'gold', 'purple']):
+        markers=None,
+        colors=None):
+
+    if markers is None:
+        markers = ['o', '', '^', '', 's', '', 'p', '', 'D', 'h']
+
+    if colors is None:
+        colors = [
+            'b',
+            'g',
+            'r',
+            'c',
+            'm',
+            'y',
+            'k',
+            'coral',
+            'gold',
+            'purple',
+            'navy',
+            'lime',
+            'salmon',
+            'saddlebrown']
 
     split_and_merge,split_and_merge_rand,split_and_merge_voi = [],[],[]
     for seg_path in list_seg_path:
@@ -249,12 +286,12 @@ def get_merge_split_error(
         with_interpolation)
     print(graph)
 
-    if "merge" in error_type:
+    if "merge" in error_type or "both" in error_type:
         _, merge_dict = merge_error(graph)
         print('Merge errors:')
         print_merge_errors(merge_dict, seg_vol)
 
-    if "split" in error_type:
+    if "split" in error_type or "both" in error_type:
         _, split_dict = splits_error(graph)
         print('Split errors:')
         print_split_errors(split_dict, seg_path, seg_vol)
@@ -264,29 +301,3 @@ def get_multi_merge_split_error(skeleton_path,seg_path_list,threshold_list,error
     for seg_path in seg_path_list:
         get_merge_split_error(skeleton_path,seg_path,threshold_list,error_type,num_process,with_interpolation)
 
-
-if __name__ == "__main__":
-    # parser = argparse.ArgumentParser(description="plot the graph with evaluation matrices num_split_merge_error, rand, voi  || or  just print out the coordinates of split error and merge error")
-    # parser.add_argument("configs",help="provide the configs with input information")
-    # parser.add_argument("iteration", type=int,help="number of iterations you want to train until") 
-    # parser.add_argument("-nc","--num_cores",help="Number of cores you want to use, defualts to 1",type=int,default=1)
-    # parser.add_argument("-padz","--z_padding",type=int,default=0,
-    #                     help="Amount to pad the z axis, helpful if you have a small stack, for cb3 I used 42 here because the input size was 84 pixels")
-    # parser.add_argument("-gt","--groundtruth",action='append', help="the file with image data in /volumes/raw and segmentation in /volumes/labels/neuron_ids. Nonlabeled data can be masked in the /volumes/labels/unlabelled dataset")
-    # args = parser.parse_args()
-
-    threshold_list = ['segmentation_0.900']
-    skeleton_path= '/n/groups/htem/temcagt/datasets/cb2/segmentation/python_scripts/yh231/cb2_cutout4.csv'
-    seg_path = "/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_segmentation/outputs/2019_03/cb2_synapse_cutout4/setup11/180000/output.zarr"
-    #get_merge_split_error(skeleton_path,seg_path,threshold_list,['merge','split'])
-    
-    
-    with open('file_to_evaluate.json','r') as f:
-        config = json.load(f)
-    threshold_list = config["threshold_list"]
-    segment_volumes = config["segment_volumes"]
-    chosen_matrices = config["chosen_matrices"]
-    skeleton_path = config["OtherInput"]["skeleton_path"]
-    filename = config["OtherInput"]["filename"]
-    #compare_threshold_multi_model(threshold_list,filename,skeleton_path,chosen_matrices,segment_volumes)
-    #quick_compare_with_graph(threshold_list,filename,skeleton_path,segment_volumes)

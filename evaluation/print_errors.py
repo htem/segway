@@ -101,8 +101,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "-m",
         "--mode",
-        choices=["split", "merge"],
-        default="split",
+        choices=["split", "merge", "both"],
+        default="both",
         help="")
     args = parser.parse_args()
 

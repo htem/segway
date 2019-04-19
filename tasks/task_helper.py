@@ -268,6 +268,11 @@ def aggregateConfigs(configs):
         # print(config_hash)
     # print(input_config['db_name'])
     # exit(0)
+    if len(input_config['db_name']) >= 64:
+        # we will just truncate the name and prepend the date
+        truncated_name = "%d%02d_%s" % (today.year, today.month, input_config['db_name'][8:])
+        assert(len(truncated_name) <= 63)
+        input_config['db_name'] = truncated_name
 
     os.makedirs(input_config['log_dir'], exist_ok=True)
 
