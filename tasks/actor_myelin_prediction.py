@@ -11,6 +11,7 @@ from collections import OrderedDict
 import ilastik_main
 from ilastik.applets.dataSelection import DatasetInfo
 from ilastik.workflows.pixelClassification import PixelClassificationWorkflow
+from ilastik.workflows import AutocontextTwoStage
 import vigra
 
 logging.basicConfig(level=logging.INFO)
@@ -103,7 +104,8 @@ if __name__ == "__main__":
     args.project = ilastik_project_path
 
     shell = ilastik_main.main(args)
-    assert isinstance(shell.workflow, PixelClassificationWorkflow)
+    assert isinstance(shell.workflow,
+        (PixelClassificationWorkflow, AutocontextTwoStage))
 
     # Obtain the training operator
     opPixelClassification = shell.workflow.pcApplet.topLevelOperator

@@ -1,25 +1,29 @@
-import math 
+import math
 from daisy import Coordinate
-import pandas as pd
-import numpy as np
-import re
 
-def shortest_euclidean_bw_two_sk(set1,set2):
+
+def shortest_euclidean_bw_two_sk(set1, set2):
     shortest_len = math.inf
     shortest_datapoint = set()
     for point1 in set1:
         for point2 in set2:
-            distance = math.sqrt(sum([(a-b)**2 for a,b in zip(point1,point2)]))
+            distance = math.sqrt(sum([(a-b)**2 for a, b in zip(point1,
+                                                               point2)]))
             if distance < shortest_len:
                 shortest_len = distance
-                shortest_datapoint = (Coordinate(point1),Coordinate(point2))
+                shortest_datapoint = (Coordinate(point1), Coordinate(point2))
     return shortest_datapoint
-    
-##deprecated: graph_with_segId_prediction() is now more robust, no restriction 
-#in csv files, among the treenode with the same skeleton_id, the treenode with no parent should be above others      
+# deprecated: graph_with_segId_prediction() is now more robust, no restriction
+# in csv files, among the treenode with the same skeleton_id, the treenode \
+# with no parent should be above others
+
+
+'''
 def swap_rows_in_catmaidCSV(CSVdata):
-    #CSVdata = pd.read_csv('/n/groups/htem/temcagt/datasets/cb2/segmentation/python_scripts/yh231/cb2_cutout4.csv')
-    #CSVdata.columns = ['skeleton_id','treenode_id','parent_treenode_id','x','y','z','r']
+    # CSVdata = pd.read_csv('/n/groups/htem/temcagt/datasets/cb2/segmentation/
+    # python_scripts/yh231/cb2_cutout4.csv')
+    # CSVdata.columns = ['skeleton_id','treenode_id','parent_treenode_id','x',
+    # 'y','z','r']
     skeleton_id = -1
     startrow_skeleton = 0
     for i, nrow in CSVdata.iterrows():
@@ -35,15 +39,5 @@ def swap_rows_in_catmaidCSV(CSVdata):
         else:
             continue
     print(CSVdata.head(80))
-    return CSVdata  
-def testCode():
-    # seg_path ="/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_segmentation/outputs/2019_03/cb2_synapse_cutout4/cb2/130000/output.zarr"
-    # model=re.search(r'[0-9]+000',seg_path).group(0)
-
-    # print(model) 
-    testset = (['a','b','c'])
-    if 'a' and 'bc' in testset:
-        print("you are correct")
-
-if __name__ == "__main__":
-    testCode()
+    return CSVdata
+'''

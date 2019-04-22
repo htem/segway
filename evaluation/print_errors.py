@@ -1,5 +1,6 @@
-
-from task_05_graph_evaluation_print_error import get_merge_split_error, quick_compare_with_graph,compare_threshold_multi_model
+from task_05_graph_evaluation_print_error import get_merge_split_error,\
+                                                 quick_compare_with_graph,\
+                                                 compare_threshold_multi_model
 import argparse
 import json
 import os
@@ -7,8 +8,6 @@ import os
 
 def parseConfigs(path):
     global_configs = {}
-    user_configs = {}
-    #hierarchy_configs = collections.defaultdict(dict)
 
     # first load default configs if avail
     try:
@@ -53,7 +52,7 @@ def run_evaluation(
         print(model_name_mapping)
 
     if mode == "print":
-        get_multi_merge_split_error(
+        get_merge_split_error(
             config["Input"]["skeleton_csv"],
             config["Input"]["segment_volumes"],
             config["Input"]["segment_dataset"],
@@ -70,9 +69,8 @@ def run_evaluation(
             model_name_mapping,
             num_process,
             os.path.dirname(config_path),
-            #config["Output"]["output_path"],
-            with_interpolation          
-        )
+            # config["Output"]["output_path"],
+            with_interpolation)
     elif mode == "plot":
         compare_threshold_multi_model(
             config["Input"]["segment_dataset"],
@@ -82,11 +80,11 @@ def run_evaluation(
             config["GraphMatricesTask"]["chosen_matrices"],
             num_process,
             os.path.dirname(config_path),
-            #config["Output"]["output_path"],
-            with_interpolation            
-        )
+            # config["Output"]["output_path"],
+            with_interpolation)
     else:
-        print("check if the mode is within plot ,quickplot, print, and check the parsing code")
+        print("check if the mode is within plot ,quickplot, print, and check \
+              the parsing code")
 
 
 if __name__ == "__main__":
