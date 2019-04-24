@@ -45,6 +45,15 @@ def run_evaluation(
         config_path, mode, num_process, with_interpolation, filename):
 
     config = parseConfigs(config_path)
+    if "skeleton" in config["Input"]:
+        skeleton = config["Input"]["skeleton"]
+    elif "skeleton_csv" in config["Input"]:
+        skeleton = config["Input"]["skeleton_csv"]
+    elif "skeleton_json" in config["Input"]:
+        skeleton = config["Input"]["skeleton_json"]
+    else:
+        print("please provide path to skeleton or check the keyword in json \
+               file")
 
     model_name_mapping = {}
     if "segment_names" in config["Input"]:
@@ -55,7 +64,7 @@ def run_evaluation(
 
     if mode == "print":
         get_multi_merge_split_error(
-            config["Input"]["skeleton_csv"],
+            skeleton,
             config["Input"]["segment_volumes"],
             config["Input"]["segment_dataset"],
             config["PrintSplitMergeErrorTask"]["chosen_error_type"],
@@ -66,7 +75,7 @@ def run_evaluation(
         quick_compare_with_graph(
             config["Input"]["segment_dataset"],
             filename,
-            config["Input"]["skeleton_csv"],
+            skeleton,
             config["Input"]["segment_volumes"],
             model_name_mapping,
             num_process,
@@ -77,7 +86,7 @@ def run_evaluation(
         compare_threshold_multi_model(
             config["Input"]["segment_dataset"],
             filename,
-            config["Input"]["skeleton_csv"],
+            skeleton,
             config["Input"]["segment_volumes"],
             config["GraphMatricesTask"]["chosen_matrices"],
             num_process,

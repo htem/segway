@@ -56,6 +56,10 @@ def splits_error(graph):  # dict === {sk_id:(((zyx),(zyx)),....),...}
             error_dict[sk_id] = set()
         if attr['segId_pred'] == -1:
             continue
+        # build graph from json, check for None
+        elif attr['parent_id'] is None:
+            continue
+        # build graph from csv, check for np.nan
         elif math.isnan(attr['parent_id']):
             continue
         else:

@@ -2,8 +2,10 @@ import daisy
 import time
 from daisy import Coordinate
 import pandas as pd
-from build_graph_from_catmaidCSV import \
-    add_nodes_from_catmaidCSV_with_interpolation, add_nodes_from_catmaidCSV
+import json
+from build_graph_from_catmaid import \
+    add_nodes_from_catmaidCSV_with_interpolation, add_nodes_from_catmaidCSV,\
+    add_nodes_from_catmaidJson_with_interpolation, add_nodes_from_catmaidJson
 import os.path
 ########################
 
@@ -33,14 +35,22 @@ def add_segId_from_prediction(graph, segmentation_path, segment_dataset):
 def graph_with_segId_prediction(threshold, skeleton_path, segmentation_path,
                                 with_interpolation):
     if os.path.isdir(segmentation_path+"/"+threshold):
-        skeleton_data = pd.read_csv(skeleton_path)
-        skeleton_data.columns = ['skeleton_id', 'treenode_id',
-                                 'parent_treenode_id', 'x', 'y', 'z', 'r']
-        if with_interpolation == "True":
-            gNode = add_nodes_from_catmaidCSV_with_interpolation(skeleton_data)
-        else:
-            gNode = add_nodes_from_catmaidCSV(skeleton_data)
-        # gNodeEdge = add_edges_from_catamaidCSV(skeleton_data,gNode)
+        if skeleton_path.endswith('.csv'):
+            skeleton_data = pd.read_csv(skeleton_path)
+            skeleton_data.columns = ['skeleton_id', 'treenode_id',
+                                     'parent_treenode_id', 'x', 'y', 'z', 'r']
+            if with_interpolation == "True":
+                gNode = add_nodes_from_catmaidCSV_with_interpolation(skeleton_data)
+            else:
+                gNode = add_nodes_from_catmaidCSV(skeleton_data)
+            # gNodeEdge = add_edges_from_catamaidCSV(skeleton_data,gNode)
+        if skeleton_path.endswith('.json'):
+            with open(skeleton_path, 'r') as f:
+                skeleton_data = json.load(f)
+            if with_interpolation == "True":
+                gNode = add_nodes_from_catmaidJson_with_interpolation(skeleton_data)
+            else:
+                gNode = add_nodes_from_catmaidJson(skeleton_data)
         return add_segId_from_prediction(gNode, segmentation_path, threshold)
     else:
         pass
@@ -55,13 +65,21 @@ def graph_with_segId_prediction2(
     print(skeleton_path)
 
     if os.path.isdir(segmentation_path+"/"+segmentation_vol):
-        skeleton_data = pd.read_csv(skeleton_path)
-        skeleton_data.columns = ['skeleton_id', 'treenode_id',
-                                 'parent_treenode_id', 'x', 'y', 'z', 'r']
-        if with_interpolation == "True":
-            gNode = add_nodes_from_catmaidCSV_with_interpolation(skeleton_data)
-        else:
-            gNode = add_nodes_from_catmaidCSV(skeleton_data)
+        if skeleton_path.endswith('.csv'):
+            skeleton_data = pd.read_csv(skeleton_path)
+            skeleton_data.columns = ['skeleton_id', 'treenode_id',
+                                     'parent_treenode_id', 'x', 'y', 'z', 'r']
+            if with_interpolation == "True":
+                gNode = add_nodes_from_catmaidCSV_with_interpolation(skeleton_data)
+            else:
+                gNode = add_nodes_from_catmaidCSV(skeleton_data)
+        if skeleton_path.endswith('.json'):
+            with open(skeleton_path, 'r') as f:
+                skeleton_data = json.load(f)
+            if with_interpolation == "True":
+                gNode = add_nodes_from_catmaidJson_with_interpolation(skeleton_data)
+            else:
+                gNode = add_nodes_from_catmaidJson(skeleton_data)
         print(gNode)
         return add_segId_from_prediction(gNode, segmentation_path,
                                          segmentation_vol)
