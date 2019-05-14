@@ -43,11 +43,18 @@ if __name__ == "__main__":
 
     # open RAG DB
     logging.info("Opening RAG DB...")
-    rag_provider = lsd.persistence.MongoDbRagProvider(
+    # rag_provider = lsd.persistence.MongoDbRagProvider(
+    #     db_name,
+    #     host=db_host,
+    #     mode='r+',
+    #     edges_collection='edges_' + merge_function)
+    rag_provider = daisy.persistence.MongoDbGraphProvider(
         db_name,
         host=db_host,
         mode='r+',
-        edges_collection='edges_' + merge_function)
+        directed=False,
+        edges_collection='edges_' + merge_function,
+        position_attribute=['center_z', 'center_y', 'center_x'])
     logging.info("RAG DB opened")
 
     assert fragments.data.dtype == np.uint64

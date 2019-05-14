@@ -35,7 +35,6 @@
             "affs_dataset": "/volumes/affs",
             "myelin_dataset" : "volumes/myelin_affs",
             "merged_affs_dataset" : "volumes/merged_affs",
-            "low_threshold": 128,
             "num_workers": 1,
             "downsample_xy": 8,
             "block_size": [2240, 2048, 2048]
@@ -57,10 +56,11 @@
         {
             "affs_dataset": "/volumes/affs",
             "fragments_dataset": "/volumes/fragments",
-            "block_size": [2240, 2048, 2048],
-            "context": [320, 256, 256],
-            "num_workers": 8,
-            "cpu_mem": 8,
+            "block_size": [8960, 8192, 8192],
+            "context": [1280, 1024, 1024],
+            "num_workers": 2,
+            "cpu_mem": 40,
+            "cpu_time": 1,
             "merge_function": "hist_quant_50"
         },
 
@@ -70,7 +70,8 @@
             "out_dataset": "volumes/segmentation",
             "thresholds": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
             "edges_collection": "edges_hist_quant_50",
-            "cpu_mem": 32,
+            "cpu_mem": 40,
+            "cpu_time": 2,
             "num_workers": 1
         },
 

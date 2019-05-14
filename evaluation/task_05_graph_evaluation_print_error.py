@@ -1,5 +1,5 @@
 import matplotlib
-# matplotlib.use('Agg')
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from extract_segId_from_prediction import graph_with_segId_prediction
 from extract_segId_from_prediction import graph_with_segId_prediction2

@@ -22,7 +22,6 @@ class MergeMyelinTask(task_helper.SlurmTask):
     merged_affs_dataset = daisy.Parameter()
     myelin_file = daisy.Parameter()
     myelin_dataset = daisy.Parameter()
-    low_threshold = daisy.Parameter()
     block_size = daisy.Parameter()
     num_workers = daisy.Parameter()
     downsample_xy = daisy.Parameter()
@@ -32,9 +31,11 @@ class MergeMyelinTask(task_helper.SlurmTask):
         any block.'''
 
         affs_ds = daisy.open_ds(self.affs_file, self.affs_dataset)
-        myelin_ds = daisy.open_ds(self.myelin_file, self.myelin_dataset)
+        # myelin_ds = daisy.open_ds(self.myelin_file, self.myelin_dataset)
 
-        assert(affs_ds.roi == myelin_ds.roi)
+        # print(affs_ds.roi)
+        # print(myelin_ds.roi)
+        # assert(affs_ds.roi == myelin_ds.roi)
 
         self.merged_affs_ds = daisy.prepare_ds(
             self.merged_affs_file,
@@ -54,17 +55,42 @@ class MergeMyelinTask(task_helper.SlurmTask):
             'myelin_dataset': self.myelin_dataset,
             'merged_affs_file': self.merged_affs_file,
             'merged_affs_dataset': self.merged_affs_dataset,
-            'low_threshold': self.low_threshold,
             'downsample_xy': self.downsample_xy,
         }
 
         self.slurmSetup(
-            config, 'actor_myelin_merge.py'
+            config, '../myelin_scripts/actor_myelin_merge.py'
             )
 
+        # align read_roi to downsampled pixels
+        ds_voxel_size = [n for n in affs_ds.voxel_size]
+        ds_voxel_size[1] *= self.downsample_xy
+        ds_voxel_size[2] *= self.downsample_xy
+        print(ds_voxel_size)
+        read_roi_begin = tuple([
+            affs_ds.roi.get_begin()[0],
+            int(affs_ds.roi.get_begin()[1] / ds_voxel_size[1]) * ds_voxel_size[1],
+            int(affs_ds.roi.get_begin()[2] / ds_voxel_size[2]) * ds_voxel_size[2],
+            ])
+        read_roi_end = tuple([
+            affs_ds.roi.get_end()[0],
+            (int((affs_ds.roi.get_end()[1] - 1) / ds_voxel_size[1]) + 1) * ds_voxel_size[1],
+            (int((affs_ds.roi.get_end()[2] - 1) / ds_voxel_size[2]) + 1) * ds_voxel_size[2],
+            ])
+
+        read_roi_shape = tuple([n-m for n, m in zip(read_roi_end, read_roi_begin)])
+        read_roi = daisy.Roi(read_roi_begin, read_roi_shape)
+        print(read_roi)
+
+        for i in range(len(affs_ds.voxel_size)):
+            assert read_roi_begin[i] % affs_ds.voxel_size[i] == 0
+            assert read_roi_begin[i] % ds_voxel_size[i] == 0
+            assert read_roi_end[i] % affs_ds.voxel_size[i] == 0
+            assert read_roi_end[i] % ds_voxel_size[i] == 0
+
         self.schedule(
-            total_roi=affs_ds.roi,
-            read_roi=affs_ds.roi,
+            total_roi=read_roi,
+            read_roi=read_roi,
             write_roi=affs_ds.roi,
             process_function=self.new_actor,
             check_function=(self.check_block, lambda b: True),

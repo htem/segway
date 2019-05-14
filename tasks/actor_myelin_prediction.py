@@ -4,6 +4,7 @@ import logging
 import numpy as np
 import sys
 import daisy
+import shutil
 
 from collections import OrderedDict
 # from PIL import Image
@@ -93,7 +94,14 @@ if __name__ == "__main__":
 
     assert(downsample_xy is not None)
 
+    # make a local copy of the ilastik project because the framework doesn't allow
+    # for concurrent open across jobs/workers
+
     print("WORKER: Running with context %s" % os.environ['DAISY_CONTEXT'])
+    workerid = daisy.Context.from_env().worker_id
+    local_ilastik_project_path = "%s_%d.ilp" % (config_file, workerid)
+    shutil.copyfile(ilastik_project_path, local_ilastik_project_path)
+
     client_scheduler = daisy.Client()
 
     os.environ["LAZYFLOW_THREADS"] = str(lazyflow_num_threads)
@@ -101,7 +109,7 @@ if __name__ == "__main__":
 
     args = ilastik_main.parser.parse_args([])
     args.headless = True
-    args.project = ilastik_project_path
+    args.project = local_ilastik_project_path
 
     shell = ilastik_main.main(args)
     assert isinstance(shell.workflow,

@@ -73,15 +73,20 @@ class PredictMyelinTask(task_helper.SlurmTask):
 
         self.slurmSetup(
             config, 'actor_myelin_prediction.py',
-            python_interpreter='/home/tmn7/programming/ilastik-1.3.2post1-Linux/bin/python3.6',
+            # python_interpreter='/home/tmn7/programming/ilastik-1.3.2post1-Linux/bin/python3.6',
+            python_interpreter='/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/ilastik-1.3.2post1-Linux/bin/python3.6',
             )
+
+        check_function = (self.check_block, lambda b: True)
+        if self.no_check:
+            check_function = None
 
         self.schedule(
             total_roi=total_roi,
             read_roi=read_roi,
             write_roi=write_roi,
             process_function=self.new_actor,
-            check_function=(self.check_block, lambda b: True),
+            check_function=check_function,
             read_write_conflict=False,
             fit='shrink',
             num_workers=self.num_workers)

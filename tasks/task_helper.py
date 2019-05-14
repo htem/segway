@@ -19,11 +19,16 @@ RUNNING_REMOTELY = os.path.isfile(home + "/CONFIG_LOCAL_DAISY")
 
 class SlurmTask(daisy.Task):
 
+    max_retries = daisy.Parameter(2)
+
     log_dir = daisy.Parameter()
 
     cpu_cores = daisy.Parameter(2)
     cpu_time = daisy.Parameter(0)
     cpu_mem = daisy.Parameter(4)
+
+    debug_print_command_only = daisy.Parameter(False)
+    no_precheck = daisy.Parameter(False)
 
     def slurmSetup(
             self, config, actor_script,
@@ -80,12 +85,13 @@ class SlurmTask(daisy.Task):
             process_cmd = run_cmd
 
         print(process_cmd)
-        cp = subprocess.run(process_cmd,
-                            stdout=subprocess.PIPE,
-                            shell=True
-                            )
-        id = cp.stdout.strip().decode("utf-8")
-        self.started_jobs.append(id)
+        if not self.debug_print_command_only:
+            cp = subprocess.run(process_cmd,
+                                stdout=subprocess.PIPE,
+                                shell=True
+                                )
+            id = cp.stdout.strip().decode("utf-8")
+            self.started_jobs.append(id)
 
     def cleanup(self):
         try:
@@ -207,7 +213,8 @@ def parseConfigs(args, aggregate_configs=True):
         pass
 
     for config in args:
-        print(config)
+
+        # print(config)
         if "=" in config:
             key, val = config.split('=')
             if '.' in key:
@@ -226,7 +233,10 @@ def parseConfigs(args, aggregate_configs=True):
                             global_configs[k].update(new_configs[k])
                     else:
                         global_configs[k] = new_configs[k]
-                print(list(global_configs.keys()))
+                # print(list(global_configs.keys()))
+
+                if 'Input' in new_configs:
+                    global_configs['Input']['config_filename'] = config
 
     print("\nhelper: final config")
     print(global_configs)
@@ -250,6 +260,9 @@ def aggregateConfigs(configs):
     parameters['day'] = '%02d' % today.day
     parameters['network'] = network_config['name']
     parameters['iteration'] = network_config['iteration']
+    config_filename = input_config['config_filename']
+    # proj is just the last folder in the config path
+    parameters['proj'] = config_filename.split('/')[-2]
 
     for config in input_config:
         if isinstance(input_config[config], str):

@@ -95,11 +95,18 @@ class AgglomerateTask(task_helper.SlurmTask):
 
         # open RAG DB
         logging.info("Opening RAG DB...")
-        self.rag_provider = lsd.persistence.MongoDbRagProvider(
+        # self.rag_provider = lsd.persistence.MongoDbRagProvider(
+        #     self.db_name,
+        #     host=self.db_host,
+        #     mode='r+',
+        #     edges_collection='edges_' + self.merge_function)
+        self.rag_provider = daisy.persistence.MongoDbGraphProvider(
             self.db_name,
             host=self.db_host,
             mode='r+',
-            edges_collection='edges_' + self.merge_function)
+            directed=False,
+            edges_collection='edges_' + self.merge_function,
+            position_attribute=['center_z', 'center_y', 'center_x'])
         logging.info("RAG DB opened")
 
         assert fragments.data.dtype == np.uint64
@@ -126,14 +133,19 @@ class AgglomerateTask(task_helper.SlurmTask):
         }
         self.slurmSetup(config, 'actor_agglomerate.py')
 
+        check_function = (self.block_done, lambda b: True)
+        if self.no_precheck:
+            check_function = None
+
         self.schedule(
             total_roi,
             read_roi,
             write_roi,
             process_function=self.new_actor,
-            check_function=(self.block_done, lambda b: True),
+            check_function=check_function,
             num_workers=self.num_workers,
             read_write_conflict=False,
+            max_retries=self.max_retries,
             fit='shrink')
 
     def block_done(self, block):

@@ -152,8 +152,6 @@ class PredictTask(task_helper.SlurmTask):
             # to account for the context
             input_roi = source.roi
             output_roi = source.roi.grow(-context, -context)
-            # output_roi = output_roi.grow(-context, -context)
-            # input_roi = output_roi.grow(context, context)
         else:
             # both have to be defined if one is
             assert(self.roi_offset is not None)

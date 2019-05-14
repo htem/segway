@@ -3,7 +3,6 @@ import os
 import logging
 import numpy as np
 import sys
-
 import daisy
 import lsd
 from lsd.parallel_fragments import watershed_in_block
@@ -23,6 +22,7 @@ if __name__ == "__main__":
     mask_dataset = None
     fragments_in_xy = True
     epsilon_agglomerate = 0
+    use_mahotas = False
 
     for key in run_config:
         globals()['%s' % key] = run_config[key]
@@ -53,10 +53,12 @@ if __name__ == "__main__":
 
     # open RAG DB
     logging.info("Opening RAG DB...")
-    rag_provider = lsd.persistence.MongoDbRagProvider(
+    rag_provider = daisy.persistence.MongoDbGraphProvider(
         db_name,
         host=db_host,
-        mode='r+')
+        mode='r+',
+        directed=False,
+        position_attribute=['center_z', 'center_y', 'center_x'])
     logging.info("RAG DB opened")
 
     assert fragments_out.data.dtype == np.uint64
@@ -75,6 +77,9 @@ if __name__ == "__main__":
     fragments_in_xy = True
     assert(fragments_in_xy)
 
+    # Tri 5/13/19: disable use_mahotas for now, let me know if this needs to be enabled
+    assert use_mahotas == False
+
     print("WORKER: Running with context %s"%os.environ['DAISY_CONTEXT'])
     client_scheduler = daisy.Client()
 
@@ -92,6 +97,7 @@ if __name__ == "__main__":
                            fragments_in_xy,
                            epsilon_agglomerate,
                            mask,
-                           use_mahotas=use_mahotas)
+                           # use_mahotas=use_mahotas,
+                           )
 
         client_scheduler.release_block(block, ret=0)
