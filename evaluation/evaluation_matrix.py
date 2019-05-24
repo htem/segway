@@ -2,6 +2,7 @@
 import math
 from daisy import Coordinate
 # import networkx as nx
+import copy
 from utility import shortest_euclidean_bw_two_sk
 
 # 1. number of splits or merges errors and the coordiante of error
@@ -203,3 +204,18 @@ def rand_voi_split_merge(graph, return_cluster_scores=False):
     # H(a|b)
     voi_merge = H_ab - H_b
     return rand_split, rand_merge, voi_split, voi_merge
+
+
+def print_rand_voi_gain_after_fix(graph,segment_ds,error_type,points,origin_scores): 
+    if error_type == "split":
+        graph_fix = copy.deepcopy(graph)
+        seg_id = segment_ds[Coordinate(points[0])]
+        replace_seg_id = segment_ds[Coordinate(points[1])]
+        for treenode_id, attr in graph_fix.nodes(data=True):
+            if attr['segId_pred'] == replace_seg_id:
+                attr['segId_pred'] = seg_id     
+    rand_split_fix, rand_merge_fix, voi_split_fix, voi_merge_fix = rand_voi_split_merge(graph_fix)
+    print ("rand_split diff is : %f" %(rand_split_fix -origin_scores[0]))
+    print ("rand_merge diff is : %f" %(rand_merge_fix -origin_scores[1]))
+    print ("voi_split diff is : %f" %(voi_split_fix -origin_scores[2]))
+    print ("voi_merge diff is : %f" %(voi_merge_fix -origin_scores[3]))

@@ -3,7 +3,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from extract_segId_from_prediction import graph_with_segId_prediction
 from extract_segId_from_prediction import graph_with_segId_prediction2
-from evaluation_matrix import splits_error, merge_error, rand_voi_split_merge
+from evaluation_matrix import splits_error, merge_error, rand_voi_split_merge, print_rand_voi_gain_after_fix
 # import matplotlib.pyplot as plt
 import re
 import daisy
@@ -297,6 +297,14 @@ def quick_compare_with_graph(
         split_and_merge.extend((model, numb_merge, numb_split))
         split_and_merge_rand.extend((model, rand_merge_list, rand_split_list))
         split_and_merge_voi.extend((model, voi_merge_list, voi_split_list))
+    # print("for filename: "+filename+" seg_path: "+str(threshold_list))
+    # print("numbers: ")
+    # print(str(split_and_merge))
+    # print("rand: ")
+    # print(str(split_and_merge_rand))
+    # print("voi: ")
+    # print(str(split_and_merge_voi))
+    # print("print done")
     compare_threshold(threshold_list, filename, 'number', output_path, markers,
                       colors, *split_and_merge)
     compare_threshold(threshold_list, filename, 'rand', output_path, markers,
@@ -311,7 +319,7 @@ def to_pixel_coord_xyz(zyx):
     return daisy.Coordinate((zyx[2], zyx[1], zyx[0]))
 
 
-def print_split_errors(split_error_dict, seg_path, seg_vol):
+def print_split_errors(split_error_dict, seg_path, seg_vol, graph, origin_scores):
 
     segment_ds = daisy.open_ds(seg_path, seg_vol)
     print(seg_vol)
@@ -325,9 +333,11 @@ def print_split_errors(split_error_dict, seg_path, seg_vol):
                     print("\t%s (%s)" % (to_pixel_coord_xyz(point),
                                          segment_ds[Coordinate(point)]))
                     # print('segid is: %d'%segment_ds[Coordinate(point)])
+                print_rand_voi_gain_after_fix(graph, segment_ds, "split", error, origin_scores)                
+                    
 
 
-def print_merge_errors(merge_error_dict, seg_vol):
+def print_merge_errors(merge_error_dict, seg_vol, graph, origin_scores):
     print(seg_vol)
     for seg_id in merge_error_dict:
         errors = merge_error_dict[seg_id]
@@ -337,6 +347,7 @@ def print_merge_errors(merge_error_dict, seg_vol):
                 print("%s merged to %s" % (
                     to_pixel_coord_xyz(error[0][0]),
                     to_pixel_coord_xyz(error[0][1])))
+                
 
 
 def get_merge_split_error(
@@ -353,16 +364,20 @@ def get_merge_split_error(
         seg_path,
         with_interpolation)
     print(graph)
+    # get the origin rand or voi scores
+    origin_scores = ()
+    origin_scores = rand_voi_split_merge(graph)
+    # origin_scores = (rand_split, rand_merge, voi_split, voi_merge )
 
     if "merge" in error_type or "both" in error_type:
         _, merge_dict = merge_error(graph)
         print('Merge errors:')
-        print_merge_errors(merge_dict, seg_vol)
+        print_merge_errors(merge_dict, seg_vol, graph, origin_scores)
 
     if "split" in error_type or "both" in error_type:
         _, split_dict = splits_error(graph)
         print('Split errors:')
-        print_split_errors(split_dict, seg_path, seg_vol)
+        print_split_errors(split_dict, seg_path, seg_vol, graph, origin_scores)
 
 
 def get_multi_merge_split_error(skeleton_path, seg_path_list, threshold_list,
