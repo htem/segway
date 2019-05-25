@@ -333,7 +333,7 @@ def print_split_errors(split_error_dict, seg_path, seg_vol, graph, origin_scores
                     print("\t%s (%s)" % (to_pixel_coord_xyz(point),
                                          segment_ds[Coordinate(point)]))
                     # print('segid is: %d'%segment_ds[Coordinate(point)])
-                print_rand_voi_gain_after_fix(graph, segment_ds, "split", error, origin_scores)                
+                #print_rand_voi_gain_after_fix(graph, "split", error, origin_scores, segment_ds=segment_ds)          
                     
 
 
@@ -347,6 +347,7 @@ def print_merge_errors(merge_error_dict, seg_vol, graph, origin_scores):
                 print("%s merged to %s" % (
                     to_pixel_coord_xyz(error[0][0]),
                     to_pixel_coord_xyz(error[0][1])))
+                print_rand_voi_gain_after_fix(graph,"merge", error, origin_scores, seg_id=seg_id)
                 
 
 

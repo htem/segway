@@ -17,6 +17,10 @@ def shortest_euclidean_bw_two_sk(set1, set2):
 # in csv files, among the treenode with the same skeleton_id, the treenode \
 # with no parent should be above others
 
+# following code is to find the coordinate of split or merge error
+def to_pixel_coord_xyz(zyx):
+    zyx = (Coordinate(zyx) / Coordinate((40, 4, 4)))
+    return Coordinate((zyx[2], zyx[1], zyx[0]))
 
 '''
 def swap_rows_in_catmaidCSV(CSVdata):
