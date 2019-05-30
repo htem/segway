@@ -1,12 +1,11 @@
 
 import numpy as np
 import logging
-import malis
 from scipy import ndimage
 import daisy
 import networkx
 
-from segmentation_functions import agglomerate_in_block, segment, \
+from .segmentation_functions import agglomerate_in_block, segment, \
     watershed_in_block, grow_boundary
 
 logging.basicConfig(level=logging.INFO)
@@ -129,6 +128,7 @@ def segmentation_to_affs(
     seg = np.array(seg, dtype=np.int32)
     affinity_neighborhood = np.array(affinity_neighborhood)
 
+    import malis
     affinities = malis.seg_to_affgraph(
             seg,
             affinity_neighborhood

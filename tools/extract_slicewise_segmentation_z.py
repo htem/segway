@@ -4,9 +4,10 @@ import sys
 import daisy
 import numpy as np
 from networkx import Graph
-import task_helper
+sys.path.insert(0, "/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_segmentation")
+from segway import task_helper
 
-from segmentation_functions import agglomerate_in_block, segment
+from segway.tasks.segmentation_functions import agglomerate_in_block, segment
 
 logger = logging.getLogger(__name__)
 

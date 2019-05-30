@@ -59,7 +59,7 @@ class MergeMyelinTask(task_helper.SlurmTask):
         }
 
         self.slurmSetup(
-            config, '../myelin_scripts/actor_myelin_merge.py'
+            config, 'segway.myelin_scripts.actor_myelin_merge', python_module=True
             )
 
         # align read_roi to downsampled pixels

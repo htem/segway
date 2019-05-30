@@ -5,7 +5,7 @@ import numpy as np
 import daisy
 from enum import Enum
 
-import myelin_functions
+from . import myelin_functions
 
 
 logging.basicConfig(level=logging.INFO)

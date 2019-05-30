@@ -81,6 +81,7 @@ class PredictTask(task_helper.SlurmTask):
 
     cpu_cores = daisy.Parameter(4)
     mem_per_core = daisy.Parameter(1.75)
+    myelin_prediction = daisy.Parameter(0)
 
     # predict_num_core = daisy.Parameter(2)
 
@@ -182,11 +183,19 @@ class PredictTask(task_helper.SlurmTask):
             self.out_dtype,
             write_roi=daisy.Roi((0, 0, 0), chunk_size),
             num_channels=self.out_dims,
-            # temporary fix until
-            # https://github.com/zarr-developers/numcodecs/pull/87 gets approved
-            # (we want gzip to be the default)
             compressor={'id': 'zlib', 'level': 5}
             )
+
+        if self.myelin_prediction:
+            self.myelin_ds = daisy.prepare_ds(
+                self.out_file,
+                "volumes/myelin",
+                output_roi,
+                voxel_size,
+                self.out_dtype,
+                write_roi=daisy.Roi((0, 0, 0), chunk_size),
+                compressor={'id': 'zlib', 'level': 5}
+                )
 
         if self.raw_file.endswith('.json'):
             with open(self.raw_file, 'r') as f:

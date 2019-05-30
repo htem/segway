@@ -71,10 +71,15 @@ def fix_merge(
         same_skeleton_fragments = set()
 
         for zyx in comp_zyx:
+
+            if not fragments_array.roi.contains(zyx):
+                print("Coord %s not in fragments_array.roi %s" % (zyx, fragments_array.roi))
+                continue
+
             n = fragments_array[zyx]
 
-            # check for duplications within skeleton
             if n in ignored_fragments:
+                assert 0
                 continue
 
             # check for duplications within skeleton
@@ -84,6 +89,7 @@ def fix_merge(
 
             # check if n does not exist in rag or filtered out
             if n not in rag.node:
+                # assert 0
                 continue
             frag_to_coords[n].append(zyx)
 
@@ -93,7 +99,7 @@ def fix_merge(
                 print(frag_to_coords[n])
                 for zyx in frag_to_coords[n]:
                     print(to_pixel_coord(zyx))
-                assert(False)
+                assert 0
             fragments_ids.add(n)
 
             # add to component

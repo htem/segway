@@ -5,7 +5,7 @@ import logging
 # import daisy
 from enum import Enum
 
-import myelin_postprocess_pipeline
+from . import myelin_postprocess_pipeline
 
 
 logging.basicConfig(level=logging.INFO)

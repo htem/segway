@@ -4,10 +4,8 @@ import logging
 import numpy as np
 import sys
 import daisy
-# import copy
-
-# from segway.myelin_scripts.myelin_postprocess_pipeline_setup00 import run_postprocess_setup
-from myelin_postprocess_pipeline_setup00 import run_postprocess_setup
+from .. import myelin_postprocess
+from .myelin_functions import convert_prediction_to_affs
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("actor_myelin_merge")
@@ -20,51 +18,60 @@ def merge_myelin_in_block(
         myelin_ds,
         merged_affs_ds,
         downsample_xy,
+        run_postprocess=False,
         ):
 
+    logger.info("Begin merge_myelin_in_block")
     # # assuming that myelin prediction is downsampled by an integer
-    affs_array = affs_ds[block.write_roi].to_ndarray()
+    affs_array = affs_ds[block.read_roi].to_ndarray()
     # myelin_array = myelin_ds[block.read_roi].to_ndarray()
 
     # # thresholding
     # np.place(myelin_array, myelin_array < low_threshold, [0])
 
-    myelin_affs_shape = tuple([3] + [k for k in myelin_ds.shape])
-    myelin_affs = daisy.Array(
-        np.ndarray(myelin_affs_shape, dtype=np.uint8), block.read_roi, myelin_ds.voxel_size)
+    # myelin_postprocess(block, file, myelin_ds, myelin_affs)
 
-    postprocess_block = daisy.Block(block.read_roi, block.read_roi, block.read_roi)
-    run_postprocess_setup(postprocess_block, file, myelin_ds, myelin_affs)
-    # myelin_affs = run_postprocess_setup(block, file, myelin_ds)
-    # up-sample myelin array
-    myelin_affs_ndarray = myelin_affs.to_ndarray()
+    logger.info("Running post processing...")
+    if run_postprocess:
+        myelin_affs = myelin_postprocess(block, file, myelin_ds)
+    else:
+        # myelin_affs = daisy.Array(
+        #     np.ndarray(myelin_affs_shape, dtype=np.uint8), block.read_roi, myelin_ds.voxel_size)
+        # myelin_affs = daisy.open_ds(file, myelin_ds)
+        myelin_affs_ndarray = convert_prediction_to_affs(
+            myelin_ds[block.read_roi].to_ndarray(),
+            agglomerate_in_xy=False,  # necessary for 3D agglomeration
+            )
+        # myelin_affs_shape = tuple([3] + [k for k in myelin_ds.shape])
+        myelin_affs = daisy.Array(
+            myelin_affs_ndarray, block.read_roi, myelin_ds.voxel_size)
+
+    # print("myelin_affs.to_ndarray(): %s" % myelin_affs.to_ndarray())
+    # exit(0)
+    logger.info("Up-sampling myelin array...")
+    myelin_affs_array = myelin_affs.to_ndarray()
     y_axis = 2
     x_axis = 3
-    myelin_affs_ndarray = np.repeat(myelin_affs_ndarray, downsample_xy, axis=y_axis)
-    myelin_affs_ndarray = np.repeat(myelin_affs_ndarray, downsample_xy, axis=x_axis)
-
-    # crop read_roi to write_roi
-    myelin_affs = daisy.Array(
-        myelin_affs_ndarray, block.read_roi, affs_ds.voxel_size)
-    myelin_affs_ndarray = myelin_affs[block.write_roi].to_ndarray()
-
-    # check for dim len correctness
-    for n, m in zip(affs_array.shape[2:3], myelin_affs_ndarray.shape[2:3]):
-        assert(m == n)
+    myelin_affs_array = np.repeat(myelin_affs_array, downsample_xy, axis=y_axis)
+    myelin_affs_array = np.repeat(myelin_affs_array, downsample_xy, axis=x_axis)
+    for n, m in zip(affs_array.shape[2:3], myelin_affs_array.shape[2:3]):
+        assert m == n, "affs_array.shape %s is not same as myelin_affs_array.shape %s" % (affs_array.shape, myelin_affs_array.shape)
 
     logger.info("Merging for ROI %s" % block.read_roi)
     # ndim = 3
     # for k in range(ndim):
-    #     affs_array[k] = np.minimum(affs_array[k], myelin_affs_ndarray)
-    affs_array = np.minimum(affs_array, myelin_affs_ndarray)
+    #     affs_array[k] = np.minimum(affs_array[k], myelin_affs_array)
+    # print("affs_array: %s" % affs_array)
+    # print("myelin_affs_array: %s" % myelin_affs_array)
+    affs_array = np.minimum(affs_array, myelin_affs_array)
 
     # for z direction, we'd need to the section n+1 z affinity be min with the
     # section below
     # add null section for the first section
     # TODO: add context so we don't need a null section
-    # null_section = np.ones_like(myelin_affs_ndarray[0])
+    # null_section = np.ones_like(myelin_affs_array[0])
     # null_section = 255*null_section
-    # myelin_array_shifted = np.concatenate([[null_section], myelin_affs_ndarray[:-1]])
+    # myelin_array_shifted = np.concatenate([[null_section], myelin_affs_array[:-1]])
     # z_dim = 0
     # affs_array[z_dim] = np.minimum(affs_array[z_dim], myelin_array_shifted)
 
@@ -74,7 +81,6 @@ def merge_myelin_in_block(
 
 if __name__ == "__main__":
 
-    print(sys.argv)
     config_file = sys.argv[1]
     with open(config_file, 'r') as f:
         run_config = json.load(f)
@@ -96,15 +102,6 @@ if __name__ == "__main__":
         merged_affs_file, merged_affs_dataset, mode="r+")
     assert merged_affs_ds.data.dtype == np.uint8
     assert(downsample_xy is not None)
-
-    # block_roi = affs_ds.roi
-    # block = daisy.Block(block_roi, block_roi, block_roi)
-    # merge_myelin_in_block(
-    #     block,
-    #     affs_ds,
-    #     myelin_ds,
-    #     merged_affs_ds)
-    # exit(0)
 
     print("WORKER: Running with context %s" % os.environ['DAISY_CONTEXT'])
     client_scheduler = daisy.Client()

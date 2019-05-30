@@ -32,22 +32,24 @@ class SlurmTask(daisy.Task):
 
     def slurmSetup(
             self, config, actor_script,
+            python_module=False,
             python_interpreter='python',
             **kwargs):
         '''Write config file and sbatch file for the actor, and generate
         `new_actor_cmd`. We also keep track of new jobs so to kill them
         when the task is finished.'''
 
-        logname = (actor_script.split('.'))[-2].split('/')[-1]
-
-        # assume that actor_script resides in the same folder
-        actor_script = (os.path.dirname(os.path.realpath(__file__)) +
-                        '/' + actor_script)
-        # print("Actor script: %s" % actor_script)
+        if not python_module:
+            logname = (actor_script.split('.'))[-2].split('/')[-1]
+            actor_script = (os.path.dirname(os.path.realpath(__file__)) +
+                            '/' + actor_script)
+        else:
+            logname = (actor_script.split('.'))[-1]
 
         self.slurmtask_run_cmd, self.new_actor_cmd = generateActorSbatch(
             config,
             actor_script,
+            python_module=python_module,
             python_interpreter=python_interpreter,
             log_dir=self.log_dir,
             logname=logname,
@@ -123,7 +125,9 @@ class SlurmTask(daisy.Task):
 
 
 def generateActorSbatch(
-        config, actor_script, log_dir, logname,
+        config, actor_script,
+        python_module,
+        log_dir, logname,
         python_interpreter,
         **kwargs):
 
@@ -140,11 +144,19 @@ def generateActorSbatch(
     with open(config_file, 'w') as f:
         json.dump(config, f)
 
-    run_cmd = ' '.join([
-        python_interpreter,
-        '%s' % actor_script,
-        '%s' % config_file,
-        ])
+    if not python_module:
+        run_cmd = ' '.join([
+            python_interpreter,
+            '%s' % actor_script,
+            '%s' % config_file,
+            ])
+    else:
+        run_cmd = ' '.join([
+            python_interpreter,
+            '-m',
+            '%s' % actor_script,
+            '%s' % config_file,
+            ])
 
     sbatch_script = os.path.join('.run_configs', '%s_%d.sh'%(logname, config_hash))
     generateSbatchScript(
@@ -209,8 +221,12 @@ def parseConfigs(args, aggregate_configs=True):
         with open(config_file, 'r') as f:
             global_configs = {**json.load(f), **global_configs}
     except Exception:
-        logger.info("Default task config not loaded")
-        pass
+        try:
+            config_file = "/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_segmentation/segway/tasks/task_defaults.json"
+            with open(config_file, 'r') as f:
+                global_configs = {**json.load(f), **global_configs}
+        except:
+            logger.info("Default task config not loaded")
 
     for config in args:
 
@@ -240,8 +256,16 @@ def parseConfigs(args, aggregate_configs=True):
 
     print("\nhelper: final config")
     print(global_configs)
+
+    # update global confs with hierarchy conf
     print(hierarchy_configs)
-    global_configs = {**hierarchy_configs, **global_configs}
+    for k in hierarchy_configs.keys():
+        if k in global_configs:
+            global_configs[k].update(hierarchy_configs[k])
+        else:
+            global_configs[k] = hierarchy_configs[k]
+    # global_configs = {**global_configs, **hierarchy_configs}
+
     if aggregate_configs:
         aggregateConfigs(global_configs)
     return (user_configs, global_configs)
@@ -275,10 +299,13 @@ def aggregateConfigs(configs):
     myclient = pymongo.MongoClient(db_host)
     if db_name not in myclient.database_names():
         output_path = os.path.abspath(input_config["output_file"])
+        if output_path.startswith("/mnt/orchestra_nfs/"):
+            output_path = output_path[len("/mnt/orchestra_nfs/"):]
+            output_path = "/n/groups/htem/" + output_path
+        print("Hashing output path %s" % output_path)
         config_hash = hashlib.blake2b(
             output_path.encode(), digest_size=4).hexdigest()
         input_config['db_name'] = input_config['db_name'] + "_" + config_hash
-        # print(config_hash)
     # print(input_config['db_name'])
     # exit(0)
     if len(input_config['db_name']) >= 64:
@@ -311,6 +338,7 @@ def aggregateConfigs(configs):
             config['roi_offset'] = input_config['roi_offset']
         if 'roi_shape' in input_config:
             config['roi_shape'] = input_config['roi_shape']
+        config['myelin_prediction'] = network_config.get('myelin_prediction', 0)
 
     if "PredictMyelinTask" in configs:
         config = configs["PredictMyelinTask"]

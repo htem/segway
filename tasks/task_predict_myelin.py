@@ -26,6 +26,9 @@ class PredictMyelinTask(task_helper.SlurmTask):
     lazyflow_mem = daisy.Parameter()
     ilastik_project_path = daisy.Parameter()
 
+    # user provided myelin gt
+    user_gt = daisy.Parameter(None)
+
     def prepare(self):
         '''Daisy calls `prepare` for each task prior to scheduling
         any block.'''
@@ -44,7 +47,6 @@ class PredictMyelinTask(task_helper.SlurmTask):
             total_roi = daisy.Roi(
                 tuple(self.roi_offset), tuple(self.roi_shape))
 
-        # prepare fragments dataset
         self.myelin_out = daisy.prepare_ds(
             self.myelin_file,
             self.myelin_dataset,
@@ -55,6 +57,29 @@ class PredictMyelinTask(task_helper.SlurmTask):
             compressor={'id': 'zlib', 'level': 5}
             )
         assert self.myelin_out.data.dtype == np.uint8
+
+        if self.user_gt is not None:
+            # if gt is provided, use it and don't run ilastik
+            # only supporting h5 exports from ilastik for now
+            assert self.user_gt.endswith(".h5")
+            gt = daisy.open_ds(self.user_gt, "exported_data")
+            logger.info("gt.voxel_size: %s", gt.voxel_size)
+            logger.info("gt.shape: %s", gt.shape)
+            logger.info("myelin_voxel_size: %s", myelin_voxel_size)
+            gt_ndarray = gt.to_ndarray()
+            logger.info("gt_ndarray.shape: %s", gt_ndarray.shape)
+            gt_ndarray = gt_ndarray[:, :, :, 0]
+            np.place(gt_ndarray, gt_ndarray == 1, 0)
+            np.place(gt_ndarray, gt_ndarray == 2, 255)
+            # print(gt_ndarray)
+            # logger.debug("n0.shape: ", n0.shape)
+            gt_array = daisy.Array(gt_ndarray,
+                                   roi=total_roi,
+                                   voxel_size=myelin_voxel_size,
+                                   # voxel_size=[40, 8, 8],
+                                   )
+            # print(gt_array[total_roi].to_ndarray())
+            self.myelin_out[total_roi] = gt_array[total_roi].to_ndarray()
 
         read_roi = total_roi
         write_roi = total_roi
@@ -72,13 +97,13 @@ class PredictMyelinTask(task_helper.SlurmTask):
         }
 
         self.slurmSetup(
-            config, 'actor_myelin_prediction.py',
+            config, '../myelin_scripts/actor_myelin_prediction.py',
             # python_interpreter='/home/tmn7/programming/ilastik-1.3.2post1-Linux/bin/python3.6',
             python_interpreter='/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/ilastik-1.3.2post1-Linux/bin/python3.6',
             )
 
         check_function = (self.check_block, lambda b: True)
-        if self.no_check:
+        if self.no_precheck:
             check_function = None
 
         self.schedule(
@@ -92,6 +117,10 @@ class PredictMyelinTask(task_helper.SlurmTask):
             num_workers=self.num_workers)
 
     def check_block(self, block):
+
+        if self.user_gt is not None:
+            return True
+
         write_roi = self.myelin_out.roi.intersect(block.write_roi)
         if write_roi.empty():
             logger.debug("Block outside of output ROI")

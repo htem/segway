@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from extract_segId_from_prediction import graph_with_segId_prediction
 from extract_segId_from_prediction import graph_with_segId_prediction2
 from evaluation_matrix import splits_error, merge_error, rand_voi_split_merge, print_rand_voi_gain_after_fix
+from evaluation_matrix import get_rand_voi_gain_after_fix
 # import matplotlib.pyplot as plt
 import re
 import daisy
@@ -323,32 +324,68 @@ def print_split_errors(split_error_dict, seg_path, seg_vol, graph, origin_scores
 
     segment_ds = daisy.open_ds(seg_path, seg_vol)
     print(seg_vol)
+    all_errors = []
 
     for skel_id in split_error_dict:
         errors = split_error_dict[skel_id]
         if len(errors):
-            print("Skeleton: ", skel_id)
             for error in errors:
+                xyzx = []
                 for point in error:
-                    print("\t%s (%s)" % (to_pixel_coord_xyz(point),
-                                         segment_ds[Coordinate(point)]))
-                    # print('segid is: %d'%segment_ds[Coordinate(point)])
-                print_rand_voi_gain_after_fix(graph, "split", error, origin_scores, segment_ds=segment_ds)          
-                    
+                    xyzx.append((to_pixel_coord_xyz(point), segment_ds[Coordinate(point)]))
+                    # print("\t%s (%s)" % (to_pixel_coord_xyz(point),
+                    #                      segment_ds[Coordinate(point)]))
+                scores = get_rand_voi_gain_after_fix(graph, "split", error, origin_scores, segment_ds=segment_ds)
+                all_errors.append({
+                    'skeleton': skel_id,
+                    'xyzs': xyzx,
+                    'scores': scores,
+                    })
+
+    all_errors = sorted(all_errors, key=lambda x: x['scores']['rand_split'])
+    total_rand_split = 0.0
+    for error in all_errors:
+        print("Skeleton: %s" % error['skeleton'])
+        for xyz in error["xyzs"]:
+            print("\t%s (%s)" % (xyz[0], xyz[1]))
+        print("\tRAND split score: %.4f" % error['scores']['rand_split'])
+        total_rand_split += error['scores']['rand_split']
+        print("\tVOI  split score: %.4f" % error['scores']['voi_split'])
+    print("Total RAND split loss: %.4f" % total_rand_split)
 
 
 def print_merge_errors(merge_error_dict, seg_vol, graph, origin_scores):
-    print(seg_vol)
+    # print(seg_vol)
+
+    all_errors = []
+
     for seg_id in merge_error_dict:
         errors = merge_error_dict[seg_id]
         if len(errors):
-            print("Segmentation:", seg_id)
+            # print("Segmentation:", seg_id)
             for error in errors:
-                print("%s merged to %s" % (
-                    to_pixel_coord_xyz(error[0][0]),
-                    to_pixel_coord_xyz(error[0][1])))
-                print_rand_voi_gain_after_fix(graph,"merge", error, origin_scores, seg_id=seg_id)
-                
+                # print("%s merged to %s" % (
+                #     to_pixel_coord_xyz(error[0][0]),
+                #     to_pixel_coord_xyz(error[0][1])))
+                scores = get_rand_voi_gain_after_fix(graph, "merge", error, origin_scores, seg_id=seg_id)
+                all_errors.append({
+                    'segid': seg_id,
+                    'xyz0': to_pixel_coord_xyz(error[0][0]),
+                    'xyz1': to_pixel_coord_xyz(error[0][1]),
+                    'scores': scores,
+                    })
+
+    all_errors = sorted(all_errors, key=lambda x: x['scores']['rand_merge'])
+    total_rand_merge = 0.0
+    for error in all_errors:
+        print("Segment: %s" % error['segid'])
+        print("\t%s merged to %s" % (
+                (error['xyz0']),
+                (error['xyz1'])))
+        print("\tRAND merge score: %.4f" % error['scores']['rand_merge'])
+        total_rand_merge += error['scores']['rand_merge']
+        print("\tVOI  merge score: %.4f" % error['scores']['voi_merge'])
+    print("Total RAND merge loss: %.4f" % total_rand_merge)
 
 
 def get_merge_split_error(

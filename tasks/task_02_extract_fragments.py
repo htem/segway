@@ -132,6 +132,7 @@ class ExtractFragmentTask(task_helper.SlurmTask):
         config = {
             'affs_file': self.affs_file,
             'affs_dataset': self.affs_dataset,
+            'myelin_dataset': 'volumes/myelin',
             'mask_file': self.mask_file,
             'mask_dataset': self.mask_dataset,
             'block_size': self.block_size,

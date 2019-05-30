@@ -213,7 +213,14 @@ def rand_voi_split_merge(graph, return_cluster_scores=False):
     return rand_split, rand_merge, voi_split, voi_merge
 
 
-def print_rand_voi_gain_after_fix(graph,error_type,error,origin_scores,segment_ds=None,seg_id = None): 
+def print_rand_voi_gain_after_fix(
+        graph,
+        error_type,
+        error,
+        origin_scores,
+        segment_ds=None,
+        seg_id=None):
+
     if error_type == "split":
         graph_fix = copy.deepcopy(graph)
         seg_id = segment_ds[Coordinate(error[0])]
@@ -221,7 +228,7 @@ def print_rand_voi_gain_after_fix(graph,error_type,error,origin_scores,segment_d
         for treenode_id, attr in graph_fix.nodes(data=True):
             if attr['segId_pred'] == replace_seg_id:
                 attr['segId_pred'] = seg_id
-        print_diff(origin_scores,graph_fix)
+        print_diff(origin_scores, graph_fix)
 
     if error_type == "merge":
         graph_fix_0 = copy.deepcopy(graph)
@@ -233,22 +240,68 @@ def print_rand_voi_gain_after_fix(graph,error_type,error,origin_scores,segment_d
                 if attr['skeleton_id'] == replace_sk_id_0:
                     attr['segId_pred'] = next_seg_id
         print("below is the error impact scores of %s" %(to_pixel_coord_xyz(error[0][0]),))
-        print_diff(origin_scores,graph_fix_0)
+        print_diff(origin_scores, graph_fix_0)
         next_seg_id += 1
         graph_fix_1 = copy.deepcopy(graph)
         for treenode_id, attr in graph_fix_1.nodes(data=True):
             if attr['segId_pred'] == seg_id:
                 if attr['skeleton_id'] == replace_sk_id_1:
                     attr['segId_pred'] = next_seg_id   
-        print("below is the error impact scores of %s" %(to_pixel_coord_xyz(error[0][1]),))      
-        print_diff(origin_scores,graph_fix_1)      
+        print("below is the error impact scores of %s" %(to_pixel_coord_xyz(error[0][1]),))
+        print_diff(origin_scores, graph_fix_1)
 
 
+def get_rand_voi_gain_after_fix(
+        graph,
+        error_type,
+        error,
+        origin_scores,
+        segment_ds=None,
+        seg_id=None):
+
+    if error_type == "split":
+        graph_fix = copy.deepcopy(graph)
+        seg_id = segment_ds[Coordinate(error[0])]
+        replace_seg_id = segment_ds[Coordinate(error[1])]
+        for treenode_id, attr in graph_fix.nodes(data=True):
+            if attr['segId_pred'] == replace_seg_id:
+                attr['segId_pred'] = seg_id
+        return get_diff(origin_scores, graph_fix)
+
+    if error_type == "merge":
+        graph_fix_0 = copy.deepcopy(graph)
+        next_seg_id = max([attr['segId_pred'] for _, attr in graph_fix_0.nodes(data=True)])+1
+        replace_sk_id_0 = error[1]
+        for treenode_id, attr in graph_fix_0.nodes(data=True):
+            if attr['segId_pred'] == seg_id:
+                if attr['skeleton_id'] == replace_sk_id_0:
+                    attr['segId_pred'] = next_seg_id
+        # print("below is the error impact scores of %s" %(to_pixel_coord_xyz(error[0][0]),))
+        return get_diff(origin_scores, graph_fix_0)
+        # next_seg_id += 1
+        # replace_sk_id_1 = error[2]
+        # graph_fix_1 = copy.deepcopy(graph)
+        # for treenode_id, attr in graph_fix_1.nodes(data=True):
+        #     if attr['segId_pred'] == seg_id:
+        #         if attr['skeleton_id'] == replace_sk_id_1:
+        #             attr['segId_pred'] = next_seg_id   
+        # print("below is the error impact scores of %s" %(to_pixel_coord_xyz(error[0][1]),))
+        # return get_diff(origin_scores, graph_fix_1)
 
 
-def print_diff(origin_scores,graph_fix):
+def print_diff(origin_scores, graph_fix):
     rand_split_fix, rand_merge_fix, voi_split_fix, voi_merge_fix = rand_voi_split_merge(graph_fix)
-    print ("rand_split diff is : %f" %(rand_split_fix -origin_scores[0]))
-    print ("rand_merge diff is : %f" %(rand_merge_fix -origin_scores[1]))
-    print ("voi_split diff is : %f" %(voi_split_fix -origin_scores[2]))
-    print ("voi_merge diff is : %f" %(voi_merge_fix -origin_scores[3]))
+    print ("rand_split diff is : %f" % (rand_split_fix - origin_scores[0]))
+    print ("rand_merge diff is : %f" % (rand_merge_fix - origin_scores[1]))
+    print ("voi_split diff is : %f" % (voi_split_fix - origin_scores[2]))
+    print ("voi_merge diff is : %f" % (voi_merge_fix - origin_scores[3]))
+
+
+def get_diff(origin_scores, graph_fix):
+    rand_split_fix, rand_merge_fix, voi_split_fix, voi_merge_fix = rand_voi_split_merge(graph_fix)
+    return {
+        'rand_split': abs(origin_scores[0] - rand_split_fix),
+        'rand_merge': abs(origin_scores[1] - rand_merge_fix),
+        'voi_split': abs(origin_scores[2] - voi_split_fix),
+        'voi_merge': abs(origin_scores[3] - voi_merge_fix),
+        }

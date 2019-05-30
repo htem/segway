@@ -37,19 +37,14 @@ if __name__ == "__main__":
     else:
         mask = None
 
-    # prepare fragments dataset
-    fragments_out = daisy.prepare_ds(
-        fragments_file,
-        fragments_dataset,
-        affs.roi,
-        affs.voxel_size,
-        np.uint64,
-        daisy.Roi((0, 0, 0), block_size),
-        # temporary fix until
-        # https://github.com/zarr-developers/numcodecs/pull/87 gets approved
-        # (we want gzip to be the default)
-        compressor={'id': 'zlib', 'level':5}
-        )
+    fragments_out = daisy.open_ds(
+        fragments_file, fragments_dataset, 'r+')
+
+    try:
+        myelin_ds = daisy.open_ds(
+            fragments_file, myelin_dataset)
+    except:
+        myelin_ds = None
 
     # open RAG DB
     logging.info("Opening RAG DB...")
@@ -97,6 +92,7 @@ if __name__ == "__main__":
                            fragments_in_xy,
                            epsilon_agglomerate,
                            mask,
+                           myelin_ds=myelin_ds
                            # use_mahotas=use_mahotas,
                            )
 
