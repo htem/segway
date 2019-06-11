@@ -65,18 +65,22 @@ def predict(
     raw = ArrayKey('RAW')
     affs = ArrayKey('AFFS')
 
+    outputs = {net_config['affs']: affs}
+    dataset_names = {affs: out_dataset}
+
     chunk_request = BatchRequest()
     chunk_request.add(raw, input_size)
     chunk_request.add(affs, output_size)
-
-    if xy_downsample > 0:
-        rawfr = ArrayKey('RAWFR')
-        chunk_request.add(rawfr, input_size)
 
     mapping = {
         raw: "read_roi",
         affs: "write_roi"
     }
+
+    if xy_downsample > 0:
+        rawfr = ArrayKey('RAWFR')
+        chunk_request.add(rawfr, input_size)
+
     initial_raw = raw
 
     if xy_downsample > 0:
@@ -86,6 +90,22 @@ def predict(
             affs: "write_roi"
         }
         initial_raw = rawfr
+
+    if "myelin_embedding" in net_config:
+        myelin_embedding = ArrayKey('MYELIN')
+        chunk_request.add(myelin_embedding, output_size)
+        outputs[net_config['myelin_embedding']] = myelin_embedding
+        dataset_names[myelin_embedding] = "volumes/myelin"
+        mapping[myelin_embedding] = "write_roi"
+        # outputs = {
+        #     net_config['affs']: affs,
+        #     net_config['myelin_embedding']: myelin_embedding
+        # }
+        # dataset_names = {
+        #     affs: out_dataset,
+        #     myelin_embedding: "myelin"
+        # }
+
 
     if raw_file.endswith(".hdf"):
         pipeline = Hdf5Source(
@@ -111,26 +131,21 @@ def predict(
 
     pipeline += IntensityScaleShift(raw, 2, -1)
 
-    # new from logan's
-    # pipeline += ZeroOutConstSections(raw)
 
     pipeline += Predict(
             os.path.join(setup_dir, checkpoint_file),
             inputs={
                 net_config['raw']: raw
             },
-            outputs={
-                net_config['affs']: affs
-            },
-            # graph=os.path.join(setup_dir, 'config.meta')
+            outputs=outputs
         )
-
     pipeline += IntensityScaleShift(affs, 255, 0)
 
+    if "myelin_embedding" in net_config:
+        pipeline += IntensityScaleShift(myelin_embedding, 255, 0)
+
     pipeline += ZarrWrite(
-            dataset_names={
-                affs: out_dataset,
-            },
+            dataset_names=dataset_names,
             output_filename=out_file
         )
 
