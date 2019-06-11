@@ -113,7 +113,7 @@ class PredictTask(task_helper.SlurmTask):
             # but a small number is needed to have good prefetch performance
             self.block_size_in_chunks = [1, 2, 2]
         elif os.path.exists(os.path.join(self.setup, 'unet.json')):
-            net_config = json.load(os.path.join(self.setup, 'unet.json'))
+            net_config = json.load(open(os.path.join(self.setup, 'unet.json')))
             config_file = 'unet.json'
             meta_file = 'unet.meta'
         elif os.path.exists(os.path.join(self.setup, 'net_io_names.json')):
