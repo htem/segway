@@ -14,7 +14,9 @@ import ast
 logger = logging.getLogger(__name__)
 
 home = os.path.expanduser("~")
-RUNNING_REMOTELY = os.path.isfile(home + "/CONFIG_LOCAL_DAISY")
+RUNNING_REMOTELY = os.path.isfile(home + "/CONFIG_DAISY_REMOTE")
+RUNNING_ON_O2_LOGIN = os.path.isfile(home + "/CONFIG_DAISY_O2_LOGIN")
+RUNNING_IN_LOCAL_CLUSTER = os.path.isfile(home + "/CONFIG_DAISY_LOCAL")
 
 
 class SlurmTask(daisy.Task):
@@ -77,12 +79,16 @@ class SlurmTask(daisy.Task):
                 ' '.join(self.new_actor_cmd)))
 
         run_cmd = "cd %s" % os.getcwd() + "; "
-        run_cmd += "source /home/tmn7/daisy/bin/activate;" + " "
+        if not RUNNING_IN_LOCAL_CLUSTER:
+            run_cmd += "source /home/tmn7/daisy/bin/activate;" + " "
         run_cmd += "DAISY_CONTEXT=%s" % context + " "
         run_cmd += ' '.join(self.new_actor_cmd)
 
         if RUNNING_REMOTELY:
             process_cmd = "ssh o2 " + "\"" + run_cmd + "\""
+        elif RUNNING_IN_LOCAL_CLUSTER:
+            assert 'CUDA_VISIBLE_DEVICES' in os.environ
+            process_cmd = run_cmd
         else:
             process_cmd = run_cmd
 
@@ -110,6 +116,8 @@ class SlurmTask(daisy.Task):
             all_jobs = " ".join(started_slurm_jobs)
             if RUNNING_REMOTELY:
                 cmd = "ssh o2 scancel {}".format(all_jobs)
+            elif RUNNING_IN_LOCAL_CLUSTER:
+                cmd = ""
             else:
                 cmd = "scancel {}".format(all_jobs)
             print(cmd)
@@ -163,11 +171,18 @@ def generateActorSbatch(
         sbatch_script, run_cmd, log_dir, logname,
         **kwargs)
 
-    new_actor_cmd = [
-        'sbatch',
-        '--parsable',
-        '%s' % sbatch_script
-        ]
+    if RUNNING_IN_LOCAL_CLUSTER:
+        new_actor_cmd = [
+            'sh',
+            '%s' % sbatch_script
+            ]
+
+    else:
+        new_actor_cmd = [
+            'sbatch',
+            '--parsable',
+            '%s' % sbatch_script
+            ]
 
     return run_cmd, new_actor_cmd
 
@@ -306,8 +321,6 @@ def aggregateConfigs(configs):
         config_hash = hashlib.blake2b(
             output_path.encode(), digest_size=4).hexdigest()
         input_config['db_name'] = input_config['db_name'] + "_" + config_hash
-    # print(input_config['db_name'])
-    # exit(0)
     if len(input_config['db_name']) >= 64:
         # we will just truncate the name and prepend the date
         truncated_name = "%d%02d_%s" % (today.year, today.month, input_config['db_name'][8:])
@@ -315,6 +328,7 @@ def aggregateConfigs(configs):
         input_config['db_name'] = truncated_name
 
     os.makedirs(input_config['log_dir'], exist_ok=True)
+
 
     if "PredictTask" in configs:
         config = configs["PredictTask"]
@@ -325,12 +339,11 @@ def aggregateConfigs(configs):
         config['train_dir'] = network_config['train_dir']
         config['iteration'] = network_config['iteration']
         config['log_dir'] = input_config['log_dir']
-        config['output_shape'] = network_config['output_shape']
-        config['out_dtype'] = network_config['out_dtype']
+        # config['output_shape'] = network_config['output_shape']
+        # config['out_dtype'] = network_config['out_dtype']
         config['net_voxel_size'] = network_config['net_voxel_size']
-        # config['effective_net_voxel_size'] = network_config['effective_net_voxel_size']
-        config['input_shape'] = network_config['input_shape']
-        config['out_dims'] = network_config['out_dims']
+        # config['input_shape'] = network_config['input_shape']
+        # config['out_dims'] = network_config['out_dims']
         config['predict_file'] = network_config['predict_file']
         if 'xy_downsample' in network_config:
             config['xy_downsample'] = network_config['xy_downsample']
@@ -339,6 +352,9 @@ def aggregateConfigs(configs):
         if 'roi_shape' in input_config:
             config['roi_shape'] = input_config['roi_shape']
         config['myelin_prediction'] = network_config.get('myelin_prediction', 0)
+
+        # restrict number of workers to 1 for predict task if we're running locally to avoid conflict with other daisies
+        config['num_workers'] = 1
 
     if "PredictMyelinTask" in configs:
         config = configs["PredictMyelinTask"]

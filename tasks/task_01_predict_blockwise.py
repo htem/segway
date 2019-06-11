@@ -5,10 +5,7 @@ import os
 import sys
 
 import daisy
-
-# from task_helper import *
 import task_helper
-# logging.getLogger('daisy.blocks').setLevel(logging.DEBUG)
 
 logger = logging.getLogger(__name__)
 
@@ -52,28 +49,25 @@ class PredictTask(task_helper.SlurmTask):
             How many blocks to run in parallel.
     '''
 
-    # experiment = daisy.Parameter()
-    # setup = daisy.Parameter()
     train_dir = daisy.Parameter()
     iteration = daisy.Parameter()
     raw_file = daisy.Parameter()
     raw_dataset = daisy.Parameter()
     roi_offset = daisy.Parameter(None)
     roi_shape = daisy.Parameter(None)
-    # lsds_file = daisy.Parameter()
-    # lsds_dataset = daisy.Parameter()
     out_file = daisy.Parameter()
     out_dataset = daisy.Parameter()
     block_size_in_chunks = daisy.Parameter()
     num_workers = daisy.Parameter()
     predict_file = daisy.Parameter(None)
 
+    # DEPRECATED
+    input_shape = daisy.Parameter(None)
     output_shape = daisy.Parameter(None)
     out_dtype = daisy.Parameter(None)
     out_dims = daisy.Parameter(None)
+
     net_voxel_size = daisy.Parameter(None)
-    # effective_net_voxel_size = daisy.Parameter(None)
-    input_shape = daisy.Parameter(None)
     xy_downsample = daisy.Parameter(1)
 
     log_to_stdout = daisy.Parameter(default=True)
@@ -83,11 +77,18 @@ class PredictTask(task_helper.SlurmTask):
     mem_per_core = daisy.Parameter(1.75)
     myelin_prediction = daisy.Parameter(0)
 
-    # predict_num_core = daisy.Parameter(2)
-
     def prepare(self):
         '''Daisy calls `prepare` for each task prior to scheduling
         any block.'''
+
+        if self.input_shape is not None:
+            assert False, "input_shape is deprecated, do not use"
+        if self.output_shape is not None:
+            assert False, "output_shape is deprecated, do not use"
+        if self.out_dtype is not None:
+            assert False, "out_dtype is deprecated, do not use"
+        if self.out_dims is not None:
+            assert False, "out_dims is deprecated, do not use"
 
         self.setup = os.path.abspath(self.train_dir)
         self.raw_file = os.path.abspath(self.raw_file)
@@ -95,45 +96,48 @@ class PredictTask(task_helper.SlurmTask):
 
         logger.info('Input file path: ' + self.raw_file)
         logger.info('Output file path: ' + self.out_file)
+
         # from here on, all values are in world units (unless explicitly mentioned)
 
         # get ROI of source
-        try:
-            source = daisy.open_ds(self.raw_file, self.raw_dataset)
-        except Exception:
-            raise Exception("Raw dataset not found! "
-                            "Please fix file path... "
-                            "raw_file: {}".format(self.raw_file))
-            # in_dataset = in_dataset + '/s0'
-            # source = daisy.open_ds(in_file, in_dataset)
-
+        source = daisy.open_ds(self.raw_file, self.raw_dataset)
         logger.info("Source dataset has shape %s, ROI %s, voxel size %s"%(
             source.shape, source.roi, source.voxel_size))
 
         # load config
-        # with open(os.path.join(self.setup, 'config.json')) as f:
-        #     logger.info("Reading setup config from %s"%os.path.join(self.setup, 'config.json'))
-        #     net_config = json.load(f)
+        if os.path.exists(os.path.join(self.setup, 'test_net.json')):
+            net_config = json.load(open(os.path.join(self.setup, 'test_net.json')))
+            config_file = 'test_net.json'
+            meta_file = 'test_net.meta'
+            # no need to have big chunks with test_net
+            # but a small number is needed to have good prefetch performance
+            self.block_size_in_chunks = [1, 2, 2]
+        elif os.path.exists(os.path.join(self.setup, 'unet.json')):
+            net_config = json.load(os.path.join(self.setup, 'unet.json'))
+            config_file = 'unet.json'
+            meta_file = 'unet.meta'
+        elif os.path.exists(os.path.join(self.setup, 'net_io_names.json')):
+            assert False, "Unsupported, please rename network files"
+        else:
+            assert False, "No network config found at %s" % self.setup
 
-        # out_dims = net_config['out_dims']
-        # out_dtype = net_config['out_dtype']
-        logger.info('Number of dimensions is %i' % self.out_dims)
+        out_dims = net_config['out_dims']
+        out_dtype = net_config['out_dtype']
+        logger.info('Number of dimensions is %i' % out_dims)
 
         # get chunk size and context
         voxel_size = source.voxel_size
         self.net_voxel_size = tuple(self.net_voxel_size)
-        # self.effective_net_voxel_size = tuple(self.effective_net_voxel_size)
-        # net_voxel_size = daisy.Coordinate(self.voxel_size)
-        # print(voxel_size)
-        # print(self.net_voxel_size)
         if self.net_voxel_size != source.voxel_size:
             logger.info("Mismatched net and source voxel size. "
                         "Assuming downsampling")
             # force same voxel size for net in and output dataset
             voxel_size = self.net_voxel_size
 
-        net_input_size = daisy.Coordinate(self.input_shape)*voxel_size
-        net_output_size = daisy.Coordinate(self.output_shape)*voxel_size
+        # net_input_size = daisy.Coordinate(self.input_shape)*voxel_size
+        # net_output_size = daisy.Coordinate(self.output_shape)*voxel_size
+        net_input_size = daisy.Coordinate(net_config["input_shape"])*voxel_size
+        net_output_size = daisy.Coordinate(net_config["output_shape"])*voxel_size
         chunk_size = net_output_size
         context = (net_input_size - net_output_size)/2
 
@@ -180,9 +184,10 @@ class PredictTask(task_helper.SlurmTask):
             self.out_dataset,
             output_roi,
             voxel_size,
-            self.out_dtype,
-            write_roi=daisy.Roi((0, 0, 0), chunk_size),
-            num_channels=self.out_dims,
+            out_dtype,
+            # write_roi=daisy.Roi((0, 0, 0), chunk_size),
+            write_size=chunk_size,
+            num_channels=out_dims,
             compressor={'id': 'zlib', 'level': 5}
             )
 
@@ -192,8 +197,9 @@ class PredictTask(task_helper.SlurmTask):
                 "volumes/myelin",
                 output_roi,
                 voxel_size,
-                self.out_dtype,
-                write_roi=daisy.Roi((0, 0, 0), chunk_size),
+                out_dtype,
+                # write_roi=daisy.Roi((0, 0, 0), chunk_size),
+                write_size=chunk_size,
                 compressor={'id': 'zlib', 'level': 5}
                 )
 
@@ -203,8 +209,6 @@ class PredictTask(task_helper.SlurmTask):
                 self.raw_file = spec['container']
 
         config = {
-            # 'experiment': self.experiment,
-            # 'setup': self.setup,
             'iteration': self.iteration,
             'raw_file': self.raw_file,
             'raw_dataset': self.raw_dataset,
@@ -212,15 +216,14 @@ class PredictTask(task_helper.SlurmTask):
             'read_size': 0,
             'out_file': self.out_file,
             'out_dataset': self.out_dataset,
-            'output_shape': self.output_shape,
-            # 'out_dtype': self.out_dtype,
             'voxel_size': self.net_voxel_size,
-            'input_shape': self.input_shape,
             'train_dir': self.train_dir,
             'write_begin': 0,
             'write_size': 0,
             'xy_downsample': self.xy_downsample,
-            'predict_num_core': self.cpu_cores
+            'predict_num_core': self.cpu_cores,
+            'config_file': config_file,
+            'meta_file': meta_file,
         }
 
         if self.predict_file is not None:
@@ -241,6 +244,7 @@ class PredictTask(task_helper.SlurmTask):
             total_roi=input_roi,
             read_roi=block_read_roi,
             write_roi=block_write_roi,
+            # write_size=block_output_size,
             process_function=self.new_actor,
             check_function=(self.check_block, self.check_block),
             read_write_conflict=False,

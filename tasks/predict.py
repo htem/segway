@@ -13,25 +13,21 @@ def predict(
         iteration,
         raw_file,
         raw_dataset,
-        # read_roi,
-        input_shape,
-        output_shape,
         voxel_size,
         out_file,
         out_dataset,
         train_dir,
         predict_num_core,
-        xy_downsample):
+        xy_downsample,
+        config_file,
+        meta_file
+        ):
 
     # setup_dir = os.path.dirname(os.path.realpath(__file__))
     setup_dir = train_dir
 
-    try:
-        with open(os.path.join(setup_dir, 'unet.json'), 'r') as f:
-            net_config = json.load(f)
-    except:
-        with open(os.path.join(setup_dir, 'net_io_names.json'), 'r') as f:
-            net_config = json.load(f)
+    with open(os.path.join(setup_dir, config_file), 'r') as f:
+        net_config = json.load(f)
 
     # try to find checkpoint name
     pattern = '*checkpoint_%d.*' % iteration
@@ -44,21 +40,16 @@ def predict(
     checkpoint_file = checkpoint_files[0].split('.')[0]
     checkpoint_file = checkpoint_file.split('/')[-1]
 
-    # voxels
-    input_shape = Coordinate(input_shape)
-    output_shape = Coordinate(output_shape)
+    # These values are in pixels/voxels
+    # input_shape = Coordinate(input_shape)
+    # output_shape = Coordinate(output_shape)
+    input_shape = Coordinate(net_config["input_shape"])
+    output_shape = Coordinate(net_config["output_shape"])
     voxel_size = Coordinate(tuple(voxel_size))
 
     context = (input_shape - output_shape)//2
-    # voxel_size = Coordinate(tuple(cfg.get("voxel_size",(40,4,4))))
-    # input_size = Coordinate(tuple(cfg.get("input_size_pixels",(84,268,268))))*voxel_size
-    # output_size = Coordinate(tuple(cfg.get("output_size_pixels",(56,56,56))))*voxel_size
 
     print("Context is %s"%(context,))
-    # nm
-    # voxel_size = Coordinate((40, 4, 4))
-    # voxel_size = Coordinate(net_config["voxel_size"])
-    # context_nm = context*voxel_size
     input_size = input_shape*voxel_size
     output_size = output_shape*voxel_size
 
@@ -97,15 +88,6 @@ def predict(
         outputs[net_config['myelin_embedding']] = myelin_embedding
         dataset_names[myelin_embedding] = "volumes/myelin"
         mapping[myelin_embedding] = "write_roi"
-        # outputs = {
-        #     net_config['affs']: affs,
-        #     net_config['myelin_embedding']: myelin_embedding
-        # }
-        # dataset_names = {
-        #     affs: out_dataset,
-        #     myelin_embedding: "myelin"
-        # }
-
 
     if raw_file.endswith(".hdf"):
         pipeline = Hdf5Source(
@@ -131,13 +113,13 @@ def predict(
 
     pipeline += IntensityScaleShift(raw, 2, -1)
 
-
     pipeline += Predict(
             os.path.join(setup_dir, checkpoint_file),
             inputs={
                 net_config['raw']: raw
             },
-            outputs=outputs
+            outputs=outputs,
+            graph=os.path.join(setup_dir, meta_file)
         )
     pipeline += IntensityScaleShift(affs, 255, 0)
 
@@ -162,35 +144,25 @@ def predict(
 if __name__ == "__main__":
 
     logging.basicConfig(level=logging.INFO)
-    # logging.basicConfig(level=logging.DEBUG)
-    logging.getLogger('gunpowder.nodes.hdf5like_write_base').setLevel(logging.DEBUG)
+    # logging.getLogger('gunpowder.nodes.hdf5like_write_base').setLevel(logging.DEBUG)
 
     print(sys.argv)
     config_file = sys.argv[1]
     with open(config_file, 'r') as f:
         run_config = json.load(f)
 
-    # read_roi = Roi(
-    #     run_config['read_begin'],
-    #     run_config['read_size'])
-    # write_roi = read_roi.grow(-context_nm, -context_nm)
-
-    # print("Read ROI in nm is %s"%read_roi)
-    # print("Write ROI in nm is %s"%write_roi)
-
-    # print(run_config)
-        
     predict(
         run_config['iteration'],
         run_config['raw_file'],
         run_config['raw_dataset'],
-        # read_roi,
-        run_config['input_shape'],
-        run_config['output_shape'],
+        # run_config['input_shape'],
+        # run_config['output_shape'],
         run_config['voxel_size'],
         run_config['out_file'],
         run_config['out_dataset'],
         run_config['train_dir'],
         run_config['predict_num_core'],
-        run_config['xy_downsample']
+        run_config['xy_downsample'],
+        run_config['config_file'],
+        run_config['meta_file'],
         )
