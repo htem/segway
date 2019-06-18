@@ -123,7 +123,7 @@ if __name__ == "__main__":
         type=int,
         default=16)
     parser.add_argument("-i", "--interpolation",
-                        default="True", choices=["True", "False"],
+                        default=True, choices=[True, False],
                         help="graph with interpolation or not")
     # parser.add_argument("-f","--filename",help="name for the graph",\
     #                     default="test")

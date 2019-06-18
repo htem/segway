@@ -46,16 +46,22 @@ def num_splits(graph):
                 seg_list.append(treenode_id)
 '''
 
+## here we consider the situation that network to sometimes miss small internal areas of larger processes without breakingtheir overall continuity. 
+## include_breaking_error=True means we didn't consider such situation. include_breaking_error=False means we will consider such situation.  
+## Thus the numb of splits error is decreasing and we will provide dict of breaking_errors will be ignored in counting the numb of split error.
 
-def splits_error(graph):  # dict === {sk_id:(((zyx),(zyx)),....),...}
+# more information https://arxiv.org/pdf/1611.00421.pdf  see 4.3 and 5 
+def splits_error(graph, include_breaking_error=False):  # dict === {sk_id_1:(((zyx),(zyx)),....),sk_id_2:(),...}
     error_count = 0
     error_dict = {}
     sk_id = -1
+    breaking_error_dict = {}
     for treenode_id, attr in graph.nodes(data=True):
         # print (attr)
         if attr['skeleton_id'] != sk_id:
             sk_id = attr['skeleton_id']
             error_dict[sk_id] = set()
+            breaking_error_dict[sk_id] = set()
         if attr['segId_pred'] == -1:
             continue
         # build graph from json, check for None
@@ -69,19 +75,51 @@ def splits_error(graph):  # dict === {sk_id:(((zyx),(zyx)),....),...}
             if parent_node['segId_pred'] == -1:
                 continue
             if attr['segId_pred'] != parent_node['segId_pred']:
-                error_count += 1
-                error_dict[sk_id].add((Coordinate((attr['z'],
-                                                   attr['y'],
-                                                   attr['x'])),
-                                       Coordinate((parent_node['z'],
-                                                   parent_node['y'],
-                                                   parent_node['x']))))
-    return error_count, error_dict
+                if include_breaking_error:
+                    error_count += 1
+                    error_dict[sk_id].add((Coordinate((attr['z'],
+                                                    attr['y'],
+                                                    attr['x'])),
+                                        Coordinate((parent_node['z'],
+                                                    parent_node['y'],
+                                                    parent_node['x']))))
+                else:
+                    ancestor_node = parent_node
+                    while not (ancestor_node['parent_id'] is None or math.isnan(ancestor_node['parent_id'])):
+                        ancestor_node = graph.node[ancestor_node['parent_id']]
+                        if ancestor_node['segId_pred'] == attr['segId_pred']:
+                            breaking_error_dict[sk_id].add((Coordinate((attr['z'],
+                                                    attr['y'],
+                                                    attr['x'])),
+                                                    Coordinate((parent_node['z'],
+                                                    parent_node['y'],
+                                                    parent_node['x'])),
+                                                    Coordinate((ancestor_node['z'],
+                                                    ancestor_node['y'],
+                                                    ancestor_node['x']))))
+                            break
+                    if ancestor_node['segId_pred'] != attr['segId_pred']:
+                        error_count += 1
+                        error_dict[sk_id].add((Coordinate((attr['z'],
+                                                        attr['y'],
+                                                        attr['x'])),
+                                            Coordinate((parent_node['z'],
+                                                        parent_node['y'],
+                                                        parent_node['x']))))
+    if include_breaking_error:
+        return error_count, (error_dict)
+    else:
+        return error_count, (error_dict, breaking_error_dict)
+###breaking_error_dict stores three coordinate, first two is the same as error_dict, third one is the ancestor node save it from split error.
+###for example, for node with segId A, if it's parent segId is B, it is split error. But if it's ancstor has same segId A, it's not split error.
+### A....BA, BA is not split error any more. ....CBBA, here BA is split eror   
+ 
 
 
 def merge_error(graph):  # dict === {seg_id:([{(zyx),(zyx)},sk1,sk2],....),...}
     seg_dict = {}
     seg_error_dict = {}
+    # build the {seg_id:{sk_id:[((zyx),(zyx),...]}}
     for treenode_id, attr in graph.nodes(data=True):
         if attr['segId_pred'] == -1:
             continue
@@ -101,7 +139,6 @@ def merge_error(graph):  # dict === {seg_id:([{(zyx),(zyx)},sk1,sk2],....),...}
             seg_dict[attr['segId_pred']][attr['skeleton_id']].add((attr['z'],
                                                                    attr['y'],
                                                                    attr['x']))
-    # build the {seg_id:{sk_id:[((zyx),(zyx),...]}}
     error_counts = 0
     for seg_id, seg_skeleton in seg_dict.items():
         seg_error_dict[seg_id] = []

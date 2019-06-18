@@ -35,7 +35,7 @@ def get_error_dict(skeleton_path, seg_path, threshold_list, num_process,
         split_error_num, split_list = splits_error(graph)
         numb_split.append(split_error_num)
         # dict == {segmentation_threshold:{sk_id:(((zyx),(zyx)),....),...} }
-        split_error_dict[threshold] = split_list
+        split_error_dict[threshold] = split_list[0]
         merge_error_num, merge_list = merge_error(graph)
         numb_merge.append(int(merge_error_num))
         # dict == {segmentation_threshold:{seg_id:([{(zyx),(zyx)},sk1,sk2])} }
@@ -319,15 +319,16 @@ def to_pixel_coord_xyz(zyx):
     zyx = (daisy.Coordinate(zyx) / daisy.Coordinate((40, 4, 4)))
     return daisy.Coordinate((zyx[2], zyx[1], zyx[0]))
 
-
+## split_error_dict === (error_dict) or (error_dict, breaking_error_dict). The latter includes breaking_error_dict 
 def print_split_errors(split_error_dict, seg_path, seg_vol, graph, origin_scores):
 
     segment_ds = daisy.open_ds(seg_path, seg_vol)
     print(seg_vol)
     all_errors = []
-
-    for skel_id in split_error_dict:
-        errors = split_error_dict[skel_id]
+    breaking_errors = []
+    ### get the routine split errors 
+    for skel_id in split_error_dict[0]:
+        errors = split_error_dict[0][skel_id]
         if len(errors):
             for error in errors:
                 xyzx = []
@@ -341,6 +342,19 @@ def print_split_errors(split_error_dict, seg_path, seg_vol, graph, origin_scores
                     'xyzs': xyzx,
                     'scores': scores,
                     })
+    ### get the errors we ignore in presense of an organelle
+    if len(split_error_dict) == 2:
+        for skel_id in split_error_dict[1]:
+            errors = split_error_dict[1][skel_id]
+            if len(errors):
+                for error in errors:
+                    xyzx = []
+                    for point in error:
+                        xyzx.append((to_pixel_coord_xyz(point), segment_ds[Coordinate(point)]))
+                    breaking_errors.append({
+                        'skeleton': skel_id,
+                        'xyzs': xyzx,
+                    })
 
     all_errors = sorted(all_errors, key=lambda x: x['scores']['rand_split'])
     total_rand_split = 0.0
@@ -352,8 +366,13 @@ def print_split_errors(split_error_dict, seg_path, seg_vol, graph, origin_scores
         total_rand_split += error['scores']['rand_split']
         print("\tVOI  split score: %.4f" % error['scores']['voi_split'])
     print("Total RAND split loss: %.4f" % total_rand_split)
-
-
+    if len(split_error_dict) == 2:
+        print("Following are errors we didn't count in numb_error")
+        for error in breaking_errors:
+            print("Skeleton: %s" % error['skeleton'])
+            for xyz in error["xyzs"]:
+                print("\t%s (%s)" % (xyz[0], xyz[1]))
+        
 def print_merge_errors(merge_error_dict, seg_vol, graph, origin_scores):
     # print(seg_vol)
 
@@ -388,6 +407,7 @@ def print_merge_errors(merge_error_dict, seg_vol, graph, origin_scores):
     print("Total RAND merge loss: %.4f" % total_rand_merge)
 
 
+
 def get_merge_split_error(
         skeleton_path,
         seg_path,
@@ -413,7 +433,7 @@ def get_merge_split_error(
         print_merge_errors(merge_dict, seg_vol, graph, origin_scores)
 
     if "split" in error_type or "both" in error_type:
-        _, split_dict = splits_error(graph)
+        _, split_dict = splits_error(graph,include_breaking_error=False)
         print('Split errors:')
         print_split_errors(split_dict, seg_path, seg_vol, graph, origin_scores)
 
