@@ -42,7 +42,7 @@ def construct_name_mapping(paths, names):
 
 
 def run_evaluation(
-        config_path, mode, num_process, with_interpolation, filename):
+        config_path, mode, num_process, with_interpolation, step, z_weight_multiplier, filename):
 
     config = parseConfigs(config_path)
     if "skeleton" in config["Input"]:
@@ -69,7 +69,9 @@ def run_evaluation(
             config["Input"]["segment_dataset"],
             config["PrintSplitMergeErrorTask"]["chosen_error_type"],
             num_process,
-            with_interpolation
+            with_interpolation,
+	    step,
+            z_weight_multiplier = 1
         )
     elif mode == "quickplot":
         quick_compare_with_graph(
@@ -81,7 +83,8 @@ def run_evaluation(
             num_process,
             os.path.dirname(config_path),
             # config["Output"]["output_path"],
-            with_interpolation)
+            with_interpolation,
+	    step)
     elif mode == "plot":
         compare_threshold_multi_model(
             config["Input"]["segment_dataset"],
@@ -92,7 +95,8 @@ def run_evaluation(
             num_process,
             os.path.dirname(config_path),
             # config["Output"]["output_path"],
-            with_interpolation)
+            with_interpolation,
+            step)
     else:
         print("check if the mode is within plot ,quickplot, print, and check \
               the parsing code")
@@ -125,6 +129,14 @@ if __name__ == "__main__":
     parser.add_argument("-i", "--interpolation",
                         default=True, choices=[True, False],
                         help="graph with interpolation or not")
+    parser.add_argument("-s", "--step",
+                        default=40,
+			type=int,
+                        help="step of interpolation")
+    parser.add_argument("-z", "--zMultiplier",
+                        default=1,
+			type=int,
+                        help="z_weight_multiplier")
     # parser.add_argument("-f","--filename",help="name for the graph",\
     #                     default="test")
     args = parser.parse_args()
@@ -134,5 +146,5 @@ if __name__ == "__main__":
     #            task_defaults.json")
     # if len(args.mode) == 0:
     #     print("Please provide the mode from 'quickplot','plot','print'")
-    run_evaluation(args.config, args.mode, args.processes, args.interpolation,
+    run_evaluation(args.config, args.mode, args.processes, args.interpolation, args.step, args.zMultiplier,
                    args.config.split("/")[-1].split(".")[0])

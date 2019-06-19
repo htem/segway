@@ -58,7 +58,9 @@ def run_evaluation(
             config["Input"]["segment_dataset"],
             config["PrintSplitMergeErrorTask"]["chosen_error_type"],
             num_process,
-            with_interpolation
+            with_interpolation,
+	    step,
+	    z_weight_multiplier
         )
     elif mode == "quickplot":
         quick_compare_with_graph(
@@ -119,5 +121,7 @@ if __name__ == "__main__":
         ds,
         args.mode,
         num_process=8,
-        with_interpolation=True
+        with_interpolation=True,
+	step=40,
+        z_weight_multiplier = 1
     )

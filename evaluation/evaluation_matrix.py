@@ -116,7 +116,7 @@ def splits_error(graph, include_breaking_error=False):  # dict === {sk_id_1:(((z
  
 
 
-def merge_error(graph):  # dict === {seg_id:([{(zyx),(zyx)},sk1,sk2],....),...}
+def merge_error(graph,z_weight_multiplier=1):  # dict === {seg_id:([{(zyx),(zyx)},sk1,sk2],....),...}
     seg_dict = {}
     seg_error_dict = {}
     # build the {seg_id:{sk_id:[((zyx),(zyx),...]}}
@@ -152,7 +152,7 @@ def merge_error(graph):  # dict === {seg_id:([{(zyx),(zyx)},sk1,sk2],....),...}
         for pos1 in range(len(sk_id_list)):
             for pos2 in range(len(sk_id_list)):
                 if pos1 < pos2:
-                    seg_error_dict[seg_id].append([shortest_euclidean_bw_two_sk(seg_skeleton[sk_id_list[pos1]], seg_skeleton[sk_id_list[pos2]]), sk_id_list[pos1], sk_id_list[pos2]])
+                    seg_error_dict[seg_id].append([shortest_euclidean_bw_two_sk(seg_skeleton[sk_id_list[pos1]], seg_skeleton[sk_id_list[pos2]], z_weight_multiplier), sk_id_list[pos1], sk_id_list[pos2]])
                     error_counts += 1
     return error_counts, seg_error_dict
 

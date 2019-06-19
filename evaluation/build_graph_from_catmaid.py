@@ -3,7 +3,7 @@ import numpy as np
 
 
 def interpolation_sections_CSV(graph, CSVdata, current_row, id_to_start,
-                               step=40):
+                               step):
     if np.isnan(current_row['parent_treenode_id']):
         graph = add_nodes(graph, current_row['z'], current_row['y'],
                           current_row['x'], current_row['treenode_id'],
@@ -52,7 +52,7 @@ def interpolation_sections_CSV(graph, CSVdata, current_row, id_to_start,
 
 
 def interpolation_sections_JSON(graph, sk_id, tr_id, sk_dict, current_dict,
-                                id_to_start, step=40):
+                                id_to_start, step):
     if current_dict['parent_id'] is None:
         graph = add_nodes(graph,
                           current_dict['location'][2],
@@ -123,18 +123,19 @@ def add_nodes(graph, node_z, node_y, node_x, treenode_id, parent_treenode_id,
     return graph
 
 
-def add_nodes_from_catmaidCSV_with_interpolation(CSVdata):
+def add_nodes_from_catmaidCSV_with_interpolation(CSVdata,step):
     graph = nx.Graph()
     id_to_start = max(CSVdata['treenode_id'])+1
     for _, current_row in CSVdata.iterrows():
         graph, id_to_start = interpolation_sections_CSV(graph,
                                                         CSVdata,
                                                         current_row,
-                                                        id_to_start)
+                                                        id_to_start,
+							step)
     return graph
 
 
-def add_nodes_from_catmaidJson_with_interpolation(JSONdata):
+def add_nodes_from_catmaidJson_with_interpolation(JSONdata,step):
     graph = nx.Graph()
     id_to_start = int(max(max(list(i['treenodes'].keys()))
                           for i in JSONdata['skeletons'].values()))+1
@@ -148,7 +149,8 @@ def add_nodes_from_catmaidJson_with_interpolation(JSONdata):
                                                         tr_id,
                                                         sk_dict['treenodes'],
                                                         tr_dict,
-                                                        id_to_start)
+                                                        id_to_start,
+							step)
     return graph
 
 

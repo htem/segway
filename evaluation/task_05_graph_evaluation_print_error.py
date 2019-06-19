@@ -16,7 +16,7 @@ matplotlib.use('Agg')
 
 
 def get_error_dict(skeleton_path, seg_path, threshold_list, num_process,
-                   with_interpolation):
+                   with_interpolation,step,z_weight_multiplier=1):
     numb_split = []
     numb_merge = []
     split_error_dict = {}
@@ -25,18 +25,20 @@ def get_error_dict(skeleton_path, seg_path, threshold_list, num_process,
     graph_list = p.map(partial(graph_with_segId_prediction,
                                skeleton_path=skeleton_path,
                                segmentation_path=seg_path,
-                               with_interpolation=with_interpolation),
+                               with_interpolation=with_interpolation,
+			       step=step),
                        ['volumes/'+threshold for threshold in threshold_list])
     # for threshold in threshold_list:
     for graph, threshold in zip(graph_list, threshold_list):
         graph = graph_with_segId_prediction('volumes/'+threshold,
                                             skeleton_path, seg_path,
-                                            with_interpolation)
+                                            with_interpolation,
+					    step)
         split_error_num, split_list = splits_error(graph)
         numb_split.append(split_error_num)
         # dict == {segmentation_threshold:{sk_id:(((zyx),(zyx)),....),...} }
         split_error_dict[threshold] = split_list[0]
-        merge_error_num, merge_list = merge_error(graph)
+        merge_error_num, merge_list = merge_error(graph,z_weight_multiplier)
         numb_merge.append(int(merge_error_num))
         # dict == {segmentation_threshold:{seg_id:([{(zyx),(zyx)},sk1,sk2])} }
         merge_error_dict[threshold] = merge_list
@@ -44,14 +46,15 @@ def get_error_dict(skeleton_path, seg_path, threshold_list, num_process,
 
 
 def get_rand_voi(skeleton_path, seg_path, threshold_list, num_process,
-                 with_interpolation):
+                 with_interpolation,step=40):
     rand_split_list, rand_merge_list = [], []
     voi_split_list, voi_merge_list = [], []
     p = Pool(num_process)
     graph_list = p.map(partial(graph_with_segId_prediction,
                                skeleton_path=skeleton_path,
                                segmentation_path=seg_path,
-                               with_interpolation=with_interpolation),
+                               with_interpolation=with_interpolation,
+                               step=step),
                        ['volumes/'+threshold for threshold in threshold_list])
     for graph in graph_list:
         # for file in threshold_list:
@@ -139,6 +142,7 @@ def compare_threshold_multi_model(
         num_process,
         output_path,
         with_interpolation,
+	step=40,
         markers=['.', ',', 'o', 'v', '^', '<', '>', '1', '2'],
         colors=None):
 
@@ -168,7 +172,8 @@ def compare_threshold_multi_model(
                                                           seg_path,
                                                           threshold_list,
                                                           num_process,
-                                                          with_interpolation)
+                                                          with_interpolation,
+							  step)
             model = get_model_name(seg_path)
             split_and_merge.extend((model, numb_merge, numb_split))
         compare_threshold(threshold_list, filename, 'number', output_path,
@@ -197,7 +202,7 @@ def compare_threshold_multi_model(
             (rand_split_list,
              rand_merge_list,
              _, _) = get_rand_voi(skeleton_path, seg_path, threshold_list,
-                                  num_process, with_interpolation)
+                                  num_process, with_interpolation, step)
             model = get_model_name(seg_path)
             split_and_merge_rand.extend((model, rand_merge_list,
                                          rand_split_list))
@@ -211,7 +216,7 @@ def compare_threshold_multi_model(
              voi_split_list,
              voi_merge_list) = get_rand_voi(skeleton_path, seg_path,
                                             threshold_list, num_process,
-                                            with_interpolation)
+                                            with_interpolation, step)
             model = get_model_name(seg_path)
             split_and_merge_voi.extend((model, voi_merge_list, voi_split_list))
         compare_threshold(threshold_list, filename, 'voi', output_path,
@@ -234,6 +239,7 @@ def quick_compare_with_graph(
         num_process,
         output_path,
         with_interpolation,
+        step=40,
         markers=None,
         colors=None):
 
@@ -268,7 +274,8 @@ def quick_compare_with_graph(
         graph_list = p.map(partial(graph_with_segId_prediction,
                                    skeleton_path=skeleton_path,
                                    segmentation_path=seg_path,
-                                   with_interpolation=with_interpolation),
+                                   with_interpolation=with_interpolation,
+                                   step=step),
                            ['volumes/'+threshold
                             for threshold in threshold_list])
         # for threshold in threshold_list:
@@ -414,13 +421,16 @@ def get_merge_split_error(
         seg_vol,
         error_type,
         num_process,
-        with_interpolation):
+        with_interpolation,
+        step,
+        z_weight_multiplier):
 
     graph = graph_with_segId_prediction2(
         seg_vol,
         skeleton_path,
         seg_path,
-        with_interpolation)
+        with_interpolation,
+        step)
     print(graph)
     # get the origin rand or voi scores
     origin_scores = ()
@@ -428,7 +438,7 @@ def get_merge_split_error(
     # origin_scores = (rand_split, rand_merge, voi_split, voi_merge )
 
     if "merge" in error_type or "both" in error_type:
-        _, merge_dict = merge_error(graph)
+        _, merge_dict = merge_error(graph,z_weight_multiplier)
         print('Merge errors:')
         print_merge_errors(merge_dict, seg_vol, graph, origin_scores)
 
@@ -439,7 +449,7 @@ def get_merge_split_error(
 
 
 def get_multi_merge_split_error(skeleton_path, seg_path_list, threshold_list,
-                                error_type, num_process, with_interpolation):
+                                error_type, num_process, with_interpolation, step, z_weight_multiplier):
     for seg_path in seg_path_list:
         get_merge_split_error(skeleton_path, seg_path, threshold_list,
-                              error_type, num_process, with_interpolation)
+                              error_type, num_process, with_interpolation, step, z_weight_multiplier)
