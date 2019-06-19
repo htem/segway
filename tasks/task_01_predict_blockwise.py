@@ -57,7 +57,7 @@ class PredictTask(task_helper.SlurmTask):
     roi_shape = daisy.Parameter(None)
     out_file = daisy.Parameter()
     out_dataset = daisy.Parameter()
-    block_size_in_chunks = daisy.Parameter()
+    block_size_in_chunks = daisy.Parameter(None)
     num_workers = daisy.Parameter()
     predict_file = daisy.Parameter(None)
 
@@ -99,6 +99,10 @@ class PredictTask(task_helper.SlurmTask):
 
         # from here on, all values are in world units (unless explicitly mentioned)
 
+        if self.block_size_in_chunks is not None:
+            print("block_size_in_chunks is deprecated when using DaisyRequestBlocks")
+        self.block_size_in_chunks = [1, 1, 1]
+
         # get ROI of source
         source = daisy.open_ds(self.raw_file, self.raw_dataset)
         logger.info("Source dataset has shape %s, ROI %s, voxel size %s"%(
@@ -109,9 +113,6 @@ class PredictTask(task_helper.SlurmTask):
             net_config = json.load(open(os.path.join(self.setup, 'test_net.json')))
             config_file = 'test_net.json'
             meta_file = 'test_net.meta'
-            # no need to have big chunks with test_net
-            # but a small number is needed to have good prefetch performance
-            self.block_size_in_chunks = [1, 2, 2]
         elif os.path.exists(os.path.join(self.setup, 'unet.json')):
             net_config = json.load(open(os.path.join(self.setup, 'unet.json')))
             config_file = 'unet.json'
