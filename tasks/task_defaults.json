@@ -61,8 +61,7 @@
             "num_workers": 1,
             "cpu_mem": 32,
             "cpu_time": 0,
-            "max_retries": 1,
-            "merge_function": "hist_quant_50"
+            "max_retries": 1
         },
 
     "SegmentationTask":
@@ -70,7 +69,6 @@
             "fragments_dataset": "/volumes/fragments",
             "out_dataset": "volumes/segmentation",
             "thresholds": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
-            "edges_collection": "edges_hist_quant_50",
             "cpu_mem": 32,
             "cpu_time": 1,
             "num_workers": 1
@@ -82,7 +80,6 @@
             "out_dataset": "volumes/sparse_segmentation",
             "block_size": [2240, 2048, 2048],
             "threshold": 0.5,
-            "edges_collection": "edges_hist_quant_50",
             "num_workers": 8
         },
 
@@ -93,7 +90,6 @@
             "block_size": [2240, 2048, 2048],
             "context": [320, 256, 256],
             "threshold": 0.5,
-            "edges_collection": "edges_hist_quant_50",
             "seed_zyxs": [[12440, 264372, 343814]]
         },
 
@@ -101,14 +97,12 @@
         {
             "fragments_dataset": "/volumes/fragments",
             "segment_dataset": "volumes/segmentation",
-            "context": [320, 256, 256],
-            "edges_collection": "edges_hist_quant_50"
+            "context": [320, 256, 256]
         },
 
     "FixMergeTask":
         {
-            "fragments_dataset": "/volumes/fragments",
-            "edges_collection": "edges_hist_quant_50"
+            "fragments_dataset": "/volumes/fragments"
         },
 
     "SparseSegmentationServer":
@@ -118,7 +112,6 @@
             "block_size": [2240, 2048, 2048],
             "context": [320, 256, 256],
             "threshold": 0.5,
-            "edges_collection": "edges_hist_quant_50",
             "segment_id": 123458,
             "seeds": [[10160, 261968, 341408]],
             "iterations": 1,
