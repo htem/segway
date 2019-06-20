@@ -51,6 +51,7 @@ def fix_merge(
         roi_shape=None,
         ignored_fragments=set(),
         next_segid=None,
+        errored_fragments_out=None,
         **kwargs):
 
     # open fragments
@@ -65,6 +66,7 @@ def fix_merge(
 
     # preprocess data
     fragments_ids = set()
+    errored_fragments = set()
     for comp_zyx in components_zyx:
 
         comp = []
@@ -76,38 +78,61 @@ def fix_merge(
                 print("Coord %s not in fragments_array.roi %s" % (zyx, fragments_array.roi))
                 continue
 
-            n = fragments_array[zyx]
+            f = fragments_array[zyx]
 
-            if n in ignored_fragments:
-                assert 0
+            if f in errored_fragments:
+                continue
+
+            if f in ignored_fragments:
+                # assert False, "Deprecated"
                 continue
 
             # check for duplications within skeleton
-            if n in same_skeleton_fragments:
+            if f in same_skeleton_fragments:
                 continue
-            same_skeleton_fragments.add(n)
+            same_skeleton_fragments.add(f)
 
-            # check if n does not exist in rag or filtered out
-            if n not in rag.node:
+            # check if f does not exist in rag or filtered out
+            if f not in rag.node:
                 # assert 0
                 continue
-            frag_to_coords[n].append(zyx)
+            frag_to_coords[f].append(zyx)
 
             # check if fragment is duplicated across skeletons
-            if n in fragments_ids:
-                print("Fragment %d is duplicated across skeletons!" % n)
-                print(frag_to_coords[n])
-                for zyx in frag_to_coords[n]:
+            if f in fragments_ids:
+                print("Fragment %d is duplicated across skeletons!" % f)
+                print(frag_to_coords[f])
+                pixel_coords = []
+                for zyx in frag_to_coords[f]:
                     print(to_pixel_coord(zyx))
-                assert 0
-            fragments_ids.add(n)
+                    pixel_coords.append(to_pixel_coord(zyx))
+
+                if errored_fragments_out is None:
+                    assert False
+                else:
+                    errored_fragments_out.append((f, pixel_coords))
+                    errored_fragments.add(f)
+                    # now we would need to ignore this fragments
+
+            fragments_ids.add(f)
 
             # add to component
-            comp.append(n)
+            comp.append(f)
 
         # add components
         if len(comp):
             components.append(comp)
+
+    # remove problematic fragments from the component lists
+    for c in components:
+        for error_fragment in errored_fragments:
+            try:
+                c.remove(error_fragment)
+            except:
+                pass
+    # filter out empty connected components
+    components = [c for c in components if len(c)]
+
     # components = [
     #     [fragments_array[zyx] for zyx in comp] for comp in components_zyx]
     print("Components to be splitted %s" % components)
