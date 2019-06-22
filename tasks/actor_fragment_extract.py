@@ -20,7 +20,6 @@ if __name__ == "__main__":
     mask_fragments = False
     mask_file = None
     mask_dataset = None
-    fragments_in_xy = True
     epsilon_agglomerate = 0
     use_mahotas = False
 
@@ -66,11 +65,6 @@ if __name__ == "__main__":
     total_roi = affs.roi.grow(context, context)
     read_roi = daisy.Roi((0,)*affs.roi.dims(), block_size).grow(context, context)
     write_roi = daisy.Roi((0,)*affs.roi.dims(), block_size)
-
-    # fragments_in_xy = fragments_in_xy
-    # epsilon_agglomerate = epsilon_agglomerate
-    fragments_in_xy = True
-    assert(fragments_in_xy)
 
     # Tri 5/13/19: disable use_mahotas for now, let me know if this needs to be enabled
     assert use_mahotas == False
