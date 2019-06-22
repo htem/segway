@@ -103,9 +103,6 @@ class ExtractFragmentTask(task_helper.SlurmTask):
             self.affs.voxel_size,
             np.uint64,
             daisy.Roi((0, 0, 0), self.block_size),
-            # temporary fix until
-            # https://github.com/zarr-developers/numcodecs/pull/87 gets approve
-            # (we want gzip to be the default)
             compressor={'id': 'zlib', 'level': 5}
             )
 
@@ -150,12 +147,16 @@ class ExtractFragmentTask(task_helper.SlurmTask):
 
         self.slurmSetup(config, 'actor_fragment_extract.py')
 
+        check_function = (self.check, lambda b: True)
+        if self.overwrite:
+            check_function = None
+
         self.schedule(
             total_roi=total_roi,
             read_roi=read_roi,
             write_roi=write_roi,
             process_function=self.new_actor,
-            check_function=(self.check, lambda b: True),
+            check_function=check_function,
             read_write_conflict=False,
             fit='shrink',
             num_workers=self.num_workers)
@@ -181,13 +182,3 @@ if __name__ == "__main__":
                                       **user_configs),
          'request': None}],
         global_config=global_config)
-
-    # configs = {}
-    # for config in sys.argv[1:]:
-    #     with open(config, 'r') as f:
-    #         configs = {**json.load(f), **configs}
-    # aggregateConfigs(configs)
-    # print(configs)
-
-    # daisy.distribute([{'task': ExtractFragmentTask(), 'request': None}],
-    #                  global_config=global_config)

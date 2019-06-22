@@ -134,7 +134,7 @@ class AgglomerateTask(task_helper.SlurmTask):
         self.slurmSetup(config, 'actor_agglomerate.py')
 
         check_function = (self.block_done, lambda b: True)
-        if self.no_precheck:
+        if self.overwrite:
             check_function = None
 
         self.schedule(
@@ -149,6 +149,7 @@ class AgglomerateTask(task_helper.SlurmTask):
             fit='shrink')
 
     def block_done(self, block):
+
         return (
             self.rag_provider.has_edges(block.write_roi) or
             self.rag_provider.num_nodes(block.write_roi) == 0)

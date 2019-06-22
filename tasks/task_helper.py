@@ -30,7 +30,7 @@ class SlurmTask(daisy.Task):
     cpu_mem = daisy.Parameter(4)
 
     debug_print_command_only = daisy.Parameter(False)
-    no_precheck = daisy.Parameter(False)
+    overwrite = daisy.Parameter(False)
 
     def slurmSetup(
             self, config, actor_script,
@@ -405,6 +405,7 @@ def aggregateConfigs(configs):
             # tmn7: in local cluster we're limited by GPU not by CPUs
             # so allocating as much as we can
             config['num_workers'] = 4
+            # config['num_workers'] = 1
 
     if "SegmentationTask" in configs:
         config = configs["SegmentationTask"]

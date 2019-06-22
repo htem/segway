@@ -23,7 +23,7 @@ class SegmentationTask(task_helper.SlurmTask):
     # roi_offset = daisy.Parameter(default=None)
     # roi_shape = daisy.Parameter()
     num_workers = daisy.Parameter(default=4)
-    no_check = daisy.Parameter(default=0)
+    no_check_dependence = daisy.Parameter(default=0)
 
     def prepare(self):
         '''Daisy calls `prepare` for each task prior to scheduling
@@ -50,18 +50,22 @@ class SegmentationTask(task_helper.SlurmTask):
             config,
             'actor_segmentation.py')
 
+        check_function = self.block_done
+        if self.overwrite:
+            check_function = None
+
         self.schedule(
             total_roi,
             total_roi,
             total_roi,
             process_function=self.new_actor,
-            check_function=(self.block_done, lambda b: True),
+            check_function=check_function,
             num_workers=1,
             read_write_conflict=False,
             fit='shrink')
 
     def requires(self):
-        if self.no_check or self.is_written():
+        if self.no_check_dependence or self.is_written():
             return []
         return [AgglomerateTask(global_config=self.global_config)]
 
