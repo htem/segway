@@ -240,6 +240,10 @@ class PredictTask(task_helper.SlurmTask):
                         predict_script,
                         gpu='any')
 
+        check_function = (self.check_block, self.check_block)
+        if self.overwrite:
+            check_function = None
+
         # any task must call schedule() at the end of prepare
         self.schedule(
             total_roi=input_roi,
@@ -247,7 +251,7 @@ class PredictTask(task_helper.SlurmTask):
             write_roi=block_write_roi,
             # write_size=block_output_size,
             process_function=self.new_actor,
-            check_function=(self.check_block, self.check_block),
+            check_function=check_function,
             read_write_conflict=False,
             fit='overhang',
             num_workers=self.num_workers,

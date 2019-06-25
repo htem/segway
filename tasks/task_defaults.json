@@ -68,7 +68,7 @@
         {
             "fragments_dataset": "/volumes/fragments",
             "out_dataset": "volumes/segmentation",
-            "thresholds": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
+            "thresholds": [0.6, 0.7, 0.8, 0.85, 0.9],
             "cpu_mem": 32,
             "cpu_time": 1,
             "num_workers": 1
