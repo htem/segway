@@ -123,24 +123,31 @@ def add_nodes(graph, node_z, node_y, node_x, treenode_id, parent_treenode_id,
     return graph
 
 
-def add_nodes_from_catmaidCSV_with_interpolation(CSVdata,step):
+def add_nodes_from_catmaidCSV_with_interpolation(CSVdata, step, ignore_glia = True):
     graph = nx.Graph()
+    glia_cells_sk = glia_cells_sk_id_CSV(CSVdata)
     id_to_start = max(CSVdata['treenode_id'])+1
     for _, current_row in CSVdata.iterrows():
-        graph, id_to_start = interpolation_sections_CSV(graph,
-                                                        CSVdata,
+        if ignore_glia and current_row['skeleton_id'] in glia_cells_sk:
+            continue
+        else:
+            graph, id_to_start = interpolation_sections_CSV(graph,
+                                                            CSVdata,
                                                         current_row,
                                                         id_to_start,
 							step)
     return graph
 
 
-def add_nodes_from_catmaidJson_with_interpolation(JSONdata,step):
+def add_nodes_from_catmaidJson_with_interpolation(JSONdata,step,ignore_glia = False):
     graph = nx.Graph()
+    glia_cells_sk = glia_cells_sk_id_Json(JSONdata)
     id_to_start = int(max(max(list(i['treenodes'].keys()))
                           for i in JSONdata['skeletons'].values()))+1
     for sk_id, sk_dict in JSONdata['skeletons'].items():
         if len(sk_dict['treenodes']) < 2:
+            continue
+        if ignore_glia and int(sk_id) in glia_cells_sk:
             continue
         for tr_id, tr_dict in sk_dict['treenodes'].items():
             (graph,
@@ -154,29 +161,36 @@ def add_nodes_from_catmaidJson_with_interpolation(JSONdata,step):
     return graph
 
 
-def add_nodes_from_catmaidCSV(CSVdata):
+def add_nodes_from_catmaidCSV(CSVdata, ignore_glia=True):
     skeleton_graph = nx.Graph()
     # print(data.columns.values)
+    glia_cells_sk = glia_cells_sk_id_CSV(CSVdata)
     for i, nrow in CSVdata.iterrows():
-        skeleton_graph.add_nodes_from([nrow['treenode_id']],
+        if ignore_glia and current_row['skeleton_id'] in glia_cells_sk:
+            continue
+        else: 
+            skeleton_graph.add_nodes_from([nrow['treenode_id']],
                                       skeleton_id=nrow['skeleton_id'])
-        skeleton_graph.add_nodes_from([nrow['treenode_id']], x=nrow['x'])
-        skeleton_graph.add_nodes_from([nrow['treenode_id']], y=nrow['y'])
-        skeleton_graph.add_nodes_from([nrow['treenode_id']], z=nrow['z'])
-        skeleton_graph.add_nodes_from([nrow['treenode_id']],
+            skeleton_graph.add_nodes_from([nrow['treenode_id']], x=nrow['x'])
+            skeleton_graph.add_nodes_from([nrow['treenode_id']], y=nrow['y'])
+            skeleton_graph.add_nodes_from([nrow['treenode_id']], z=nrow['z'])
+            skeleton_graph.add_nodes_from([nrow['treenode_id']],
                                       parent_id=nrow['parent_treenode_id'])
-        skeleton_graph.add_nodes_from([nrow['treenode_id']], segId_pred=-1)
-        # print(nrow['treenode_id'])
-        # print(nrow[['skeleton_id','x','y','z']].to_dict())
+            skeleton_graph.add_nodes_from([nrow['treenode_id']], segId_pred=-1)
+            # print(nrow['treenode_id'])
+            # print(nrow[['skeleton_id','x','y','z']].to_dict())
     return skeleton_graph
 
 
-def add_nodes_from_catmaidJson(JSONdata):
+def add_nodes_from_catmaidJson(JSONdata,ignore_glia = False):
     skeleton_graph = nx.Graph()
+    glia_cells_sk = glia_cells_sk_id_Json(JSONdata)
     for sk_id, sk_dict in JSONdata['skeletons'].items():
         if len(sk_dict['treenodes']) < 2:
             continue
         sk_id = int(sk_id)
+        if ignore_glia and sk_id in glia_cells_sk:
+            continue
         for tr_id, tr_dict in sk_dict['treenodes'].items():
             tr_id = int(tr_id)
             skeleton_graph.add_nodes_from([tr_id], skeleton_id=sk_id)
@@ -187,6 +201,58 @@ def add_nodes_from_catmaidJson(JSONdata):
                                           parent_id=tr_dict['parent_id'])
             skeleton_graph.add_nodes_from([tr_id], segId_pred=-1)
     return skeleton_graph
+
+def glia_cells_sk_id_CSV(CSVdata):
+    glia_cell_sk_id = set() #store the sk_id which are glia cells
+    parent_dict = {} # store the parent_treenode_id and their child 
+    sk_id = -1 
+    for i, current_row in CSVdata.iterrows():
+        if current_row['skeleton_id'] != sk_id: #find the end of this skeleton with sk_id
+            for child_set in parent_dict.values():
+                if len(child_set) > 5:
+                    child_count = 0
+                    for child in child_set: 
+                        if child not in parent_dict:
+                            child_count += 1
+                    if child_count > 5:
+                        glia_cell_sk_id.add(sk_id)
+            sk_id = current_row['skeleton_id']
+            parent_dict.clear()
+
+        if np.isnan(current_row['parent_treenode_id']): 
+            continue
+        elif current_row['parent_treenode_id'] not in parent_dict:
+            parent_dict[current_row['parent_treenode_id']] = set()
+            parent_dict[current_row['parent_treenode_id']].add(current_row['treenode_id'])
+        else:  
+            parent_dict[current_row['parent_treenode_id']].add(current_row['treenode_id'])
+    return glia_cell_sk_id
+	
+def glia_cells_sk_id_Json(JSONdata):
+    glia_cell_sk_id = set() #store the sk_id which are glia cells
+    parent_dict = {} # store the parent_treenode_id and their child 
+    for sk_id, sk_dict in JSONdata['skeletons'].items():
+        parent_dict.clear()
+        for tr_id, tr_dict in sk_dict['treenodes'].items():
+            if tr_dict['parent_id'] is None:
+                continue
+            elif tr_dict['parent_id'] not in parent_dict:
+                parent_dict[tr_dict['parent_id']] = set()
+                parent_dict[tr_dict['parent_id']].add(int(tr_id)) 
+            else:
+                parent_dict[tr_dict['parent_id']].add(int(tr_id))
+        for child_set in parent_dict.values():
+            if len(child_set) > 5:
+                child_count = 0
+                for child in child_set: 
+                    if child not in parent_dict:
+                        child_count += 1
+                if child_count > 5:
+                    glia_cell_sk_id.add(int(sk_id))  
+    return glia_cell_sk_id 
+	
+	
+
 # def add_edges_from_catamaidCSV(CSVdata, graph):
 #     for i, nrow in CSVdata.iterrows():
 #         if np.isnan(nrow['parent_treenode_id']):

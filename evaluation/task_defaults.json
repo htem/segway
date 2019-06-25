@@ -20,6 +20,11 @@
     "PrintSplitMergeErrorTask":
         {
             "chosen_error_type":["split","merge"]
-        }
-        
+        },
+    "AdditionalFeatures" :
+        {
+            "z_weight_multiplier": 1,
+            "step":40,
+            "ignore_glia": true
+        }        
 }
