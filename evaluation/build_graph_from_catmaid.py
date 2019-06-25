@@ -139,7 +139,7 @@ def add_nodes_from_catmaidCSV_with_interpolation(CSVdata, step, ignore_glia = Tr
     return graph
 
 
-def add_nodes_from_catmaidJson_with_interpolation(JSONdata,step,ignore_glia = False):
+def add_nodes_from_catmaidJson_with_interpolation(JSONdata,step,ignore_glia = True):
     graph = nx.Graph()
     glia_cells_sk = glia_cells_sk_id_Json(JSONdata)
     id_to_start = int(max(max(list(i['treenodes'].keys()))
@@ -182,7 +182,7 @@ def add_nodes_from_catmaidCSV(CSVdata, ignore_glia=True):
     return skeleton_graph
 
 
-def add_nodes_from_catmaidJson(JSONdata,ignore_glia = False):
+def add_nodes_from_catmaidJson(JSONdata,ignore_glia = True):
     skeleton_graph = nx.Graph()
     glia_cells_sk = glia_cells_sk_id_Json(JSONdata)
     for sk_id, sk_dict in JSONdata['skeletons'].items():
