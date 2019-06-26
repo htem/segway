@@ -23,6 +23,12 @@ if __name__ == "__main__":
 
     waterz_merge_function = {
         'hist_quant_10': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 10, ScoreValue, 256, false>>',
+        'hist_quant_20': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 20, ScoreValue, 256, false>>',
+        'hist_quant_30': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 30, ScoreValue, 256, false>>',
+        'hist_quant_40': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 40, ScoreValue, 256, false>>',
+        'hist_quant_60': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 60, ScoreValue, 256, false>>',
+        'hist_quant_70': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 70, ScoreValue, 256, false>>',
+        'hist_quant_80': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 80, ScoreValue, 256, false>>',
         'hist_quant_10_initmax': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 10, ScoreValue, 256, true>>',
         'hist_quant_25': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 25, ScoreValue, 256, false>>',
         'hist_quant_25_initmax': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 25, ScoreValue, 256, true>>',
@@ -33,6 +39,20 @@ if __name__ == "__main__":
         'hist_quant_90': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 90, ScoreValue, 256, false>>',
         'hist_quant_90_initmax': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 90, ScoreValue, 256, true>>',
         'mean': 'OneMinus<MeanAffinity<RegionGraphType, ScoreValue>>',
+
+        'mean_mod': 'OneMinus<SuppressSmallEdgeAffinity<RegionGraphType, ScoreValue, 2, 80, 5, MeanAffinityProvider<RegionGraphType, ScoreValue>>>', # worked for cutout8
+        'hist_quant_30_mod': 'OneMinus<SuppressSmallEdgeAffinity<RegionGraphType, ScoreValue, 2, 80, 5, HistogramQuantileProvider<RegionGraphType, 30, ScoreValue, 256, false>>>',
+        'hist_quant_40_mod': 'OneMinus<SuppressSmallEdgeAffinity<RegionGraphType, ScoreValue, 2, 80, 5, HistogramQuantileProvider<RegionGraphType, 40, ScoreValue, 256, false>>>',
+        'hist_quant_50_mod': 'OneMinus<SuppressSmallEdgeAffinity<RegionGraphType, ScoreValue, 2, 80, 5, HistogramQuantileProvider<RegionGraphType, 50, ScoreValue, 256, false>>>',
+        'hist_quant_60_mod': 'OneMinus<SuppressSmallEdgeAffinity<RegionGraphType, ScoreValue, 2, 80, 5, HistogramQuantileProvider<RegionGraphType, 60, ScoreValue, 256, false>>>',
+        'hist_quant_70_mod': 'OneMinus<SuppressSmallEdgeAffinity<RegionGraphType, ScoreValue, 2, 80, 5, HistogramQuantileProvider<RegionGraphType, 70, ScoreValue, 256, false>>>',
+        # 'mean': 'OneMinus<SuppressSmallEdgeAffinity<RegionGraphType, ScoreValue, 5, 100, 10, MeanAffinityProvider<RegionGraphType, ScoreValue>>>', # .6, works okay for one case
+        # 'mean': 'OneMinus<SuppressSmallEdgeAffinity<RegionGraphType, ScoreValue, 5, 85, 10, MeanAffinityProvider<RegionGraphType, ScoreValue>>>', # .6, works okay for one case
+        # 'mean': 'OneMinus<SuppressSmallEdgeAffinity<RegionGraphType, ScoreValue, 3, 85, 5, MeanAffinityProvider<RegionGraphType, ScoreValue>>>', # too many merges
+        # 'mean': 'OneMinus<SuppressSmallEdgeAffinity<RegionGraphType, ScoreValue, 1, 80, 5, MeanAffinityProvider<RegionGraphType, ScoreValue>>>', # worked for cutout8
+        # 'mean': 'OneMinus<SuppressSmallEdgeAffinity<RegionGraphType, ScoreValue, 1, 140, 5, MeanAffinityProvider<RegionGraphType, ScoreValue>>>', # seemed to also work
+        # 'mean': 'OneMinus<SuppressSmallEdgeAffinity<RegionGraphType, ScoreValue, 2, 80, 0, MeanAffinityProvider<RegionGraphType, ScoreValue>>>', # worked for cutout8
+        # 'mean': 'OneMinus<SuppressSmallEdgeAffinity<RegionGraphType, ScoreValue, 1, 80, 5, MeanAffinityProvider<RegionGraphType, ScoreValue>>>', # worked for cutout8
     }[merge_function]
 
     logging.info("Reading affs from %s", affs_file)
