@@ -31,6 +31,7 @@ class SlurmTask(daisy.Task):
 
     debug_print_command_only = daisy.Parameter(False)
     overwrite = daisy.Parameter(False)
+    no_check_dependency = daisy.Parameter(False)
 
     def slurmSetup(
             self, config, actor_script,
@@ -48,6 +49,9 @@ class SlurmTask(daisy.Task):
         else:
             logname = (actor_script.split('.'))[-1]
 
+        f = "%s/%s.error_blocks.%s" % (self.log_dir, logname, str(datetime.datetime.now()).replace(' ', '_'))
+        self.error_log = open(f, "w")
+
         self.slurmtask_run_cmd, self.new_actor_cmd = generateActorSbatch(
             config,
             actor_script,
@@ -62,26 +66,26 @@ class SlurmTask(daisy.Task):
         self.started_jobs = multiprocessing.Manager().list()
         self.started_jobs_local = []
 
-        # if self.dry_run:
-        #     self.new_actor = lambda b: 0
-        #     self.cleanup = lambda: 0
+        self.logname = logname
+        self.task_done = False
+        self.launch_process_cmd = multiprocessing.Manager().dict()
 
     def new_actor(self):
         '''Submit new actor job using sbatch'''
-        context = os.environ['DAISY_CONTEXT']
+        context_str = os.environ['DAISY_CONTEXT']
 
         logger.info("Srun command: DAISY_CONTEXT={} CUDA_VISIBLE_DEVICES=0 {}".format(
-                context,
+                context_str,
                 self.slurmtask_run_cmd))
 
         logger.info("Submit command: DAISY_CONTEXT={} {}".format(
-                context,
+                context_str,
                 ' '.join(self.new_actor_cmd)))
 
         run_cmd = "cd %s" % os.getcwd() + "; "
         if not RUNNING_IN_LOCAL_CLUSTER:
             run_cmd += "source /home/tmn7/daisy/bin/activate;" + " "
-        run_cmd += "DAISY_CONTEXT=%s" % context + " "
+        run_cmd += "DAISY_CONTEXT=%s" % context_str + " "
         run_cmd += ' '.join(self.new_actor_cmd)
 
         if RUNNING_REMOTELY:
@@ -93,15 +97,35 @@ class SlurmTask(daisy.Task):
             process_cmd = run_cmd
 
         print(process_cmd)
+        self.launch_process_cmd['cmd'] = process_cmd
+        # print(self.launch_process_cmd)
         if not self.debug_print_command_only:
-            cp = subprocess.run(process_cmd,
-                                stdout=subprocess.PIPE,
-                                shell=True
-                                )
-            id = cp.stdout.strip().decode("utf-8")
-            self.started_jobs.append(id)
+
+            if RUNNING_REMOTELY:
+                cp = subprocess.run(process_cmd,
+                                    stdout=subprocess.PIPE,
+                                    shell=True
+                                    )
+                id = cp.stdout.strip().decode("utf-8")
+                self.started_jobs.append(id)
+
+            else:
+                worker_id = daisy.Context.from_env().worker_id
+                logout = open("%s/%s.%d.out" % (
+                                        self.log_dir, self.logname, worker_id),
+                              'a')
+                logerr = open("%s/%s.%d.err" % (
+                                        self.log_dir, self.logname, worker_id),
+                              'a')
+                cp = subprocess.run(process_cmd,
+                                    stdout=logout,
+                                    stderr=logerr,
+                                    shell=True
+                                    )
 
     def cleanup(self):
+        self.error_log.close()
+
         try:
             started_slurm_jobs = self.started_jobs._getvalue()
         except:
@@ -110,8 +134,6 @@ class SlurmTask(daisy.Task):
             except:
                 started_slurm_jobs = []
 
-        # print(started_slurm_jobs._getvalue())
-        # print(started_slurm_jobs._getvalue())
         if len(started_slurm_jobs) > 0:
             all_jobs = " ".join(started_slurm_jobs)
             if RUNNING_REMOTELY:
@@ -125,11 +147,22 @@ class SlurmTask(daisy.Task):
         else:
             print("No jobs to cleanup")
 
+        self.task_done = True
+
     def _periodic_callback(self):
         try:
             self.started_jobs_local = self.started_jobs._getvalue()
         except:
             pass
+
+        if not self.task_done:
+            if self.launch_process_cmd is not None and 'cmd' in self.launch_process_cmd:
+                print("Launch command: ", self.launch_process_cmd['cmd'])
+
+
+    def log_error_block(self, block):
+
+        self.error_log.write(str(block) + '\n')
 
 
 def generateActorSbatch(
@@ -225,6 +258,7 @@ def generateSbatchScript(
         f.write('\n'.join(text))
 
 
+
 def parseConfigs(args, aggregate_configs=True):
     global_configs = {}
     user_configs = {}
@@ -286,6 +320,14 @@ def parseConfigs(args, aggregate_configs=True):
     return (user_configs, global_configs)
 
 
+def copyParameter(from_config, to_config, name, to_name=None):
+
+    if to_name is None:
+        to_name = name
+    if name in from_config and to_name not in to_config:
+        to_config[to_name] = from_config[name]
+
+
 def aggregateConfigs(configs):
 
     input_config = configs["Input"]
@@ -303,34 +345,42 @@ def aggregateConfigs(configs):
     # proj is just the last folder in the config path
     parameters['proj'] = config_filename.split('/')[-2]
 
-    for config in input_config:
-        if isinstance(input_config[config], str):
-            input_config[config] = input_config[config].format(**parameters)
+    input_config["output_file"] = input_config["output_file"].format(**parameters)
 
     # add a hash based on directory path to the mongodb dataset
     # so that other users can run the same config without name conflicts
     # though if the db already exists, don't change it to avoid confusion
+    output_path = os.path.abspath(input_config["output_file"])
+    if output_path.startswith("/mnt/orchestra_nfs/"):
+        output_path = output_path[len("/mnt/orchestra_nfs/"):]
+        output_path = "/n/groups/htem/" + output_path
+    print("Hashing output path %s" % output_path)
+    path_hash = hashlib.blake2b(
+        output_path.encode(), digest_size=4).hexdigest()
+    parameters['path_hash'] = path_hash
+
+    for config in input_config:
+        if isinstance(input_config[config], str):
+            input_config[config] = input_config[config].format(**parameters)
+
+    # for compatibility with configs run with path hash added by default, check
+    # if db already exist
     db_host, db_name = (input_config['db_host'], input_config['db_name'])
     myclient = pymongo.MongoClient(db_host)
-    if db_name not in myclient.database_names():
-        output_path = os.path.abspath(input_config["output_file"])
-        if output_path.startswith("/mnt/orchestra_nfs/"):
-            output_path = output_path[len("/mnt/orchestra_nfs/"):]
-            output_path = "/n/groups/htem/" + output_path
-        print("Hashing output path %s" % output_path)
-        config_hash = hashlib.blake2b(
-            output_path.encode(), digest_size=4).hexdigest()
-        input_config['db_name'] = input_config['db_name'] + "_" + config_hash
-    if len(input_config['db_name']) >= 64:
-        # we will just truncate the name and prepend the date
-        truncated_name = "%d%02d_%s" % (today.year, today.month, input_config['db_name'][8:])
-        assert(len(truncated_name) <= 63)
-        input_config['db_name'] = truncated_name
+    db_name_hashed = "%s_%s" % (db_name, path_hash)
+    if db_name_hashed in myclient.database_names():
+        db_name = db_name_hashed
+
+    assert len(input_config['db_name']) < 64, "db_name has to be 63 or less characters"
+    # if len(input_config['db_name']) >= 64:
+    #     # we will just truncate the name and prepend the date
+    #     truncated_name = "%d%02d_%s" % (today.year, today.month, input_config['db_name'][8:])
+    #     assert(len(truncated_name) <= 63)
+    #     input_config['db_name'] = truncated_name
 
     os.makedirs(input_config['log_dir'], exist_ok=True)
 
-    # determining merge function
-    merge_function = input_config.get("merge_function", "mean")
+    merge_function = configs["AgglomerateTask"]["merge_function"]
 
     if "PredictTask" in configs:
         config = configs["PredictTask"]
@@ -341,11 +391,7 @@ def aggregateConfigs(configs):
         config['train_dir'] = network_config['train_dir']
         config['iteration'] = network_config['iteration']
         config['log_dir'] = input_config['log_dir']
-        # config['output_shape'] = network_config['output_shape']
-        # config['out_dtype'] = network_config['out_dtype']
         config['net_voxel_size'] = network_config['net_voxel_size']
-        # config['input_shape'] = network_config['input_shape']
-        # config['out_dims'] = network_config['out_dims']
         if 'predict_file' in network_config:
             config['predict_file'] = network_config['predict_file']
         else:
@@ -356,10 +402,15 @@ def aggregateConfigs(configs):
             config['roi_offset'] = input_config['roi_offset']
         if 'roi_shape' in input_config:
             config['roi_shape'] = input_config['roi_shape']
+        if 'sub_roi_offset' in input_config:
+            config['sub_roi_offset'] = input_config['sub_roi_offset']
+        if 'sub_roi_shape' in input_config:
+            config['sub_roi_shape'] = input_config['sub_roi_shape']
         config['myelin_prediction'] = network_config.get('myelin_prediction', 0)
 
+        if RUNNING_IN_LOCAL_CLUSTER:
         # restrict number of workers to 1 for predict task if we're running locally to avoid conflict with other daisies
-        config['num_workers'] = 1
+            config['num_workers'] = 1
 
     if "PredictMyelinTask" in configs:
         config = configs["PredictMyelinTask"]
@@ -381,16 +432,21 @@ def aggregateConfigs(configs):
 
     if "ExtractFragmentTask" in configs:
         config = configs["ExtractFragmentTask"]
-        if 'affs_file' not in config:
-            config['affs_file'] = input_config['output_file']
-        config['fragments_file'] = input_config['output_file']
-        config['db_name'] = input_config['db_name']
-        config['db_host'] = input_config['db_host']
-        config['log_dir'] = input_config['log_dir']
+        copyParameter(input_config, config, 'output_file', 'affs_file')
+        copyParameter(input_config, config, 'output_file', 'fragments_file')
+        copyParameter(input_config, config, 'raw_file')
+        copyParameter(input_config, config, 'raw_dataset')
+        copyParameter(input_config, config, 'db_name')
+        copyParameter(input_config, config, 'db_host')
+        copyParameter(input_config, config, 'log_dir')
+        copyParameter(input_config, config, 'sub_roi_offset')
+        copyParameter(input_config, config, 'sub_roi_shape')
         if RUNNING_IN_LOCAL_CLUSTER:
             # tmn7: in local cluster we're limited by GPU not by CPUs
             # so allocating as much as we can
             config['num_workers'] = 8
+        # print(config['affs_file'])
+        # print(config); exit(0)
 
     if "AgglomerateTask" in configs:
         config = configs["AgglomerateTask"]
@@ -410,7 +466,8 @@ def aggregateConfigs(configs):
     if "SegmentationTask" in configs:
         config = configs["SegmentationTask"]
         config['fragments_file'] = input_config['output_file']
-        config['out_file'] = input_config['output_file']
+        if 'out_file' not in config:
+            config['out_file'] = input_config['output_file']
         config['db_name'] = input_config['db_name']
         config['db_host'] = input_config['db_host']
         config['log_dir'] = input_config['log_dir']
