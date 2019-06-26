@@ -57,15 +57,6 @@ if __name__ == "__main__":
 
     assert fragments_out.data.dtype == np.uint64
 
-    if context is None:
-        context = daisy.Coordinate((0,)*affs.roi.dims())
-    else:
-        context = daisy.Coordinate(context)
-
-    total_roi = affs.roi.grow(context, context)
-    read_roi = daisy.Roi((0,)*affs.roi.dims(), block_size).grow(context, context)
-    write_roi = daisy.Roi((0,)*affs.roi.dims(), block_size)
-
     # Tri 5/13/19: disable use_mahotas for now, let me know if this needs to be enabled
     assert use_mahotas == False
 
