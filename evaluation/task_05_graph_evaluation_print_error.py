@@ -125,11 +125,14 @@ def get_model_name(volume_path, name_dictionary={}):
     if re.search(r"setup[0-9]{2}", volume_path):
         model = re.search(r"setup[0-9]{2}",
                           volume_path).group(0) + \
-                          "_"+re.search(r"[0-9]+000",
+                          "_"+re.search(r"[0-9]+00",
                                         volume_path).group(0)
-    else:
-        # model = re.search(r"[0-9]+000",volume_path).group(0)
-        model = "cb2_130000"
+
+    # model = volume_path.split('.zarr')[0]
+
+    # else:
+    #     # model = re.search(r"[0-9]+000",volume_path).group(0)
+    #     model = "cb2_130000"
     return model
 
 
@@ -141,8 +144,7 @@ def compare_threshold_multi_model(
         chosen_matrices,
         num_process,
         output_path,
-        with_interpolation,
-	step=40,
+        with_interpolation, step=40,
         markers=['.', ',', 'o', 'v', '^', '<', '>', '1', '2'],
         colors=None):
 
@@ -156,14 +158,16 @@ def compare_threshold_multi_model(
             'y',
             'k',
             'coral',
-            'gold',
+            # 'gold',
             'purple',
             'navy',
             'lime',
             'salmon',
-            'saddlebrown']
+            'saddlebrown',
+            'gold',
+            ]
 
-    markers = ['o', '', '^', '', 's', '', 'p', '', 'D']
+    markers = ['o', '', '^', 's', ' ', '', 'p', '', 'D']
     works = False
     if 'number' in chosen_matrices:
         split_and_merge = []
@@ -244,7 +248,7 @@ def quick_compare_with_graph(
         colors=None):
 
     if markers is None:
-        markers = ['o', '', '^', '', 's', '', 'p', '', 'D', 'h']
+        markers = ['o', '', '^', 's', ' ', '', 'p', '', 'D']
 
     if colors is None:
         colors = [
@@ -256,12 +260,14 @@ def quick_compare_with_graph(
             'y',
             'k',
             'coral',
-            'gold',
+            # 'gold',
             'purple',
             'navy',
             'lime',
             'salmon',
-            'saddlebrown']
+            'saddlebrown',
+            'gold',
+            ]
 
     split_and_merge, split_and_merge_rand, split_and_merge_voi = [], [], []
     for seg_path in list_seg_path:
