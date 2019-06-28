@@ -15,30 +15,6 @@
             "block_size_in_chunks" : [1, 8, 8],
             "num_workers": 1
         },
-
-    "PredictMyelinTask":
-        {
-            "raw_dataset" : "volumes/raw",
-            "myelin_dataset" : "volumes/myelin_affs",
-            "num_workers": 1,
-            "cpu_cores": 4,
-            "cpu_mem": 10,
-            "lazyflow_num_threads": 4,
-            "lazyflow_mem": 8000,
-            "ilastik_project_path": "/n/groups/htem/Segmentation/ml488/Myelin5_snapshot.ilp",
-            "downsample_xy": 8,
-            "block_size": [2240, 2048, 2048]
-        },
-
-    "MergeMyelinTask":
-        {
-            "affs_dataset": "/volumes/affs",
-            "myelin_dataset" : "volumes/myelin_affs",
-            "merged_affs_dataset" : "volumes/merged_affs",
-            "num_workers": 1,
-            "downsample_xy": 8,
-            "block_size": [2240, 2048, 2048]
-        },
         
     "ExtractFragmentTask":
         {
@@ -56,6 +32,7 @@
         {
             "affs_dataset": "/volumes/affs",
             "fragments_dataset": "/volumes/fragments",
+            "merge_function": "hist_quant_60",
             "block_size": [8960, 8192, 8192],
             "context": [1280, 1024, 1024],
             "num_workers": 1,
@@ -81,41 +58,5 @@
             "block_size": [2240, 2048, 2048],
             "threshold": 0.5,
             "num_workers": 8
-        },
-
-    "GrowSegmentationTask":
-        {
-            "fragments_dataset": "/volumes/fragments",
-            "out_dataset": "volumes/sparse_segmentation",
-            "block_size": [2240, 2048, 2048],
-            "context": [320, 256, 256],
-            "threshold": 0.5,
-            "seed_zyxs": [[12440, 264372, 343814]]
-        },
-
-    "SplitFixTask":
-        {
-            "fragments_dataset": "/volumes/fragments",
-            "segment_dataset": "volumes/segmentation",
-            "context": [320, 256, 256]
-        },
-
-    "FixMergeTask":
-        {
-            "fragments_dataset": "/volumes/fragments"
-        },
-
-    "SparseSegmentationServer":
-        {
-            "fragments_dataset": "/volumes/fragments",
-            "segment_dataset": "volumes/sparse_segmentation",
-            "block_size": [2240, 2048, 2048],
-            "context": [320, 256, 256],
-            "threshold": 0.5,
-            "segment_id": 123458,
-            "seeds": [[10160, 261968, 341408]],
-            "iterations": 1,
-            "reinitialize": 0,
-            "continuous": 1
         }
 }

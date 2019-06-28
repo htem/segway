@@ -20,10 +20,7 @@ class SegmentationTask(task_helper.SlurmTask):
     db_name = daisy.Parameter()
     edges_collection = daisy.Parameter()
     thresholds = daisy.Parameter()
-    # roi_offset = daisy.Parameter(default=None)
-    # roi_shape = daisy.Parameter()
     num_workers = daisy.Parameter(default=4)
-    no_check_dependence = daisy.Parameter(default=0)
 
     def prepare(self):
         '''Daisy calls `prepare` for each task prior to scheduling
@@ -65,7 +62,7 @@ class SegmentationTask(task_helper.SlurmTask):
             fit='shrink')
 
     def requires(self):
-        if self.no_check_dependence or self.is_written():
+        if self.no_check_dependency or (not self.overwrite and self.is_written()):
             return []
         return [AgglomerateTask(global_config=self.global_config)]
 

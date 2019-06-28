@@ -11,7 +11,7 @@ import task_helper
 from task_01_predict_blockwise import PredictTask
 from task_merge_myelin import MergeMyelinTask
 
-logging.getLogger('lsd.parallel_fragments').setLevel(logging.DEBUG)
+# logging.getLogger('lsd.parallel_fragments').setLevel(logging.DEBUG)
 # logging.getLogger('lsd.persistence.sqlite_rag_provider').setLevel(logging.DEBUG)
 
 logger = logging.getLogger(__name__)
@@ -68,13 +68,22 @@ class ExtractFragmentTask(task_helper.SlurmTask):
     db_name = daisy.Parameter()
     num_workers = daisy.Parameter()
 
+    # sub_roi is used to specify the region of interest while still allocating
+    # the entire input raw volume. It is useful when there is a chance that
+    # sub_roi will be increased in the future.
+    sub_roi_offset = daisy.Parameter(None)
+    sub_roi_shape = daisy.Parameter(None)
+
     mask_fragments = daisy.Parameter(default=False)
     mask_file = daisy.Parameter(default=None)
     mask_dataset = daisy.Parameter(default=None)
 
     fragments_file = daisy.Parameter()
     fragments_dataset = daisy.Parameter()
-    fragments_in_xy = daisy.Parameter(default=False)
+    fragments_in_xy = daisy.Parameter()
+
+    raw_file = daisy.Parameter(None)
+    raw_dataset = daisy.Parameter(None)
 
     epsilon_agglomerate = daisy.Parameter(default=0)
     use_mahotas = daisy.Parameter()
@@ -95,17 +104,6 @@ class ExtractFragmentTask(task_helper.SlurmTask):
         else:
             self.mask = None
 
-        # prepare fragments dataset
-        self.fragments_out = daisy.prepare_ds(
-            self.fragments_file,
-            self.fragments_dataset,
-            self.affs.roi,
-            self.affs.voxel_size,
-            np.uint64,
-            daisy.Roi((0, 0, 0), self.block_size),
-            compressor={'id': 'zlib', 'level': 5}
-            )
-
         # open RAG DB
         logging.info("Opening RAG DB...")
         self.rag_provider = lsd.persistence.MongoDbRagProvider(
@@ -114,17 +112,67 @@ class ExtractFragmentTask(task_helper.SlurmTask):
             mode='r+')
         logging.info("RAG DB opened")
 
-        assert self.fragments_out.data.dtype == np.uint64
-
         if self.context is None:
             self.context = daisy.Coordinate((0,)*self.affs.roi.dims())
         else:
             self.context = daisy.Coordinate(self.context)
 
-        total_roi = self.affs.roi.grow(self.context, self.context)
-        read_roi = daisy.Roi((0,)*self.affs.roi.dims(),
-                             self.block_size).grow(self.context, self.context)
-        write_roi = daisy.Roi((0,)*self.affs.roi.dims(), self.block_size)
+        if self.fragments_in_xy:
+            # for CB2
+            # if we extract fragments in xy, there is no need to have context in Z
+            self.context = [n for n in self.context]
+            self.context[0] = 0
+            self.context = tuple(self.context)
+
+        if self.sub_roi_offset is not None and self.sub_roi_shape is not None:
+
+            assert self.raw_file is not None and self.raw_dataset is not None
+            # get ROI of source
+            source = daisy.open_ds(self.raw_file, self.raw_dataset)
+            logger.info("Source dataset has shape %s, ROI %s, voxel size %s"%(
+                source.shape, source.roi, source.voxel_size))
+
+            # prepare fragments dataset
+            self.fragments_out = daisy.prepare_ds(
+                self.fragments_file,
+                self.fragments_dataset,
+                source.roi,
+                source.voxel_size,
+                np.uint64,
+                daisy.Roi((0, 0, 0), self.block_size),
+                compressor={'id': 'zlib', 'level': 5}
+                )
+
+            total_roi = daisy.Roi(
+                tuple(self.sub_roi_offset), tuple(self.sub_roi_shape))
+            total_roi = total_roi.grow(self.context, self.context)
+            read_roi = daisy.Roi((0,)*total_roi.dims(),
+                                 self.block_size).grow(self.context, self.context)
+            write_roi = daisy.Roi((0,)*total_roi.dims(), self.block_size)
+
+        else:
+
+            # prepare fragments dataset
+            self.fragments_out = daisy.prepare_ds(
+                self.fragments_file,
+                self.fragments_dataset,
+                self.affs.roi,
+                self.affs.voxel_size,
+                np.uint64,
+                daisy.Roi((0, 0, 0), self.block_size),
+                compressor={'id': 'zlib', 'level': 5}
+                )
+
+            total_roi = self.affs.roi.grow(self.context, self.context)
+            read_roi = daisy.Roi((0,)*self.affs.roi.dims(),
+                                 self.block_size).grow(self.context, self.context)
+            write_roi = daisy.Roi((0,)*self.affs.roi.dims(), self.block_size)
+
+        assert self.fragments_out.data.dtype == np.uint64
+
+        print("total_roi: ", total_roi)
+        print("read_roi: ", read_roi)
+        print("write_roi: ", write_roi)
 
         config = {
             'affs_file': self.affs_file,
@@ -165,6 +213,8 @@ class ExtractFragmentTask(task_helper.SlurmTask):
         return self.rag_provider.num_nodes(block.write_roi) > 0
 
     def requires(self):
+        if self.no_check_dependency:
+            return []
         if self.use_myelin_net:
             return [MergeMyelinTask(global_config=self.global_config)]
         else:

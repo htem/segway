@@ -128,11 +128,14 @@ def get_model_name(volume_path, name_dictionary={}):
     if re.search(r"setup[0-9]{2}", volume_path):
         model = re.search(r"setup[0-9]{2}",
                           volume_path).group(0) + \
-                          "_"+re.search(r"[0-9]+000",
+                          "_"+re.search(r"[0-9]+00",
                                         volume_path).group(0)
-    else:
-        # model = re.search(r"[0-9]+000",volume_path).group(0)
-        model = "cb2_130000"
+
+    # model = volume_path.split('.zarr')[0]
+
+    # else:
+    #     # model = re.search(r"[0-9]+000",volume_path).group(0)
+    #     model = "cb2_130000"
     return model
 
 
@@ -229,6 +232,7 @@ def quick_compare_with_graph(
         ignore_glia,
         markers,
         colors):
+
     split_and_merge, split_and_merge_rand, split_and_merge_voi = [], [], []
     for seg_path in list_seg_path:
         numb_split, numb_merge = [], []

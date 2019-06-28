@@ -61,6 +61,12 @@ class PredictTask(task_helper.SlurmTask):
     num_workers = daisy.Parameter()
     predict_file = daisy.Parameter(None)
 
+    # sub_roi is used to specify the region of interest while still allocating
+    # the entire input raw volume. It is useful when there is a chance that
+    # sub_roi will be increased in the future.
+    sub_roi_offset = daisy.Parameter(None)
+    sub_roi_shape = daisy.Parameter(None)
+
     # DEPRECATED
     input_shape = daisy.Parameter(None)
     output_shape = daisy.Parameter(None)
@@ -135,8 +141,6 @@ class PredictTask(task_helper.SlurmTask):
             # force same voxel size for net in and output dataset
             voxel_size = self.net_voxel_size
 
-        # net_input_size = daisy.Coordinate(self.input_shape)*voxel_size
-        # net_output_size = daisy.Coordinate(self.output_shape)*voxel_size
         net_input_size = daisy.Coordinate(net_config["input_shape"])*voxel_size
         net_output_size = daisy.Coordinate(net_config["output_shape"])*voxel_size
         chunk_size = net_output_size
@@ -153,20 +157,47 @@ class PredictTask(task_helper.SlurmTask):
         block_input_size = block_output_size + context*2
 
         # get total input and output ROIs
-        if self.roi_offset is None and self.roi_shape is None:
-            # if no ROI is given, we need to shrink output ROI
-            # to account for the context
-            input_roi = source.roi
-            output_roi = source.roi.grow(-context, -context)
-        else:
-            # both have to be defined if one is
-            assert(self.roi_offset is not None)
-            assert(self.roi_shape is not None)
+        if self.roi_offset is not None and self.roi_shape is not None:
+
             output_roi = daisy.Roi(
                 tuple(self.roi_offset), tuple(self.roi_shape))
             input_roi = output_roi.grow(context, context)
             assert input_roi.intersect(source.roi) == input_roi, \
                 "output_roi + context has to be within raw ROI"
+
+        elif self.sub_roi_offset is not None and self.sub_roi_shape is not None:
+
+            output_roi = source.roi  # total volume ROI
+            input_roi = daisy.Roi(
+                tuple(self.sub_roi_offset), tuple(self.sub_roi_shape))
+            assert output_roi.contains(input_roi)
+
+            # need align output_roi to prediction chunk size
+
+            output_roi_begin = [k for k in output_roi.get_begin()]
+            output_roi_begin[0] = align(output_roi.get_begin()[0], input_roi.get_begin()[0], chunk_size[0])
+            output_roi_begin[1] = align(output_roi.get_begin()[1], input_roi.get_begin()[1], chunk_size[1])
+            output_roi_begin[2] = align(output_roi.get_begin()[2], input_roi.get_begin()[2], chunk_size[2])
+
+            output_roi.set_offset(tuple(output_roi_begin))
+
+            assert (output_roi.get_begin()[0] - input_roi.get_begin()[0]) % chunk_size[0] == 0
+            assert (output_roi.get_begin()[1] - input_roi.get_begin()[1]) % chunk_size[1] == 0
+            assert (output_roi.get_begin()[2] - input_roi.get_begin()[2]) % chunk_size[2] == 0
+
+            input_roi = input_roi.grow(context, context)
+            assert output_roi.contains(input_roi)
+
+        else:
+            assert self.roi_offset is None
+            assert self.roi_shape is None
+            assert self.sub_roi_offset is None
+            assert self.sub_roi_shape is None
+            assert False
+            # if no ROI is given, we need to shrink output ROI
+            # to account for the context
+            input_roi = source.roi
+            output_roi = source.roi.grow(-context, -context)
 
         # create read and write ROI
         block_read_roi = daisy.Roi((0, 0, 0), block_input_size) - context
@@ -232,8 +263,6 @@ class PredictTask(task_helper.SlurmTask):
         else:
             # use the one included in folder
             predict_script = '%s/predict.py' % (self.train_dir)
-        print(self.predict_file)
-        print(predict_script)
 
         self.cpu_mem = int(self.cpu_cores*self.mem_per_core)
         self.slurmSetup(config,
@@ -258,23 +287,6 @@ class PredictTask(task_helper.SlurmTask):
             # log_to_file=True
             )
 
-    # def check_block(self, block):
-
-    #     logger.debug("Checking if block %s is complete..." % block.write_roi)
-
-    #     write_roi = self.affs_ds.roi.intersect(block.write_roi)
-    #     if write_roi.empty():
-    #         logger.debug("Block outside of output ROI")
-    #         return True
-
-    #     center_coord = (write_roi.get_begin() +
-    #                     write_roi.get_end()) / 2
-    #     center_values = self.affs_ds[center_coord]
-    #     s = np.sum(center_values)
-    #     logger.debug("Sum of center values in %s is %f" % (write_roi, s))
-
-    #     return s != 0
-
     def check_block(self, block):
         logger.debug("Checking if block %s is complete..." % block.write_roi)
         write_roi = self.affs_ds.roi.intersect(block.write_roi)
@@ -284,12 +296,33 @@ class PredictTask(task_helper.SlurmTask):
 
         s = 0
         quarter = (write_roi.get_end() - write_roi.get_begin()) / 4
-        s += np.sum(self.affs_ds[write_roi.get_begin() + quarter*1])
-        s += np.sum(self.affs_ds[write_roi.get_begin() + quarter*2])
-        s += np.sum(self.affs_ds[write_roi.get_begin() + quarter*3])
+
+        center = write_roi.get_begin() + quarter*2
+
+        # check values of center and nearby voxels
+        s += np.sum(self.affs_ds[center])
+        s += np.sum(self.affs_ds[center - daisy.Coordinate((10, 10, 10))])
+        s += np.sum(self.affs_ds[center + daisy.Coordinate((10, 10, 10))])
         logger.debug("Sum of center values in %s is %f" % (write_roi, s))
 
+        # TODO: this should be filtered by post check and not pre check
+        # if (s == 0):
+        #     self.log_error_block(block)
+
         return s != 0
+
+
+def align(a, b, stride):
+    # align a to b such that b - a is multiples of stride
+    assert b >= a
+    print(a)
+    print(b)
+    l = b - a
+    print(l)
+    l = int(l/stride) * stride
+    print(l)
+    print(b - l)
+    return b - l
 
 
 if __name__ == "__main__":
@@ -298,24 +331,9 @@ if __name__ == "__main__":
 
     user_configs, global_config = task_helper.parseConfigs(sys.argv[1:])
 
-    # 10560:14080, 263680:266752, 341504:344576
-    # roi = daisy.Roi(Coordinate([10560, 263680, 341504]),
-    #                 Coordinate([3520, 3072, 3072]))
-    # roi = daisy.Roi(Coordinate([10560, 263680, 341504]),
-    #                 Coordinate([1, 1, 1]))
-
     daisy.distribute(
         # [{'task': BlockwiseSegmentationTask(**user_configs, request_roi=roi),
         [{'task': PredictTask(global_config=global_config,
                               **user_configs),
          'request': None}],
         global_config=global_config)
-
-    # configs = {}
-    # for config in sys.argv[1:]:
-    #     with open(config, 'r') as f:
-    #         configs = {**json.load(f), **configs}
-    # aggregateConfigs(configs)
-    # print(configs)
-
-    # daisy.distribute([{'task': PredictTask(), 'request': None}], global_config=configs)
