@@ -7,7 +7,9 @@
                 "segmentation_0.700",
                 "segmentation_0.800",
                 "segmentation_0.900"
-            ]
+            ],
+            "colors":["y","k","coral","purple","navy","lime","salmon","saddlebrown","gold"],
+            "markers":["o", "", "^", "", "s", "", "p", "", "D", "h"]
         },
     "Output":
         {
@@ -25,6 +27,7 @@
         {
             "z_weight_multiplier": 1,
             "step":40,
-            "ignore_glia": true
+            "ignore_glia": true,
+            "layers_leaves_igore":0
         }        
 }

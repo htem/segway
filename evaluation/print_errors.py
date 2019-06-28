@@ -123,5 +123,6 @@ if __name__ == "__main__":
         num_process=8,
         with_interpolation=True,
 	step=40,
-        z_weight_multiplier = 1
+        z_weight_multiplier = 1,
+        ignore_glia = True
     )
