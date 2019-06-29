@@ -126,11 +126,9 @@ class ExtractFragmentTask(task_helper.SlurmTask):
 
         if self.sub_roi_offset is not None and self.sub_roi_shape is not None:
 
-            assert self.raw_file is not None and self.raw_dataset is not None
             # get ROI of source
+            assert self.raw_file is not None and self.raw_dataset is not None
             source = daisy.open_ds(self.raw_file, self.raw_dataset)
-            logger.info("Source dataset has shape %s, ROI %s, voxel size %s"%(
-                source.shape, source.roi, source.voxel_size))
 
             # prepare fragments dataset
             self.fragments_out = daisy.prepare_ds(
@@ -227,8 +225,15 @@ if __name__ == "__main__":
 
     user_configs, global_config = task_helper.parseConfigs(sys.argv[1:])
 
+    req_roi = None
+    if "request_offset" in global_config["Input"]:
+        req_roi = daisy.Roi(
+            tuple(global_config["Input"]["request_offset"]),
+            tuple(global_config["Input"]["request_shape"]))
+        req_roi = [req_roi]
+
     daisy.distribute(
         [{'task': ExtractFragmentTask(global_config=global_config,
                                       **user_configs),
-         'request': None}],
+         'request': req_roi}],
         global_config=global_config)

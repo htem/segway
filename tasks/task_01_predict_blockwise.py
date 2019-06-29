@@ -83,6 +83,9 @@ class PredictTask(task_helper.SlurmTask):
     mem_per_core = daisy.Parameter(1.75)
     myelin_prediction = daisy.Parameter(0)
 
+    delete_section_list = daisy.Parameter([])
+    replace_section_list = daisy.Parameter([])
+
     def prepare(self):
         '''Daisy calls `prepare` for each task prior to scheduling
         any block.'''
@@ -193,7 +196,6 @@ class PredictTask(task_helper.SlurmTask):
             assert self.roi_shape is None
             assert self.sub_roi_offset is None
             assert self.sub_roi_shape is None
-            assert False
             # if no ROI is given, we need to shrink output ROI
             # to account for the context
             input_roi = source.roi
@@ -256,6 +258,8 @@ class PredictTask(task_helper.SlurmTask):
             'predict_num_core': self.cpu_cores,
             'config_file': config_file,
             'meta_file': meta_file,
+            'delete_section_list': self.delete_section_list,
+            'replace_section_list': self.replace_section_list,
         }
 
         if self.predict_file is not None:
@@ -289,27 +293,35 @@ class PredictTask(task_helper.SlurmTask):
 
     def check_block(self, block):
         logger.debug("Checking if block %s is complete..." % block.write_roi)
+
         write_roi = self.affs_ds.roi.intersect(block.write_roi)
         if write_roi.empty():
             logger.debug("Block outside of output ROI")
             return True
 
+        if self.completion_db.count({'block_id': block.block_id}) >= 1:
+            logger.debug("Skipping block with db check")
+            return True
+
+        # For compatibility, check if affinity file is written with any values
         s = 0
         quarter = (write_roi.get_end() - write_roi.get_begin()) / 4
 
-        center = write_roi.get_begin() + quarter*2
-
         # check values of center and nearby voxels
-        s += np.sum(self.affs_ds[center])
-        s += np.sum(self.affs_ds[center - daisy.Coordinate((10, 10, 10))])
-        s += np.sum(self.affs_ds[center + daisy.Coordinate((10, 10, 10))])
+        s += np.sum(self.affs_ds[write_roi.get_begin() + quarter*1])
+        s += np.sum(self.affs_ds[write_roi.get_begin() + quarter*2])
+        s += np.sum(self.affs_ds[write_roi.get_begin() + quarter*3])
         logger.debug("Sum of center values in %s is %f" % (write_roi, s))
+
+        done = s != 0
+        if done:
+            self.recording_block_done(block)
 
         # TODO: this should be filtered by post check and not pre check
         # if (s == 0):
         #     self.log_error_block(block)
 
-        return s != 0
+        return done
 
 
 def align(a, b, stride):
@@ -331,9 +343,15 @@ if __name__ == "__main__":
 
     user_configs, global_config = task_helper.parseConfigs(sys.argv[1:])
 
+    req_roi = None
+    if "request_offset" in global_config["Input"]:
+        req_roi = daisy.Roi(
+            tuple(global_config["Input"]["request_offset"]),
+            tuple(global_config["Input"]["request_shape"]))
+        req_roi = [req_roi]
+
     daisy.distribute(
-        # [{'task': BlockwiseSegmentationTask(**user_configs, request_roi=roi),
         [{'task': PredictTask(global_config=global_config,
                               **user_configs),
-         'request': None}],
+         'request': req_roi}],
         global_config=global_config)

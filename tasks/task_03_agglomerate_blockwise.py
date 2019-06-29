@@ -68,6 +68,9 @@ class AgglomerateTask(task_helper.SlurmTask):
     num_workers = daisy.Parameter()
     merge_function = daisy.Parameter()
     threshold = daisy.Parameter(default=1.0)
+    
+    sub_roi_offset = daisy.Parameter(None)
+    sub_roi_shape = daisy.Parameter(None)
 
     def prepare(self):
         '''Daisy calls `prepare` for each task prior to scheduling
@@ -114,9 +117,20 @@ class AgglomerateTask(task_helper.SlurmTask):
         # shape = affs.shape[1:]
         self.context = daisy.Coordinate(self.context)
 
-        total_roi = affs.roi.grow(self.context, self.context)
-        read_roi = daisy.Roi((0,)*affs.roi.dims(), self.block_size).grow(self.context, self.context)
-        write_roi = daisy.Roi((0,)*affs.roi.dims(), self.block_size)
+        if self.sub_roi_offset is not None and self.sub_roi_shape is not None:
+
+            total_roi = daisy.Roi(
+                tuple(self.sub_roi_offset), tuple(self.sub_roi_shape))
+            total_roi = total_roi.grow(self.context, self.context)
+            read_roi = daisy.Roi((0,)*total_roi.dims(),
+                                 self.block_size).grow(self.context, self.context)
+            write_roi = daisy.Roi((0,)*total_roi.dims(), self.block_size)
+
+        else:
+
+            total_roi = affs.roi.grow(self.context, self.context)
+            read_roi = daisy.Roi((0,)*affs.roi.dims(), self.block_size).grow(self.context, self.context)
+            write_roi = daisy.Roi((0,)*affs.roi.dims(), self.block_size)
 
         config = {
             'affs_file': self.affs_file,
@@ -164,10 +178,17 @@ if __name__ == "__main__":
 
     user_configs, global_config = task_helper.parseConfigs(sys.argv[1:])
 
+    req_roi = None
+    if "request_offset" in global_config["Input"]:
+        req_roi = daisy.Roi(
+            tuple(global_config["Input"]["request_offset"]),
+            tuple(global_config["Input"]["request_shape"]))
+        req_roi = [req_roi]
+
     daisy.distribute(
         [{'task': AgglomerateTask(global_config=global_config,
                                   **user_configs),
-         'request': None}],
+         'request': req_roi}],
         global_config=global_config)
 
     # logging.getLogger('lsd.parallel_aff_agglomerate').setLevel(logging.DEBUG)

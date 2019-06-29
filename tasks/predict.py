@@ -7,6 +7,9 @@ import json
 import logging
 import os
 import glob
+import pymongo
+
+from EditSectionsNode import ReplaceSectionsNode
 
 
 def predict(
@@ -20,7 +23,12 @@ def predict(
         predict_num_core,
         xy_downsample,
         config_file,
-        meta_file
+        meta_file,
+        db_host,
+        db_name,
+        completion_db_name,
+        delete_section_list=[],
+        replace_section_list=[],
         ):
 
     # setup_dir = os.path.dirname(os.path.realpath(__file__))
@@ -63,7 +71,7 @@ def predict(
     chunk_request.add(raw, input_size)
     chunk_request.add(affs, output_size)
 
-    mapping = {
+    daisy_roi_map = {
         raw: "read_roi",
         affs: "write_roi"
     }
@@ -75,7 +83,7 @@ def predict(
     initial_raw = raw
 
     if xy_downsample > 0:
-        mapping = {
+        daisy_roi_map = {
             raw: "read_roi",
             rawfr: "read_roi",
             affs: "write_roi"
@@ -87,7 +95,14 @@ def predict(
         chunk_request.add(myelin_embedding, output_size)
         outputs[net_config['myelin_embedding']] = myelin_embedding
         dataset_names[myelin_embedding] = "volumes/myelin"
-        mapping[myelin_embedding] = "write_roi"
+        daisy_roi_map[myelin_embedding] = "write_roi"
+
+    print("db_host: ", db_host)
+    print("db_name: ", db_name)
+    print("completion_db_name: ", completion_db_name)
+    db_client = pymongo.MongoClient(db_host)
+    db = db_client[db_name]
+    completion_db = db[completion_db_name]
 
     if raw_file.endswith(".hdf"):
         pipeline = Hdf5Source(
@@ -101,6 +116,13 @@ def predict(
             array_specs={initial_raw: ArraySpec(interpolatable=True)})
     else:
         raise RuntimeError("Unknown raw file type!")
+
+    if len(delete_section_list):
+        pipeline += ReplaceSectionsNode(
+            initial_raw,
+            delete_section_list=delete_section_list,
+            replace_section_list=replace_section_list,
+            )
 
     pipeline += Pad(initial_raw, size=None)
 
@@ -133,13 +155,44 @@ def predict(
 
     pipeline += PrintProfilingStats(every=10)
 
-    pipeline += DaisyScan(chunk_request, mapping, num_workers=predict_num_core)
-    # pipeline += DaisyScan(chunk_request, mapping)
+    pipeline += DaisyRequestBlocks(
+        chunk_request,
+        roi_map=daisy_roi_map,
+        num_workers=predict_num_core,
+        block_done_callback=lambda b, s, d: block_done_callback(
+            completion_db,
+            # worker_config,
+            b, s, d)
+        )
 
     print("Starting prediction...")
     with build(pipeline):
         pipeline.request_batch(BatchRequest())
+
+    db_client.close()
     print("Prediction finished")
+
+
+def block_done_callback(
+        completion_db,
+        # worker_config,
+        block,
+        start,
+        duration):
+    # print("Recording block-done for %s" % (block,))
+    # document = dict(worker_config)
+    document = dict()
+    document.update({
+        'block_id': block.block_id,
+        'read_roi': (block.read_roi.get_begin(), block.read_roi.get_shape()),
+        'write_roi': (block.write_roi.get_begin(), block.write_roi.get_shape()),
+        'start': start,
+        'duration': duration
+    })
+
+    completion_db.insert(document)
+    # print("Recorded block-done for %s" % (block,))
+
 
 if __name__ == "__main__":
 
@@ -155,8 +208,6 @@ if __name__ == "__main__":
         run_config['iteration'],
         run_config['raw_file'],
         run_config['raw_dataset'],
-        # run_config['input_shape'],
-        # run_config['output_shape'],
         run_config['voxel_size'],
         run_config['out_file'],
         run_config['out_dataset'],
@@ -165,4 +216,9 @@ if __name__ == "__main__":
         run_config['xy_downsample'],
         run_config['config_file'],
         run_config['meta_file'],
+        run_config['db_host'],
+        run_config['db_name'],
+        run_config['completion_db_name'],
+        run_config['delete_section_list'],
+        run_config['replace_section_list'],
         )

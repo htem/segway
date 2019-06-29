@@ -33,6 +33,9 @@ class SlurmTask(daisy.Task):
     overwrite = daisy.Parameter(False)
     no_check_dependency = daisy.Parameter(False)
 
+    db_host = daisy.Parameter()
+    db_name = daisy.Parameter()
+
     def slurmSetup(
             self, config, actor_script,
             python_module=False,
@@ -51,6 +54,24 @@ class SlurmTask(daisy.Task):
 
         f = "%s/%s.error_blocks.%s" % (self.log_dir, logname, str(datetime.datetime.now()).replace(' ', '_'))
         self.error_log = open(f, "w")
+        self.precheck_log = None
+
+        db_client = pymongo.MongoClient(self.db_host)
+        db = db_client[self.db_name]
+        completion_db_name = self.__class__.__name__ + '_finished_blocks'
+        if completion_db_name not in db.list_collection_names():
+            self.completion_db = db[completion_db_name]
+            self.completion_db.create_index(
+                [('block_id', pymongo.ASCENDING)],
+                name='block_id')
+        else:
+            self.completion_db = db[completion_db_name]
+
+        config.update({
+            'db_host': self.db_host,
+            'db_name': self.db_name,
+            'completion_db_name': completion_db_name,
+            })
 
         self.slurmtask_run_cmd, self.new_actor_cmd = generateActorSbatch(
             config,
@@ -69,6 +90,10 @@ class SlurmTask(daisy.Task):
         self.logname = logname
         self.task_done = False
         self.launch_process_cmd = multiprocessing.Manager().dict()
+
+        self.shared_precheck_blocks = multiprocessing.Manager().list()
+        self.shared_error_blocks = multiprocessing.Manager().list()
+
 
     def new_actor(self):
         '''Submit new actor job using sbatch'''
@@ -124,7 +149,16 @@ class SlurmTask(daisy.Task):
                                     )
 
     def cleanup(self):
-        self.error_log.close()
+
+        if self.error_log:
+            for b in self.shared_error_blocks:
+                self.error_log.write(str(b) + '\n')
+            self.error_log.close()
+
+        if self.precheck_log:
+            for b in self.shared_precheck_blocks:
+                self.precheck_log.write(str(b) + '\n')
+            self.precheck_log.close()
 
         try:
             started_slurm_jobs = self.started_jobs._getvalue()
@@ -163,6 +197,22 @@ class SlurmTask(daisy.Task):
     def log_error_block(self, block):
 
         self.error_log.write(str(block) + '\n')
+
+    def recording_block_done(self, block):
+
+        # document = dict(worker_config)
+        document = dict()
+        document.update({
+            'block_id': block.block_id,
+            'read_roi': (block.read_roi.get_begin(), block.read_roi.get_shape()),
+            'write_roi': (block.write_roi.get_begin(), block.write_roi.get_shape()),
+            'start': 0,
+            'duration': 0
+        })
+
+        self.completion_db.insert(document)
+
+        # print("Recorded block-done for %s" % (block,))
 
 
 def generateActorSbatch(
@@ -395,7 +445,8 @@ def aggregateConfigs(configs):
         if 'predict_file' in network_config:
             config['predict_file'] = network_config['predict_file']
         else:
-            config['predict_file'] = "predict_daisyreq.py"
+            # config['predict_file'] = "predict_daisyreq.py"
+            config['predict_file'] = "predict.py"
         if 'xy_downsample' in network_config:
             config['xy_downsample'] = network_config['xy_downsample']
         if 'roi_offset' in input_config:
@@ -407,10 +458,21 @@ def aggregateConfigs(configs):
         if 'sub_roi_shape' in input_config:
             config['sub_roi_shape'] = input_config['sub_roi_shape']
         config['myelin_prediction'] = network_config.get('myelin_prediction', 0)
+        copyParameter(input_config, config, 'delete_section_list')
+        copyParameter(input_config, config, 'replace_section_list')
+        copyParameter(input_config, config, 'db_host')
+        copyParameter(input_config, config, 'db_name')
 
         if RUNNING_IN_LOCAL_CLUSTER:
         # restrict number of workers to 1 for predict task if we're running locally to avoid conflict with other daisies
             config['num_workers'] = 1
+
+    if "FixRawFromCatmaidTask" in configs:
+        config = configs["FixRawFromCatmaidTask"]
+        copyParameter(input_config, config, 'raw_file')
+        copyParameter(input_config, config, 'raw_dataset')
+        copyParameter(input_config, config, 'sub_roi_offset')
+        copyParameter(input_config, config, 'sub_roi_shape')
 
     if "PredictMyelinTask" in configs:
         config = configs["PredictMyelinTask"]
@@ -457,6 +519,8 @@ def aggregateConfigs(configs):
         config['db_host'] = input_config['db_host']
         config['log_dir'] = input_config['log_dir']
         config['merge_function'] = merge_function
+        copyParameter(input_config, config, 'sub_roi_offset')
+        copyParameter(input_config, config, 'sub_roi_shape')
         if RUNNING_IN_LOCAL_CLUSTER:
             # tmn7: in local cluster we're limited by GPU not by CPUs
             # so allocating as much as we can
