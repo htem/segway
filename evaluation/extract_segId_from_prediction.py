@@ -90,3 +90,17 @@ def graph_with_segId_prediction2(
         print("Path %s does not exist!" % (segmentation_path+"/" +
                                            segmentation_vol))
         assert(0)
+
+# This method removes all the leaf nodes (those with 0 or 1 more neighbors)
+# from a networkx graph. It's aim is to trim the graph representing the catmaid
+# skeleton to avoid penalizing the model for misclassifying small, unimportant
+# neurons, a common source of errors.
+def remove_leaf_nodes(graph, num_passes = 1):
+    for i in range(num_passes):
+        leaf_nodes = []
+        for node in graph.nodes:
+            is_leaf = graph.degree[node] <= 1
+            if is_leaf:
+                leaf_nodes.append(node)
+    for node in leaf_nodes:
+            graph.remove_node(node)
