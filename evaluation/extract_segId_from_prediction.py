@@ -96,9 +96,8 @@ def graph_with_segId_prediction2(
 # from a networkx graph. Its aim is to trim the graph representing the catmaid
 # skeleton to avoid penalizing the model for misclassifying slices of small,
 # inessential cells, a common source of split errors.
-def remove_leaf_nodes(graph, num_passes = 1):
+def remove_leaf_nodes(graph, num_passes = 3):
     graph = add_edges_to_skeleton(graph)
-    print("edges added", "nodes", graph.number_of_nodes(), "edges", graph.number_of_edges())
     for i in range(num_passes):
         leaf_nodes = []
         for node in graph.nodes:
@@ -109,13 +108,13 @@ def remove_leaf_nodes(graph, num_passes = 1):
             if graph.degree[node] == 1:     
                 adjacent_node = list(graph.adj[node])[0]
                 if graph.nodes[adjacent_node]['parent_id'] == node:
-                    graph.nodes[adjacent_node]['parent_id'] == None
+                    graph.nodes[adjacent_node]['parent_id'] = None
             graph.remove_node(node)
     return graph
 
 def add_edges_to_skeleton(graph):
     for node in graph.nodes:
         parent = graph.nodes[node]['parent_id']
-        if parent != None:
+        if not parent is None:
             graph.add_edge(node, parent)
     return graph
