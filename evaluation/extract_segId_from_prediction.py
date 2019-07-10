@@ -28,6 +28,7 @@ def add_segId_from_prediction(graph, segmentation_path, segment_dataset):
     # print("Stop add_segId_from_prediction %s" % time.time())
     print("Task add_segId_from_prediction of %s took %s seconds" %
           (segment_dataset, time.time()-start_time))
+    remove_leaf_nodes(graph)
     return graph
 
 
@@ -90,11 +91,14 @@ def graph_with_segId_prediction2(
                                            segmentation_vol))
         assert(0)
 
+
 # This method removes all the leaf nodes (those with 0 or 1 neighbors)
 # from a networkx graph. Its aim is to trim the graph representing the catmaid
 # skeleton to avoid penalizing the model for misclassifying slices of small,
 # inessential cells, a common source of split errors.
 def remove_leaf_nodes(graph, num_passes = 1):
+    graph = add_edges_to_skeleton(graph)
+    print("edges added", "nodes", graph.number_of_nodes(), "edges", graph.number_of_edges())
     for i in range(num_passes):
         leaf_nodes = []
         for node in graph.nodes:
@@ -102,4 +106,16 @@ def remove_leaf_nodes(graph, num_passes = 1):
             if is_leaf:
                 leaf_nodes.append(node)
         for node in leaf_nodes:
+            if graph.degree[node] == 1:     
+                adjacent_node = list(graph.adj[node])[0]
+                if graph.nodes[adjacent_node]['parent_id'] == node:
+                    graph.nodes[adjacent_node]['parent_id'] == None
             graph.remove_node(node)
+    return graph
+
+def add_edges_to_skeleton(graph):
+    for node in graph.nodes:
+        parent = graph.nodes[node]['parent_id']
+        if parent != None:
+            graph.add_edge(node, parent)
+    return graph
