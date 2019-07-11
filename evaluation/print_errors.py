@@ -60,7 +60,8 @@ def run_evaluation(
             num_process,
             with_interpolation,
 	    step,
-	    z_weight_multiplier
+	    z_weight_multiplier,
+        leaf_node_removal_depth
         )
     elif mode == "quickplot":
         quick_compare_with_graph(
@@ -124,5 +125,6 @@ if __name__ == "__main__":
         with_interpolation=True,
 	step=40,
         z_weight_multiplier = 1,
-        ignore_glia = True
+        ignore_glia = True,
+        leaf_node_removal_depth=1
     )
