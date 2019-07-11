@@ -71,6 +71,7 @@ def run_evaluation(
             num_process,
             with_interpolation,
 	    config["AdditionalFeatures"]["step"],
+            config["AdditionalFeatures"]["leaf_node_removal_depth"],  
             config["AdditionalFeatures"]["z_weight_multiplier"],
             config["AdditionalFeatures"]["ignore_glia"])
     elif mode == "quickplot":
@@ -86,6 +87,7 @@ def run_evaluation(
             with_interpolation,
 	    config["AdditionalFeatures"]["step"],
             config["AdditionalFeatures"]["ignore_glia"],
+            config["AdditionalFeatures"]["leaf_node_removal_depth"],
             config["Input"]["markers"],
             config["Input"]["colors"]
 )
@@ -102,6 +104,7 @@ def run_evaluation(
             with_interpolation,
             config["AdditionalFeatures"]["step"],
             config["AdditionalFeatures"]["ignore_glia"],
+            config["AdditionalFeatures"]["leaf_node_removal_depth"],
             config["Input"]["markers"],
             config["Input"]["colors"])
     else:

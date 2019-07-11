@@ -16,7 +16,7 @@ matplotlib.use('Agg')
 
 
 def get_error_dict(skeleton_path, seg_path, threshold_list, num_process,
-                   with_interpolation,step,ignore_glia):
+                   with_interpolation,step,ignore_glia,leaf_node_removal_depth):
     numb_split = []
     numb_merge = []
     split_error_dict = {}
@@ -27,7 +27,8 @@ def get_error_dict(skeleton_path, seg_path, threshold_list, num_process,
                                segmentation_path=seg_path,
                                with_interpolation=with_interpolation,
 			       step=step,
-                               ignore_glia=ignore_glia),
+                               ignore_glia=ignore_glia,
+                               leaf_node_removal_depth=leaf_node_removal_depth),
                        ['volumes/'+threshold for threshold in threshold_list])
     # for threshold in threshold_list:
     for graph, threshold in zip(graph_list, threshold_list):
@@ -35,7 +36,8 @@ def get_error_dict(skeleton_path, seg_path, threshold_list, num_process,
                                             skeleton_path, seg_path,
                                             with_interpolation,
 					    step,
-                                            ignore_glia)
+                                            ignore_glia,
+                                            leaf_node_removal_depth)
         split_error_num, split_list = splits_error(graph)
         numb_split.append(split_error_num)
         # dict == {segmentation_threshold:{sk_id:(((zyx),(zyx)),....),...} }
@@ -48,7 +50,7 @@ def get_error_dict(skeleton_path, seg_path, threshold_list, num_process,
 
 
 def get_rand_voi(skeleton_path, seg_path, threshold_list, num_process,
-                 with_interpolation,step,ignore_glia):
+                 with_interpolation,step,ignore_glia,leaf_node_removal_depth):
     rand_split_list, rand_merge_list = [], []
     voi_split_list, voi_merge_list = [], []
     p = Pool(num_process)
@@ -57,7 +59,8 @@ def get_rand_voi(skeleton_path, seg_path, threshold_list, num_process,
                                segmentation_path=seg_path,
                                with_interpolation=with_interpolation,
                                step=step,
-                               ignore_glia=ignore_glia),
+                               ignore_glia=ignore_glia,
+                               leaf_node_removal_depth=leaf_node_removal_depth),
                        ['volumes/'+threshold for threshold in threshold_list])
     for graph in graph_list:
         # for file in threshold_list:
@@ -149,7 +152,8 @@ def compare_threshold_multi_model(
         output_path,
         with_interpolation,
         step,
-        ignore_glia,  
+        ignore_glia,
+        leaf_node_removal_depth,  
         markers,
         colors):
     works = False
@@ -162,7 +166,8 @@ def compare_threshold_multi_model(
                                                           num_process,
                                                           with_interpolation,
 							  step,
-                                                          ignore_glia)
+                                                          ignore_glia,
+                                                          leaf_node_removal_depth)
             model = get_model_name(seg_path)
             split_and_merge.extend((model, numb_merge, numb_split))
         compare_threshold(threshold_list, filename, 'number', output_path,
@@ -230,6 +235,7 @@ def quick_compare_with_graph(
         with_interpolation,
         step,
         ignore_glia,
+        leaf_node_removal_depth,
         markers,
         colors):
 
@@ -246,7 +252,8 @@ def quick_compare_with_graph(
                                    segmentation_path=seg_path,
                                    with_interpolation=with_interpolation,
                                    step=step,
-                                   ignore_glia=ignore_glia),
+                                   ignore_glia=ignore_glia,
+                                   leaf_node_removal_depth=leaf_node_removal_depth),
                            ['volumes/'+threshold
                             for threshold in threshold_list])
         # for threshold in threshold_list:
@@ -395,7 +402,8 @@ def get_merge_split_error(
         with_interpolation,
         step,
         z_weight_multiplier,
-        ignore_glia):
+        ignore_glia,
+        leaf_node_removal_depth):
 
     graph = graph_with_segId_prediction2(
         seg_vol,
@@ -403,7 +411,8 @@ def get_merge_split_error(
         seg_path,
         with_interpolation,
         step,
-        ignore_glia)
+        ignore_glia,
+        leaf_node_removal_depth)
     print(graph)
     # get the origin rand or voi scores
     origin_scores = ()
@@ -421,8 +430,8 @@ def get_merge_split_error(
         print_split_errors(split_dict, seg_path, seg_vol, graph, origin_scores)
 
 
-def get_multi_merge_split_error(skeleton_path, seg_path_list, threshold_list,
-                                error_type, num_process, with_interpolation, step, z_weight_multiplier):
+def get_multi_merge_split_error(skeleton_path, seg_path_list, threshold_list, error_type, 
+                                num_process, with_interpolation, step, leaf_node_removal_depth, z_weight_multiplier):
     for seg_path in seg_path_list:
         get_merge_split_error(skeleton_path, seg_path, threshold_list,
-                              error_type, num_process, with_interpolation, step, z_weight_multiplier)
+                              error_type, num_process, with_interpolation, step, leaf_node_removal_depth, z_weight_multiplier)

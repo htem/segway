@@ -28,6 +28,6 @@
             "z_weight_multiplier": 1,
             "step":40,
             "ignore_glia": true,
-            "layers_leaves_igore":0
+            "leaf_node_removal_depth": 1
         }        
 }
