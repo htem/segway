@@ -68,6 +68,7 @@ class AgglomerateTask(task_helper.SlurmTask):
     num_workers = daisy.Parameter()
     merge_function = daisy.Parameter()
     threshold = daisy.Parameter(default=1.0)
+    edges_collection = daisy.Parameter() # debug
     
     sub_roi_offset = daisy.Parameter(None)
     sub_roi_shape = daisy.Parameter(None)
@@ -164,11 +165,26 @@ class AgglomerateTask(task_helper.SlurmTask):
 
     def block_done(self, block):
 
-        return (
-            self.rag_provider.has_edges(block.write_roi) or
-            self.rag_provider.num_nodes(block.write_roi) == 0)
+        #if self.completion_db.count({'block_id': block.block_id}) >= 1:
+        #    logger.debug("Skipping block with db check")
+        #    return True
+
+        # compat with older runs
+        roi = block.write_roi
+        # decrease ROI to 1/8 at the center
+        roi = roi.grow(-roi.get_shape()/4, -roi.get_shape()/4)
+        roi = roi.grow(-roi.get_shape()/4, -roi.get_shape()/4)
+        roi = roi.grow(-roi.get_shape()/4, -roi.get_shape()/4)
+        print(roi)
+        done = (self.rag_provider.has_edges(roi) or
+                self.rag_provider.num_nodes(roi) == 0)
+        if done:
+            self.recording_block_done(block)
+        return done
 
     def requires(self):
+        if self.no_check_dependency:
+            return []
         return [ExtractFragmentTask(global_config=self.global_config)]
 
 

@@ -133,15 +133,8 @@ def fix_merge(
     # filter out empty connected components
     components = [c for c in components if len(c)]
 
-    # components = [
-    #     [fragments_array[zyx] for zyx in comp] for comp in components_zyx]
-    print("Components to be splitted %s" % components)
-
     # # make sure that components are of different fragments
-    # for comp in components:
-    #     for n in comp:
     merged_segment_id = segment_array[components_zyx[0][0]]
-
     if len(components) <= 1:
         return 0, merged_segment_id
 
@@ -219,60 +212,3 @@ if __name__ == "__main__":
     '''Test case for fixing splitter'''
 
     pass
-
-    # user_configs, global_config = task_helper.parseConfigs(sys.argv[1:])
-
-    # components_zyx = []
-    # components_zyx.append([[916, 1121, 147]])
-    # components_zyx.append([[917, 1247, 147]])
-    # # components_zyx.append([[1325, 1243, 111]])
-    # # components_zyx.append([[920, 790, 73]])
-    # # tests = [[[580, 576, 106]], [[935, 960, 106]]]
-
-    # components_zyx = [[to_daisy_coord(n) for n in c] for c in components_zyx]
-    # print(components_zyx)
-
-    # fragments_array = daisy.open_ds(fragments_file, fragments_dataset)
-    # print("Making fragment cache...")
-    # fragments_cached = fragments_array[fragments_array.roi].to_ndarray()
-    # fragments_cached = daisy.Array(
-    #     fragments_cached, fragments_array.roi, fragments_array.voxel_size)
-    # # fragments_cached = fragments_array
-
-    # segment_dataset = "volumes/segmentation_0.900"
-    # segment_threshold = float(segment_dataset.split('_')[-1])
-
-    # segment_ds = daisy.open_ds(segment_file, segment_dataset, mode='r+')
-    # print("Making segment cache...")
-    # segment_ndarray = segment_ds[segment_ds.roi].to_ndarray()
-    # segment_ds_cached = daisy.Array(
-    #     segment_ds_cached, segment_ds.roi, segment_ds.voxel_size)
-    # segment_array = daisy.Array(
-    #     segment_ndarray, total_roi, fragments_array.voxel_size)
-    # # open RAG DB
-    # rag_provider = daisy.persistence.MongoDbGraphProvider(
-    #     db_name,
-    #     host=db_host,
-    #     mode='r',
-    #     edges_collection=edges_collection,
-    #     position_attribute=['center_z', 'center_y', 'center_x'])
-
-    # subrag = rag_provider[total_roi]
-    # rag = get_graph(subrag, segment_threshold)
-
-    # if roi_offset is not None and roi_shape is not None:
-    #     assert(total_roi is not None)
-    # else:
-    #     total_roi = daisy.Roi(tuple(roi_offset), tuple(roi_shape))
-
-    # fix_merge(
-    #     components_zyx=components_zyx,
-    #     segment_dataset=segment_dataset,
-    #     segment_threshold=segment_threshold,
-    #     segment_ndarray=None,
-    #     **user_configs, **global_config["FixMergeTask"])
-
-    # if segment_ds is not None:
-    #     # rewrite segment_file
-    #     print("Writing new segmentation file...")
-    #     segment_ds[segment_ds.roi] = new_segmentation

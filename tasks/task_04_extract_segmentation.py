@@ -43,6 +43,7 @@ class SegmentationTask(task_helper.SlurmTask):
             # 'roi_shape': self.roi_shape,
             'num_workers': self.num_workers
         }
+        print(config)
         self.slurmSetup(
             config,
             'actor_segmentation.py')
@@ -91,17 +92,3 @@ if __name__ == "__main__":
          'request': None}],
         global_config=global_config)
 
-    # configs = {}
-    # user_configs = {}
-    # for config in sys.argv[1:]:
-    #     if "=" in config:
-    #         key, val = config.split('=')
-    #         user_configs[key] = val
-    #     else:
-    #         with open(config, 'r') as f:
-    #             configs = {**json.load(f), **configs}
-    # task_helper.aggregateConfigs(configs)
-    # print(configs)
-
-    # daisy.distribute([{'task': SegmentationTask(**user_configs), 'request': None}],
-    #                  global_config=configs)

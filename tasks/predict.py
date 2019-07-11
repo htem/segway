@@ -117,7 +117,7 @@ def predict(
     else:
         raise RuntimeError("Unknown raw file type!")
 
-    if len(delete_section_list):
+    if len(delete_section_list) or len(replace_section_list):
         pipeline += ReplaceSectionsNode(
             initial_raw,
             delete_section_list=delete_section_list,
@@ -179,19 +179,17 @@ def block_done_callback(
         block,
         start,
         duration):
-    # print("Recording block-done for %s" % (block,))
-    # document = dict(worker_config)
-    document = dict()
-    document.update({
-        'block_id': block.block_id,
-        'read_roi': (block.read_roi.get_begin(), block.read_roi.get_shape()),
-        'write_roi': (block.write_roi.get_begin(), block.write_roi.get_shape()),
-        'start': start,
-        'duration': duration
-    })
 
-    completion_db.insert(document)
-    # print("Recorded block-done for %s" % (block,))
+    pass
+    # document = dict()
+    # document.update({
+    #     'block_id': block.block_id,
+    #     'read_roi': (block.read_roi.get_begin(), block.read_roi.get_shape()),
+    #     'write_roi': (block.write_roi.get_begin(), block.write_roi.get_shape()),
+    #     'start': start,
+    #     'duration': duration
+    # })
+    # completion_db.insert(document)
 
 
 if __name__ == "__main__":

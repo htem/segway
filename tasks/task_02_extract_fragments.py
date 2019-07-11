@@ -90,6 +90,9 @@ class ExtractFragmentTask(task_helper.SlurmTask):
 
     use_myelin_net = daisy.Parameter(default=False)
 
+    overwrite_mask_f = daisy.Parameter(None)
+    overwrite_sections = daisy.Parameter(None)
+
     def prepare(self):
         '''Daisy calls `prepare` for each task prior to scheduling
         any block.'''
@@ -168,6 +171,25 @@ class ExtractFragmentTask(task_helper.SlurmTask):
 
         assert self.fragments_out.data.dtype == np.uint64
 
+        self.overwrite_mask = None
+        if self.overwrite_mask_f:
+            # force precheck = False for any ROI with any voxel in mask = 1
+            self.overwrite_mask = daisy.open_ds(
+                self.overwrite_mask_f, "overwrite_mask")
+
+        if self.overwrite_sections is not None:
+            write_shape = [k for k in total_roi.get_shape()]
+            write_shape[0] = 40
+            write_shape = tuple(write_shape)
+
+            rois = []
+            for s in self.overwrite_sections:
+                write_offset = [k for k in total_roi.get_begin()]
+                write_offset[0] = s*40
+                rois.append(daisy.Roi(write_offset, write_shape))
+
+            self.overwrite_sections = rois
+
         print("total_roi: ", total_roi)
         print("read_roi: ", read_roi)
         print("write_roi: ", write_roi)
@@ -193,7 +215,13 @@ class ExtractFragmentTask(task_helper.SlurmTask):
 
         self.slurmSetup(config, 'actor_fragment_extract.py')
 
-        check_function = (self.check, lambda b: True)
+        # check_function = (self.check, lambda b: True)
+        # if self.overwrite:
+        #     check_function = None
+        check_function = (
+                lambda b: self.check(b, precheck=True),
+                lambda b: self.check(b, precheck=False)
+                )
         if self.overwrite:
             check_function = None
 
@@ -207,8 +235,37 @@ class ExtractFragmentTask(task_helper.SlurmTask):
             fit='shrink',
             num_workers=self.num_workers)
 
-    def check(self, block):
-        return self.rag_provider.num_nodes(block.write_roi) > 0
+    def check(self, block, precheck):
+
+        # write_roi = block.write_roi
+
+        if precheck and self.overwrite_sections is not None:
+            read_roi_mask = self.overwrite_mask.roi.intersect(block.read_roi)
+            for roi in self.overwrite_sections:
+                if roi.intersects(read_roi_mask):
+                    logger.debug("Block overlaps overwrite_sections %s" % roi)
+                    return False
+
+        if precheck and self.overwrite_mask:
+            read_roi_mask = self.overwrite_mask.roi.intersect(block.read_roi)
+            if not read_roi_mask.empty():
+                try:
+                    sum = np.sum(self.overwrite_mask[read_roi_mask].to_ndarray())
+                    if sum != 0:
+                        logger.debug("Block inside overwrite_mask")
+                        return False
+                except:
+                    return False
+
+        if self.completion_db.count({'block_id': block.block_id}) >= 1:
+            logger.debug("Skipping block with db check")
+            return True
+
+        # check using rag_provider.num_nodes for compatibility with older runs
+        done = self.rag_provider.num_nodes(block.write_roi) > 0
+        if done:
+            self.recording_block_done(block)
+            return True
 
     def requires(self):
         if self.no_check_dependency:

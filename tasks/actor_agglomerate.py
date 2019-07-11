@@ -7,6 +7,7 @@ import sys
 import daisy
 import lsd
 from lsd.parallel_aff_agglomerate import agglomerate_in_block
+import pymongo
 
 logging.basicConfig(level=logging.INFO)
 
@@ -89,6 +90,10 @@ if __name__ == "__main__":
     print("WORKER: Running with context %s"%os.environ['DAISY_CONTEXT'])
     client_scheduler = daisy.Client()
 
+    db_client = pymongo.MongoClient(db_host)
+    db = db_client[db_name]
+    completion_db = db[completion_db_name]
+
     while True:
         block = client_scheduler.acquire_block()
         if block is None:
@@ -103,5 +108,16 @@ if __name__ == "__main__":
                 block,
                 waterz_merge_function,
                 threshold),
+
+        # recording block done in the database
+        document = dict()
+        document.update({
+            'block_id': block.block_id,
+            'read_roi': (block.read_roi.get_begin(), block.read_roi.get_shape()),
+            'write_roi': (block.write_roi.get_begin(), block.write_roi.get_shape()),
+            'start': 0,
+            'duration': 0
+        })
+        completion_db.insert(document)
 
         client_scheduler.release_block(block, ret=0)
