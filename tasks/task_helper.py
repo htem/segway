@@ -591,6 +591,11 @@ def aggregateConfigs(configs):
         copyParameter(input_config, config, 'output_file', 'fragments_file')
         config['merge_function'] = merge_function
 
+    if "FindSegmentsBlockwiseTask4" in configs:
+        config = configs["FindSegmentsBlockwiseTask4"]
+        copyParameter(input_config, config, 'output_file', 'fragments_file')
+        config['merge_function'] = merge_function
+
     if "ExtractSegmentationFromLUT" in configs:
         config = configs["ExtractSegmentationFromLUT"]
         copyParameter(input_config, config, 'output_file', 'fragments_file')
