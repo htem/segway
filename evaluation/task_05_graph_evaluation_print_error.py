@@ -128,6 +128,8 @@ def get_model_name(volume_path, name_dictionary={}):
     if volume_path in name_dictionary:
         return name_dictionary[volume_path]
 
+    # print(volume_path)
+
     if re.search(r"setup[0-9]{2}", volume_path):
         model = re.search(r"setup[0-9]{2}",
                           volume_path).group(0) + \
@@ -136,9 +138,9 @@ def get_model_name(volume_path, name_dictionary={}):
 
     # model = volume_path.split('.zarr')[0]
 
-    # else:
-    #     # model = re.search(r"[0-9]+000",volume_path).group(0)
-    #     model = "cb2_130000"
+    else:
+        # model = re.search(r"[0-9]+000",volume_path).group(0)
+        model = "cb2_130000"
     return model
 
 
