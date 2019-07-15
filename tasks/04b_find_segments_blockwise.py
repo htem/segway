@@ -140,7 +140,7 @@ def replace_fragment_ids(
 def generate_adjacent_blocks(roi_offset, roi_shape, total_roi):
 
     blocks = []
-    roi = daisy.Roi(roi_offset, roi_shape)
+    current_block_roi = daisy.Roi(roi_offset, roi_shape)
 
     total_write_roi = total_roi.grow(-roi_shape, -roi_shape)
 
@@ -153,7 +153,7 @@ def generate_adjacent_blocks(roi_offset, roi_shape, total_roi):
             (0, 0, +1),
             ]:
 
-        shifted_roi = roi.shift(roi_shape*offset_mult)
+        shifted_roi = current_block_roi.shift(roi_shape*offset_mult)
         if total_write_roi.intersects(shifted_roi):
             # print(shifted_roi)
             # print(total_roi)

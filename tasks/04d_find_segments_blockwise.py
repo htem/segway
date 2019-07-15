@@ -7,6 +7,7 @@ import sys
 import time
 import numpy as np
 import pymongo
+from itertools import product
 
 import task_helper
 
@@ -15,54 +16,100 @@ logging.basicConfig(level=logging.INFO)
 # np.set_printoptions(threshold=sys.maxsize, formatter={'all':lambda x: str(x)})
 
 
+def enumerate_blocks_in_chunks(block, block_size, chunk_size, total_roi):
+
+    if chunk_size is None:
+        return block
+
+    blocks = []
+    # roi_shape = block.requested_write_roi.get_shape()
+    chunk_shape = block_size / chunk_size
+    # print(roi_shape / chunk_shape)
+    # print(product(*list(roi_shape / chunk_shape)))
+    chunk_roi = daisy.Roi(block.write_roi.get_offset(), chunk_shape)
+
+    offsets = [range(n) for n in chunk_size]
+
+    for offset_mult in product(*offsets):
+
+        # print(offset_mult)
+        shifted_roi = chunk_roi.shift(chunk_shape*offset_mult)
+        if total_roi.intersects(shifted_roi):
+            blocks.append(
+                daisy.Block(total_roi, shifted_roi, shifted_roi))
+
+    # print(blocks)
+    return blocks
+    # exit(0)
+
+
 def remap_in_block(
         block,
+        block_size,
+        total_roi,
         lut_dir,
         merge_function,
         threshold,
-        global_lut=None):
+        global_lut=None,
+        chunk_size=None):
 
     logging.info("Received block %s" % block)
 
     if global_lut is None:
         global_lut = load_global_lut(threshold, lut_dir, merge_function)
 
-    print("global_lut:")
-    for e in np.dstack((global_lut[0], global_lut[1])):
-        print(e)
+    # print("global_lut:")
+    # for e in np.dstack((global_lut[0], global_lut[1])):
+    #     print(e)
 
-    nodes_file = 'nodes_%s_%d/%d.npz' % (
-        merge_function, int(threshold*100), block.block_id)
-    nodes_file = os.path.join(lut_dir, nodes_file)
-    logging.info("Loading nodes %s" % nodes_file)
-    local_nodes = np.load(nodes_file)['nodes']
+    blocks = enumerate_blocks_in_chunks(
+        block, block_size, chunk_size, total_roi)
 
-    print("local_nodes:")
-    print(local_nodes)
+    local_nodes_list = []
+    for b in blocks:
+
+        nodes_file = 'nodes_%s_%d/%d.npz' % (
+            merge_function, int(threshold*100), b.block_id)
+        nodes_file = os.path.join(lut_dir, nodes_file)
+        logging.info("Loading nodes %s" % nodes_file)
+        local_nodes_list.append(np.load(nodes_file)['nodes'])
+
+    lens = [len(l) for l in local_nodes_list]
+    chunk_start_index = [sum(lens[0:i+1]) for i in range(len(lens))]
+    chunk_start_index.insert(0, 0)
+
+    # print(lens)
+    # print(chunk_start_index)
+
+    local_nodes_chunks = np.concatenate(local_nodes_list)
 
     logging.info("Remapping nodes %s" % nodes_file)
     start = time.time()
-    remapped = replace_values(local_nodes, global_lut[0], global_lut[1])
+    remapped_chunks = replace_values(local_nodes_chunks, global_lut[0], global_lut[1])
     print("%.3fs" % (time.time() - start))
 
-    # lut = np.stack([local_nodes, remapped], axis=1)
-    lut = np.array([local_nodes, remapped])
+    for i, b in enumerate(blocks):
 
-    # print("local2global_lut:")
-    # for e in np.dstack((lut[0], lut[1])):
-    #     print(e)
-    # print("lut:")
-    # print(lut)
-    # print("remapped:")
-    # print(remapped)
+        local_nodes = local_nodes_chunks[chunk_start_index[i]:chunk_start_index[i+1]]
+        remapped = remapped_chunks[chunk_start_index[i]:chunk_start_index[i+1]]
 
-    # exit(0)
+        # remove self-referencing entries
+        non_self_refs = local_nodes != remapped
+        local_nodes = local_nodes[non_self_refs]
+        remapped = remapped[non_self_refs]
 
-    # write
-    out_file = 'seg_local2global_%s_%d/%d.npz' % (
-        merge_function, int(threshold*100), block.block_id)
-    out_file = os.path.join(lut_dir, out_file)
-    np.savez_compressed(out_file, fragment_segment_lut=lut)
+        lut = np.array([local_nodes, remapped])
+
+        # print("local_nodes:")
+        # print(local_nodes)
+        # print("remapped:")
+        # print(remapped)
+
+        # write
+        out_file = 'seg_local2global_%s_%d/%d.npz' % (
+            merge_function, int(threshold*100), b.block_id)
+        out_file = os.path.join(lut_dir, out_file)
+        np.savez_compressed(out_file, fragment_segment_lut=lut)
 
 
 def load_global_lut(threshold, lut_dir, merge_function, lut_filename=None):
@@ -111,7 +158,8 @@ if __name__ == "__main__":
         db = db_client[db_name]
         completion_db = db[completion_db_name]
 
-        # total_roi = daisy.Roi(total_roi_offset, total_roi_shape)
+        total_roi = daisy.Roi(total_roi_offset, total_roi_shape)
+        block_size = daisy.Coordinate(block_size)
 
         lut_dir = os.path.join(
             fragments_file,
@@ -132,10 +180,13 @@ if __name__ == "__main__":
 
                 remap_in_block(
                     block,
+                    block_size,
+                    total_roi,
                     lut_dir,
                     merge_function,
                     threshold,
-                    global_lut=global_luts[threshold])
+                    global_lut=global_luts[threshold],
+                    chunk_size=tuple(chunk_size))
 
             # recording block done in the database
             document = dict()

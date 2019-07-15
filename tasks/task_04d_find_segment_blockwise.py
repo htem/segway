@@ -29,12 +29,13 @@ class FindSegmentsBlockwiseTask4(task_helper.SlurmTask):
     sub_roi_shape = daisy.Parameter(None)
 
     block_size = daisy.Parameter([4000, 4096, 4096])
+    chunk_size = daisy.Parameter([2, 2, 2])
 
     def prepare(self):
         '''Daisy calls `prepare` for each task prior to scheduling
         any block.'''
 
-        self.block_size = tuple(self.block_size)
+        self.block_size = daisy.Coordinate(self.block_size) * tuple(self.chunk_size)
 
         fragments = daisy.open_ds(self.fragments_file, self.fragments_dataset)
 
@@ -71,6 +72,10 @@ class FindSegmentsBlockwiseTask4(task_helper.SlurmTask):
             'lut_dir': self.lut_dir,
             'merge_function': self.merge_function,
             'thresholds': self.thresholds,
+            'chunk_size': self.chunk_size,
+            'block_size': self.block_size,
+            'total_roi_offset': total_roi.get_offset(),
+            'total_roi_shape': total_roi.get_shape(),
         }
         self.slurmSetup(
             config,

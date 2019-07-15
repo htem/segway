@@ -45,6 +45,7 @@ class ExtractSegmentationFromLUTBlockwiseTask(task_helper.SlurmTask):
 
     block_size = daisy.Parameter([4000, 4096, 4096])
     write_size = daisy.Parameter([1000, 1024, 1024])
+    chunk_size = daisy.Parameter([2, 2, 2])
 
     def prepare(self):
         '''Daisy calls `prepare` for each task prior to scheduling
@@ -91,6 +92,7 @@ class ExtractSegmentationFromLUTBlockwiseTask(task_helper.SlurmTask):
             'thresholds': self.thresholds,
             'out_dataset': self.out_dataset,
             'out_file': self.out_file,
+            'chunk_size': self.chunk_size,
         }
         self.slurmSetup(
             config,

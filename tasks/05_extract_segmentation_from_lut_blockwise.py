@@ -24,18 +24,14 @@ def segment_in_block(
 
     logging.info("Received block %s" % block)
 
+    logging.info("Copying fragments to memory...")
+    start = time.time()
+    fragments = fragments.to_ndarray(block.write_roi)
+    logging.info("%.3fs"%(time.time() - start))
+
     for threshold in thresholds:
 
         segmentation = segmentations[threshold]
-        # if global_lut is None:
-        # global_lut = load_global_lut(thresholds, lut_dir)
-
-        logging.info("Load global LUT...")
-        start = time.time()
-        global_lut = 'seg_local2global_%s_%d/%d' % (merge_function, int(threshold*100), block.block_id)
-        global_lut = np.load(os.path.join(lut_dir, global_lut + ".npz"))['fragment_segment_lut']
-        logging.info("Found %d fragments" % len(global_lut[0]))
-        logging.info("%.3fs"%(time.time() - start))
 
         logging.info("Load local LUT...")
         start = time.time()
@@ -44,19 +40,21 @@ def segment_in_block(
         logging.info("Found %d fragments" % len(local_lut[0]))
         logging.info("%.3fs"%(time.time() - start))
 
-        logging.info("Copying fragments to memory...")
-        start = time.time()
-        fragments = fragments.to_ndarray(block.write_roi)
-        logging.info("%.3fs"%(time.time() - start))
-
         logging.info("Relabelling fragments to local segments")
         start = time.time()
-        relabelled = replace_values(fragments, local_lut[0], local_lut[1])
+        relabelled = replace_values(fragments, local_lut[0], local_lut[1], inplace=False)
+        logging.info("%.3fs"%(time.time() - start))
+
+        logging.info("Load global LUT...")
+        start = time.time()
+        global_lut = 'seg_local2global_%s_%d/%d' % (merge_function, int(threshold*100), block.block_id)
+        global_lut = np.load(os.path.join(lut_dir, global_lut + ".npz"))['fragment_segment_lut']
+        logging.info("Found %d fragments" % len(global_lut[0]))
         logging.info("%.3fs"%(time.time() - start))
 
         logging.info("Relabelling fragments to global segments")
         start = time.time()
-        relabelled = replace_values(relabelled, global_lut[0], global_lut[1])
+        relabelled = replace_values(relabelled, global_lut[0], global_lut[1], inplace=True)
         logging.info("%.3fs"%(time.time() - start))
 
         logging.info("Writing segments...")
@@ -84,10 +82,6 @@ def extract_segmentation(
         fragments_file,
         lut_dir)
 
-    # if run_type:
-    #     lut_dir = os.path.join(lut_dir, run_type)
-    #     logging.info("Run type set, using luts from %s data"%run_type)
-
     segment_in_block(
         roi_offset,
         roi_shape,
@@ -97,24 +91,6 @@ def extract_segmentation(
         segmentation,
         fragments,
         lut)
-
-    # daisy.run_blockwise(
-    #     total_roi,
-    #     read_roi,
-    #     write_roi,
-    #     lambda b: segment_in_block(
-    #         b,
-    #         lut_dir,
-    #         merge_function,
-    #         threshold,
-    #         fragments_file,
-    #         segmentation,
-    #         fragments,
-    #         lut),
-    #     fit='shrink',
-    #     num_workers=1,
-    #     processes=True,
-    #     read_write_conflict=False)
 
 
 def load_global_lut(threshold, lut_dir, lut_filename=None):
