@@ -6,8 +6,11 @@ import gt_tools
 
 neuroglancer.set_server_bind_address('0.0.0.0')
 
-config = gt_tools.load_config(sys.argv[1])
-raw_file = config["raw_file"]
+if '.zarr' in sys.argv[1]:
+    raw_file = sys.argv[1]
+else:
+    config = gt_tools.load_config(sys.argv[1])
+    raw_file = config["raw_file"]
 
 if raw_file[-1] == '/':
     raw_file = raw_file[:-1]
