@@ -89,6 +89,8 @@ class PredictTask(task_helper.SlurmTask):
     overwrite_mask_f = daisy.Parameter(None)
     overwrite_sections = daisy.Parameter(None)
 
+    no_check = daisy.Parameter(False)
+
     def prepare(self):
         '''Daisy calls `prepare` for each task prior to scheduling
         any block.'''
@@ -216,6 +218,10 @@ class PredictTask(task_helper.SlurmTask):
 
         logging.info('Preparing output dataset')
 
+        write_size = chunk_size
+        write_size = write_size / (2, 2, 2)
+        logger.info("ZARR write size = %s" % write_size)
+
         self.affs_ds = daisy.prepare_ds(
             self.out_file,
             self.out_dataset,
@@ -223,7 +229,9 @@ class PredictTask(task_helper.SlurmTask):
             voxel_size,
             out_dtype,
             # write_roi=daisy.Roi((0, 0, 0), chunk_size),
-            write_size=chunk_size,
+            # write_size=chunk_size,
+            write_size=write_size,
+            force_exact_write_size=True,
             num_channels=out_dims,
             compressor={'id': 'zlib', 'level': 5}
             )
@@ -306,6 +314,9 @@ class PredictTask(task_helper.SlurmTask):
                 )
         if self.overwrite:
             check_function = None
+
+        if self.no_check:
+            check_function = (lambda b: False, lambda b: True)
 
         # any task must call schedule() at the end of prepare
         self.schedule(
