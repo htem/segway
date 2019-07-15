@@ -91,8 +91,7 @@ class FindSegmentsBlockwiseTask(task_helper.SlurmTask):
     def requires(self):
         if self.no_check_dependency:
             return []
-        # return [AgglomerateTask(global_config=self.global_config)]
-        return []
+        return [AgglomerateTask(global_config=self.global_config)]
 
     def block_done(self, block):
 

@@ -220,7 +220,8 @@ class PredictTask(task_helper.SlurmTask):
 
         write_size = chunk_size
         write_size = write_size / (2, 2, 2)
-        logger.info("ZARR write size = %s" % write_size)
+        logger.info("ZARR write size:")
+        logger.info(write_size)
 
         self.affs_ds = daisy.prepare_ds(
             self.out_file,
