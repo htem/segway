@@ -8,7 +8,6 @@
                 "segmentation_0.800",
                 "segmentation_0.900"
             ],
-            "colors":["y","k","coral","purple","navy","lime","salmon","saddlebrown","gold"],
             "colors":["b", "g", "r", "c", "m", "y", "k", "coral", "gold", "purple", "navy", "lime", "salmon", "saddlebrown"],
             "markers":["o", "", "^", "s", " ", "", "p", "", "D"]
         },

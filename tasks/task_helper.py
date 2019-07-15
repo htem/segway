@@ -431,6 +431,7 @@ def aggregateConfigs(configs):
     os.makedirs(input_config['log_dir'], exist_ok=True)
 
     merge_function = configs["AgglomerateTask"]["merge_function"]
+    thresholds = configs["ExtractSegmentationFromLUTBlockwiseTask"]["thresholds"]
 
     for config in configs:
 
@@ -580,16 +581,25 @@ def aggregateConfigs(configs):
         copyParameter(input_config, config, 'output_file', 'fragments_file')
         config['merge_function'] = merge_function
         config['edges_collection'] = "edges_" + merge_function
+        config['thresholds'] = thresholds
 
     if "FindSegmentsBlockwiseTask2" in configs:
         config = configs["FindSegmentsBlockwiseTask2"]
         copyParameter(input_config, config, 'output_file', 'fragments_file')
         config['merge_function'] = merge_function
+        config['thresholds'] = thresholds
 
     if "FindSegmentsBlockwiseTask3" in configs:
         config = configs["FindSegmentsBlockwiseTask3"]
         copyParameter(input_config, config, 'output_file', 'fragments_file')
         config['merge_function'] = merge_function
+        config['thresholds'] = thresholds
+
+    if "FindSegmentsBlockwiseTask4" in configs:
+        config = configs["FindSegmentsBlockwiseTask4"]
+        copyParameter(input_config, config, 'output_file', 'fragments_file')
+        config['merge_function'] = merge_function
+        config['thresholds'] = thresholds
 
     if "ExtractSegmentationFromLUT" in configs:
         config = configs["ExtractSegmentationFromLUT"]
