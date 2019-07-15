@@ -1,10 +1,11 @@
-
-from task_05_graph_evaluation_print_error import get_multi_merge_split_error, \
-                                                 quick_compare_with_graph,\
-                                                 compare_threshold_multi_model
 import argparse
 import json
 import os
+
+import extract_segId_from_prediction
+from task_05_graph_evaluation_print_error import get_multi_merge_split_error, \
+                                                 quick_compare_with_graph,\
+                                                 compare_threshold_multi_model
 
 
 def parseConfigs(path):
@@ -85,12 +86,13 @@ def run_evaluation(
             os.path.dirname(config_path),
             # config["Output"]["output_path"],
             with_interpolation,
-	    config["AdditionalFeatures"]["step"],
+    	    config["AdditionalFeatures"]["step"],
             config["AdditionalFeatures"]["ignore_glia"],
             config["AdditionalFeatures"]["leaf_node_removal_depth"],
             config["Input"]["markers"],
             config["Input"]["colors"]
-)
+            )
+
     elif mode == "plot":
         compare_threshold_multi_model(
             config["Input"]["segment_dataset"],
@@ -107,6 +109,7 @@ def run_evaluation(
             config["AdditionalFeatures"]["leaf_node_removal_depth"],
             config["Input"]["markers"],
             config["Input"]["colors"])
+
     else:
         print("check if the mode is within plot ,quickplot, print, and check \
               the parsing code")
@@ -133,12 +136,15 @@ if __name__ == "__main__":
     parser.add_argument(
         "-p",
         "--processes",
-        help="Number of processes to use, default to 8",
+        help="Number of processes to use, default to 16",
         type=int,
         default=16)
     parser.add_argument("-i", "--interpolation",
                         default=True, choices=[True, False],
                         help="graph with interpolation or not")
+    parser.add_argument("--cache_segmentation",
+                        default=1, type=int,
+                        help="Cache segmentation volume or not")
     # parser.add_argument("-s", "--step",
     #                     default=40,type=int,
     #                     help="step of interpolation")
@@ -148,6 +154,9 @@ if __name__ == "__main__":
     # parser.add_argument("-f","--filename",help="name for the graph",\
     #                     default="test")
     args = parser.parse_args()
+
+    if args.cache_segmentation is not 1:
+        extract_segId_from_prediction.CACHE_SEGMENT_VOL = False
 
     # if len(args.config) == 0:
     #     print("Please provide configs, now running default task with config \

@@ -142,6 +142,13 @@ def add_nodes_from_catmaidCSV_with_interpolation(CSVdata, step, ignore_glia = Tr
 def add_nodes_from_catmaidJson_with_interpolation(JSONdata,step,ignore_glia = True):
     graph = nx.Graph()
     glia_cells_sk = glia_cells_sk_id_Json(JSONdata)
+
+    # sanity check the provided input
+    for skelid in JSONdata['skeletons']:
+        skel = JSONdata['skeletons'][skelid]
+        if len(skel['treenodes'].keys()) == 0:
+            assert False, "Error in JSON file: skeleton %s has no treenodes" % skelid
+
     id_to_start = int(max(max(list(i['treenodes'].keys()))
                           for i in JSONdata['skeletons'].values()))+1
     for sk_id, sk_dict in JSONdata['skeletons'].items():

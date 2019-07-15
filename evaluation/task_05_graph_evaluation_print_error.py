@@ -239,6 +239,8 @@ def quick_compare_with_graph(
         markers,
         colors):
 
+    assert len(threshold_list), "threshold_list is empty: %s" % threshold_list
+
     split_and_merge, split_and_merge_rand, split_and_merge_voi = [], [], []
     for seg_path in list_seg_path:
         numb_split, numb_merge = [], []
@@ -246,6 +248,7 @@ def quick_compare_with_graph(
          rand_merge_list,
          voi_split_list,
          voi_merge_list) = [], [], [], []
+
         p = Pool(num_process)
         graph_list = p.map(partial(graph_with_segId_prediction,
                                    skeleton_path=skeleton_path,
@@ -256,9 +259,7 @@ def quick_compare_with_graph(
                                    leaf_node_removal_depth=leaf_node_removal_depth),
                            ['volumes/'+threshold
                             for threshold in threshold_list])
-        # for threshold in threshold_list:
-        # graph = graph_with_segId_prediction(skeleton_path,seg_path,
-        #                                     'volumes/'+ threshold)
+
         for graph in graph_list:
             if graph is None:
                 numb_split.append(np.nan)
@@ -301,7 +302,7 @@ def quick_compare_with_graph(
 
 # following code is to find the coordinate of split or merge error
 def to_pixel_coord_xyz(zyx):
-    zyx = (daisy.Coordinate(zyx) / daisy.Coordinate((40, 4, 4)))
+    zyx = (daisy.Coordinate(zyx) / daisy.Coordinate((50, 50, 50)))
     return daisy.Coordinate((zyx[2], zyx[1], zyx[0]))
 
 ## split_error_dict === (error_dict) or (error_dict, breaking_error_dict). The latter includes breaking_error_dict 

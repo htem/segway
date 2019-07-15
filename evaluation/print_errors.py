@@ -1,10 +1,11 @@
-from task_05_graph_evaluation_print_error import get_merge_split_error,\
-                                                 quick_compare_with_graph,\
-                                                 compare_threshold_multi_model
 import argparse
 import json
 import os
 
+import extract_segId_from_prediction
+from task_05_graph_evaluation_print_error import get_merge_split_error,\
+                                                 quick_compare_with_graph,\
+                                                 compare_threshold_multi_model
 
 def parseConfigs(path):
     global_configs = {}
@@ -105,7 +106,13 @@ if __name__ == "__main__":
         choices=["split", "merge", "both"],
         default="both",
         help="")
+    parser.add_argument("--cache_segmentation",
+                        default=1, type=int,
+                        help="Cache segmentation volume or not")
     args = parser.parse_args()
+
+    if args.cache_segmentation is not 1:
+        extract_segId_from_prediction.CACHE_SEGMENT_VOL = False
 
     # assume that volume is zarr
     path = args.path.split("zarr")

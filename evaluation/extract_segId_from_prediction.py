@@ -9,6 +9,8 @@ from build_graph_from_catmaid import \
 import os.path
 ########################
 
+CACHE_SEGMENT_VOL = True
+
 
 def add_segId_from_prediction(graph, segmentation_path, segment_dataset, leaf_node_removal_depth):
     print(segmentation_path)
@@ -17,7 +19,9 @@ def add_segId_from_prediction(graph, segmentation_path, segment_dataset, leaf_no
     segment_array = daisy.open_ds(
         segmentation_path,
         segment_dataset)
-    segment_array = segment_array[segment_array.roi]
+
+    if CACHE_SEGMENT_VOL:
+        segment_array = segment_array[segment_array.roi]
 
     for treenode_id, attr in graph.nodes(data=True):
         treenode_zyx = (attr['z'], attr['y'], attr['x'])
@@ -34,7 +38,10 @@ def add_segId_from_prediction(graph, segmentation_path, segment_dataset, leaf_no
 
 def graph_with_segId_prediction(threshold, skeleton_path, segmentation_path,
                                 with_interpolation,step,ignore_glia,leaf_node_removal_depth):
-    if os.path.isdir(segmentation_path+"/"+threshold):
+
+    path = os.path.join(segmentation_path, threshold)
+
+    if os.path.isdir(path):
         if skeleton_path.endswith('.csv'):
             skeleton_data = pd.read_csv(skeleton_path)
             skeleton_data.columns = ['skeleton_id', 'treenode_id',
@@ -52,8 +59,9 @@ def graph_with_segId_prediction(threshold, skeleton_path, segmentation_path,
             else:
                 gNode = add_nodes_from_catmaidJson(skeleton_data,ignore_glia)
         return add_segId_from_prediction(gNode, segmentation_path, threshold, leaf_node_removal_depth)
+
     else:
-        pass
+        assert False, "Path %s not found!" % path
 
 
 def graph_with_segId_prediction2(
