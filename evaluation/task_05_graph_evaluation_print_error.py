@@ -219,11 +219,11 @@ def compare_threshold_multi_model(
     if not works:
         print("please provide the correct string for chosen matrices from \
               'number','rand' and 'voi'")
+
+
 #################
 # quick compare: after interpolation, the graph is expensive to build, this
 # function could save time and space but less parameter option provided
-
-
 def quick_compare_with_graph(
         threshold_list,
         filename,
@@ -238,7 +238,6 @@ def quick_compare_with_graph(
         leaf_node_removal_depth,
         markers,
         colors):
-
     split_and_merge, split_and_merge_rand, split_and_merge_voi = [], [], []
     for seg_path in list_seg_path:
         numb_split, numb_merge = [], []
@@ -268,9 +267,9 @@ def quick_compare_with_graph(
                 voi_split_list.append(np.nan)
                 voi_merge_list.append(np.nan)
             else:
-                split_error_num, _ = splits_error(graph)
+                split_error_num, split_error_dict = splits_error(graph)
                 numb_split.append(split_error_num)
-                merge_error_num, _ = merge_error(graph)
+                merge_error_num, merge_error_dict = merge_error(graph)
                 numb_merge.append(int(merge_error_num))
                 (rand_split, rand_merge,
                  voi_split, voi_merge) = rand_voi_split_merge(graph)
@@ -278,19 +277,15 @@ def quick_compare_with_graph(
                 rand_merge_list.append(rand_merge)
                 voi_split_list.append(voi_split)
                 voi_merge_list.append(voi_merge)
-
+                # The following 4 lines create a file containing the error locations
+                origin_scores = rand_voi_split_merge(graph)
+                index = graph_list.index(graph)
+                seg_vol = threshold_list[index]
+                write_errors_to_file(merge_error_dict, split_error_dict, seg_path, seg_vol, graph, origin_scores)
         model = get_model_name(seg_path, model_name_mapping)
         split_and_merge.extend((model, numb_merge, numb_split))
         split_and_merge_rand.extend((model, rand_merge_list, rand_split_list))
         split_and_merge_voi.extend((model, voi_merge_list, voi_split_list))
-    # print("for filename: "+filename+" seg_path: "+str(threshold_list))
-    # print("numbers: ")
-    # print(str(split_and_merge))
-    # print("rand: ")
-    # print(str(split_and_merge_rand))
-    # print("voi: ")
-    # print(str(split_and_merge_voi))
-    # print("print done")
     compare_threshold(threshold_list, filename, 'number', output_path, markers,
                       colors, *split_and_merge)
     compare_threshold(threshold_list, filename, 'rand', output_path, markers,
@@ -298,6 +293,93 @@ def quick_compare_with_graph(
     compare_threshold(threshold_list, filename, 'voi', output_path, markers,
                       colors, *split_and_merge_voi)
 
+def write_errors_to_file(merge_error_dict, split_error_dict, seg_path, seg_vol, graph, origin_scores):
+    file_name = "./evals/error_coords/" + seg_vol + "_errors.txt"
+    with open(file_name, "w") as f:
+        print(seg_vol, file = f)
+        write_merge_errors_to_file(file_name, merge_error_dict, seg_vol, graph, origin_scores)
+        write_split_errors_to_file(file_name, split_error_dict, seg_path, "volumes/" + seg_vol, graph, origin_scores)
+
+def write_merge_errors_to_file(file_name, merge_error_dict, seg_vol, graph, origin_scores):
+    all_errors = []
+    for seg_id in merge_error_dict:
+        errors = merge_error_dict[seg_id]
+        if len(errors):
+            for error in errors:
+                scores = get_rand_voi_gain_after_fix(graph, "merge", error, origin_scores, seg_id=seg_id)
+                all_errors.append({
+                    'segid': seg_id,
+                    'xyz0': to_pixel_coord_xyz(error[0][0]),
+                    'xyz1': to_pixel_coord_xyz(error[0][1]),
+                    'scores': scores,
+                    })
+    all_errors = sorted(all_errors, key=lambda x: x['scores']['rand_merge'])
+    total_rand_merge = 0.0
+    with open(file_name, "a") as f:
+        print("MERGE ERRORS", file = f)
+        for error in all_errors:
+            print("Segment: %s" % error['segid'], file = f)
+            print("\t%s merged to %s" % (
+                    (error['xyz0']),
+                    (error['xyz1'])), file = f)
+            print("\tRAND merge score: %.4f" % error['scores']['rand_merge'], file = f)
+            total_rand_merge += error['scores']['rand_merge']
+            print("\tVOI  merge score: %.4f" % error['scores']['voi_merge'], file = f)
+        print("Total RAND merge loss: %.4f" % total_rand_merge, file = f)
+        print("", file = f)
+
+def write_split_errors_to_file(file_name, split_error_dict, seg_path, seg_vol, graph, origin_scores):
+    segment_ds = daisy.open_ds(seg_path, seg_vol)
+    all_errors = []
+    breaking_errors = []
+    ### get the routine split errors 
+    for skel_id in split_error_dict[0]:
+        errors = split_error_dict[0][skel_id]
+        if len(errors):
+            for error in errors:
+                xyzx = []
+                for point in error:
+                    xyzx.append((to_pixel_coord_xyz(point), segment_ds[Coordinate(point)]))
+                    # print("\t%s (%s)" % (to_pixel_coord_xyz(point),
+                    #                      segment_ds[Coordinate(point)]))
+                scores = get_rand_voi_gain_after_fix(graph, "split", error, origin_scores, segment_ds=segment_ds)
+                all_errors.append({
+                    'skeleton': skel_id,
+                    'xyzs': xyzx,
+                    'scores': scores,
+                    })
+    ### get the errors we ignore in presense of an organelle
+    if len(split_error_dict) == 2:
+        for skel_id in split_error_dict[1]:
+            errors = split_error_dict[1][skel_id]
+            if len(errors):
+                for error in errors:
+                    xyzx = []
+                    for point in error:
+                        xyzx.append((to_pixel_coord_xyz(point), segment_ds[Coordinate(point)]))
+                    breaking_errors.append({
+                        'skeleton': skel_id,
+                        'xyzs': xyzx,
+                    })
+
+    all_errors = sorted(all_errors, key=lambda x: x['scores']['rand_split'])
+    total_rand_split = 0.0
+    with open(file_name, "a") as f:
+        print("SPLIT ERRORS", file = f)
+        for error in all_errors:
+            print("Skeleton: %s" % error['skeleton'], file = f)
+            for xyz in error["xyzs"]:
+                print("\t%s (%s)" % (xyz[0], xyz[1]), file = f)
+            print("\tRAND split score: %.4f" % error['scores']['rand_split'], file = f)
+            total_rand_split += error['scores']['rand_split']
+            print("\tVOI  split score: %.4f" % error['scores']['voi_split'], file = f)
+        print("Total RAND split loss: %.4f" % total_rand_split, file = f)
+        if len(split_error_dict) == 2:
+            print("Following are errors we didn't count in numb_error", file = f)
+            for error in breaking_errors:
+                print("Skeleton: %s" % error['skeleton'], file = f)
+                for xyz in error["xyzs"]:
+                    print("\t%s (%s)" % (xyz[0], xyz[1]), file = f)
 
 # following code is to find the coordinate of split or merge error
 def to_pixel_coord_xyz(zyx):
@@ -306,7 +388,6 @@ def to_pixel_coord_xyz(zyx):
 
 ## split_error_dict === (error_dict) or (error_dict, breaking_error_dict). The latter includes breaking_error_dict 
 def print_split_errors(split_error_dict, seg_path, seg_vol, graph, origin_scores):
-
     segment_ds = daisy.open_ds(seg_path, seg_vol)
     print(seg_vol)
     all_errors = []
@@ -360,7 +441,6 @@ def print_split_errors(split_error_dict, seg_path, seg_vol, graph, origin_scores
         
 def print_merge_errors(merge_error_dict, seg_vol, graph, origin_scores):
     # print(seg_vol)
-
     all_errors = []
 
     for seg_id in merge_error_dict:
@@ -390,7 +470,6 @@ def print_merge_errors(merge_error_dict, seg_vol, graph, origin_scores):
         total_rand_merge += error['scores']['rand_merge']
         print("\tVOI  merge score: %.4f" % error['scores']['voi_merge'])
     print("Total RAND merge loss: %.4f" % total_rand_merge)
-
 
 
 def get_merge_split_error(
