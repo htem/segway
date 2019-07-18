@@ -304,7 +304,7 @@ def quick_compare_with_graph(
 
 # following code is to find the coordinate of split or merge error
 def to_pixel_coord_xyz(zyx):
-    zyx = (daisy.Coordinate(zyx) / daisy.Coordinate((50, 50, 50)))
+    zyx = (daisy.Coordinate(zyx) / daisy.Coordinate((40, 4, 4)))
     return daisy.Coordinate((zyx[2], zyx[1], zyx[0]))
 
 ## split_error_dict === (error_dict) or (error_dict, breaking_error_dict). The latter includes breaking_error_dict 
