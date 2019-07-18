@@ -251,28 +251,3 @@ def glia_cells_sk_id_Json(JSONdata):
                     glia_cell_sk_id.add(int(sk_id))  
     return glia_cell_sk_id 
 	
-	
-
-# def add_edges_from_catamaidCSV(CSVdata, graph):
-#     for i, nrow in CSVdata.iterrows():
-#         if np.isnan(nrow['parent_treenode_id']):
-#             continue
-#         else:
-#             graph.add_edge(nrow['parent_treenode_id'], nrow['treenode_id'])
-#     return graph
-
-
-# def add_segId_from_prediction(graph,segmentation_path,threshold):
-#     print(segmentation_path)
-#     print(threshold)
-#     segment_ds = daisy.open_ds(
-#     segmentation_path,
-#     threshold)
-#     for treenode_id, attr in graph.nodes(data=True):
-#         treenode_zyx = (attr['z'],attr['y'],attr['x'])
-#         if segment_ds.roi.contains(Coordinate(treenode_zyx)):
-#             seg_id = segment_ds[Coordinate(treenode_zyx)]
-#             #graph.add_nodes_from([treenode_id], seg_pred = seg_id)
-#             attr['segId_pred'] = seg_id
-
-#     return graph

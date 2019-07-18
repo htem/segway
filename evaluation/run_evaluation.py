@@ -1,11 +1,7 @@
-
-from task_05_graph_evaluation_print_error import get_multi_merge_split_error, \
-                                                 quick_compare_with_graph,\
-                                                 compare_threshold_multi_model
 import argparse
 import json
 import os
-
+from task_05_graph_evaluation_print_error import quick_compare_with_graph
 
 def parseConfigs(path):
     global_configs = {}
@@ -42,7 +38,7 @@ def construct_name_mapping(paths, names):
 
 
 def run_evaluation(
-        config_path, mode, num_process, with_interpolation, filename):
+        config_path, num_process, with_interpolation, filename):
 
     config = parseConfigs(config_path)
     if "skeleton" in config["Input"]:
@@ -54,7 +50,6 @@ def run_evaluation(
     else:
         print("please provide path to skeleton or check the keyword in json \
                file")
-
     model_name_mapping = {}
     if "segment_names" in config["Input"]:
         model_name_mapping = construct_name_mapping(
@@ -62,58 +57,24 @@ def run_evaluation(
             config["Input"]["segment_names"])
         print(model_name_mapping)
 
-    if mode == "print":
-        get_multi_merge_split_error(
-            skeleton,
-            config["Input"]["segment_volumes"],
-            config["Input"]["segment_dataset"],
-            config["PrintSplitMergeErrorTask"]["chosen_error_type"],
-            num_process,
-            with_interpolation,
-	    config["AdditionalFeatures"]["step"],
-            config["AdditionalFeatures"]["leaf_node_removal_depth"],  
-            config["AdditionalFeatures"]["z_weight_multiplier"],
-            config["AdditionalFeatures"]["ignore_glia"])
-    elif mode == "quickplot":
-        quick_compare_with_graph(
-            config["Input"]["segment_dataset"],
-            filename,
-            skeleton,
-            config["Input"]["segment_volumes"],
-            model_name_mapping,
-            num_process,
-            os.path.dirname(config_path),
-            # config["Output"]["output_path"],
-            with_interpolation,
-	    config["AdditionalFeatures"]["step"],
-            config["AdditionalFeatures"]["ignore_glia"],
-            config["AdditionalFeatures"]["leaf_node_removal_depth"],
-            config["Input"]["markers"],
-            config["Input"]["colors"]
-)
-    elif mode == "plot":
-        compare_threshold_multi_model(
-            config["Input"]["segment_dataset"],
-            filename,
-            skeleton,
-            config["Input"]["segment_volumes"],
-            config["GraphMatricesTask"]["chosen_matrices"],
-            num_process,
-            os.path.dirname(config_path),
-            # config["Output"]["output_path"],
-            with_interpolation,
-            config["AdditionalFeatures"]["step"],
-            config["AdditionalFeatures"]["ignore_glia"],
-            config["AdditionalFeatures"]["leaf_node_removal_depth"],
-            config["Input"]["markers"],
-            config["Input"]["colors"])
-    else:
-        print("check if the mode is within plot ,quickplot, print, and check \
-              the parsing code")
+    quick_compare_with_graph(
+        config["Input"]["segment_dataset"],
+        filename,
+        skeleton,
+        config["Input"]["segment_volumes"],
+        model_name_mapping,
+        num_process,
+        os.path.dirname(config_path),
+        # config["Output"]["output_path"],
+        with_interpolation,
+        config["AdditionalFeatures"]["step"],
+        config["AdditionalFeatures"]["ignore_glia"],
+        config["AdditionalFeatures"]["leaf_node_removal_depth"],
+        config["Input"]["markers"],
+        config["Input"]["colors"])
 
 
 if __name__ == "__main__":
-
     parser = argparse.ArgumentParser(description="plot the graph with \
                                                   evaluation matrices \
                                                   num_split_merge_error,rand,\
@@ -123,14 +84,6 @@ if __name__ == "__main__":
     parser.add_argument("config", help="provide the path to configs with input \
                                         information")
     parser.add_argument(
-        "-m",
-        "--mode",
-        choices=["print", "quickplot", "plot"],
-        default="quickplot",
-        help="print the coordinate of errors; quickplot means you get the rand,\
-              voi and split merge error directly, plot means you can choose \
-              any combination of matrices")
-    parser.add_argument(
         "-p",
         "--processes",
         help="Number of processes to use, default to 8",
@@ -139,20 +92,7 @@ if __name__ == "__main__":
     parser.add_argument("-i", "--interpolation",
                         default=True, choices=[True, False],
                         help="graph with interpolation or not")
-    # parser.add_argument("-s", "--step",
-    #                     default=40,type=int,
-    #                     help="step of interpolation")
-    # parser.add_argument("-z", "--zMultiplier",
-    #                     default=1,type=int,
-    #                     help="z_weight_multiplier")
-    # parser.add_argument("-f","--filename",help="name for the graph",\
-    #                     default="test")
     args = parser.parse_args()
 
-    # if len(args.config) == 0:
-    #     print("Please provide configs, now running default task with config \
-    #            task_defaults.json")
-    # if len(args.mode) == 0:
-    #     print("Please provide the mode from 'quickplot','plot','print'")
-    run_evaluation(args.config, args.mode, args.processes, args.interpolation,
+    run_evaluation(args.config, args.processes, args.interpolation,
                    args.config.split("/")[-1].split(".")[0])
