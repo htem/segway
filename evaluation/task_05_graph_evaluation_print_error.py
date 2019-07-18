@@ -281,7 +281,7 @@ def quick_compare_with_graph(
                 origin_scores = rand_voi_split_merge(graph)
                 index = graph_list.index(graph)
                 seg_vol = threshold_list[index]
-                write_errors_to_file(merge_error_dict, split_error_dict, seg_path, seg_vol, graph, origin_scores)
+                write_errors_to_file(output_path, merge_error_dict, split_error_dict, seg_path, seg_vol, graph, origin_scores)
         model = get_model_name(seg_path, model_name_mapping)
         split_and_merge.extend((model, numb_merge, numb_split))
         split_and_merge_rand.extend((model, rand_merge_list, rand_split_list))
@@ -293,8 +293,9 @@ def quick_compare_with_graph(
     compare_threshold(threshold_list, filename, 'voi', output_path, markers,
                       colors, *split_and_merge_voi)
 
-def write_errors_to_file(merge_error_dict, split_error_dict, seg_path, seg_vol, graph, origin_scores):
-    file_name = "./evals/error_coords/" + seg_vol + "_errors.txt"
+def write_errors_to_file(output_path, merge_error_dict, split_error_dict, seg_path, seg_vol, graph, origin_scores):
+    file_name = output_path + "/error_coords_" + seg_vol + ".txt"
+    print(file_name)
     with open(file_name, "w") as f:
         print(seg_vol, file = f)
         write_merge_errors_to_file(file_name, merge_error_dict, seg_vol, graph, origin_scores)
