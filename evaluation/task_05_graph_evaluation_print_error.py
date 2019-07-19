@@ -2,101 +2,110 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from extract_segId_from_prediction import graph_with_segId_prediction
-from extract_segId_from_prediction import graph_with_segId_prediction2
-from evaluation_matrix import splits_error, merge_error, rand_voi_split_merge, print_rand_voi_gain_after_fix
+from evaluation_matrix import splits_error, merge_error, rand_voi_split_merge
 from evaluation_matrix import get_rand_voi_gain_after_fix
-# import matplotlib.pyplot as plt
 import re
 import daisy
 from daisy import Coordinate
 from multiprocessing import Pool
 from functools import partial
 import numpy as np
+import os
 matplotlib.use('Agg')
 
-
-def get_error_dict(skeleton_path, seg_path, threshold_list, num_process,
-                   with_interpolation,step,ignore_glia,leaf_node_removal_depth):
-    numb_split = []
-    numb_merge = []
-    split_error_dict = {}
-    merge_error_dict = {}
-    p = Pool(num_process)
-    graph_list = p.map(partial(graph_with_segId_prediction,
-                               skeleton_path=skeleton_path,
-                               segmentation_path=seg_path,
-                               with_interpolation=with_interpolation,
-			       step=step,
-                               ignore_glia=ignore_glia,
-                               leaf_node_removal_depth=leaf_node_removal_depth),
-                       ['volumes/'+threshold for threshold in threshold_list])
-    # for threshold in threshold_list:
-    for graph, threshold in zip(graph_list, threshold_list):
-        graph = graph_with_segId_prediction('volumes/'+threshold,
-                                            skeleton_path, seg_path,
-                                            with_interpolation,
-					    step,
-                                            ignore_glia,
-                                            leaf_node_removal_depth)
-        split_error_num, split_list = splits_error(graph)
-        numb_split.append(split_error_num)
-        # dict == {segmentation_threshold:{sk_id:(((zyx),(zyx)),....),...} }
-        split_error_dict[threshold] = split_list[0]
-        merge_error_num, merge_list = merge_error(graph)
-        numb_merge.append(int(merge_error_num))
-        # dict == {segmentation_threshold:{seg_id:([{(zyx),(zyx)},sk1,sk2])} }
-        merge_error_dict[threshold] = merge_list
-    return numb_split, numb_merge, split_error_dict, merge_error_dict
-
-
-def get_rand_voi(skeleton_path, seg_path, threshold_list, num_process,
-                 with_interpolation,step,ignore_glia,leaf_node_removal_depth):
-    rand_split_list, rand_merge_list = [], []
-    voi_split_list, voi_merge_list = [], []
-    p = Pool(num_process)
-    graph_list = p.map(partial(graph_with_segId_prediction,
-                               skeleton_path=skeleton_path,
-                               segmentation_path=seg_path,
-                               with_interpolation=with_interpolation,
-                               step=step,
-                               ignore_glia=ignore_glia,
-                               leaf_node_removal_depth=leaf_node_removal_depth),
-                       ['volumes/'+threshold for threshold in threshold_list])
-    for graph in graph_list:
-        # for file in threshold_list:
-        # graph = graph_with_segId_prediction('volumes/'+ file, skeleton_path,
-        #                                     seg_path)
-        (rand_split,
-         rand_merge,
-         voi_split,
-         voi_merge) = rand_voi_split_merge(graph)
-        rand_split_list.append(rand_split)
-        rand_merge_list.append(rand_merge)
-        voi_split_list.append(voi_split)
-        voi_merge_list.append(voi_merge)
-    return rand_split_list, rand_merge_list, voi_split_list, voi_merge_list
-
-
+# TODO
+# 2) Reduce the number of parameters using config dics for most methods
+# 4) Give methods and variables more descriptive names
 # compare with lines with any model and cutouts
-def compare_threshold(
-        threshold_list,
-        filename,
+
+
+#################
+# quick compare: after interpolation, the graph is expensive to build, this
+# function could save time and space but less parameter option provided
+def compare_segmentation_to_ground_truth_skeleton(
+        agglomeration_thresholds,
+        segmentation_paths,
+        model_name_mapping,
+        num_processes,
+        configs):
+    split_and_merge, split_and_merge_rand, split_and_merge_voi = [], [], []
+    for seg_path in segmentation_paths:
+        numb_split, numb_merge = [], []
+        (rand_split_list,
+         rand_merge_list,
+         voi_split_list,
+         voi_merge_list) = [], [], [], []
+        p = Pool(num_processes)
+        graph_list = p.map(partial(graph_with_segId_prediction,
+                                   skeleton_path=configs["skeleton"]["skeleton_path"],
+                                   segmentation_path=seg_path,
+                                   with_interpolation=configs["skeleton"]["with_interpolation"],
+                                   step=configs["skeleton"]["step"],
+                                   ignore_glia=configs["skeleton"]["ignore_glia"],
+                                   leaf_node_removal_depth=configs["skeleton"]["leaf_node_removal_depth"]),
+                           ['volumes/'+threshold
+                            for threshold in agglomeration_thresholds])
+
+        for graph in graph_list:
+            if graph is None:
+                numb_split.append(np.nan)
+                numb_merge.append(np.nan)
+                rand_split_list.append(np.nan)
+                rand_merge_list.append(np.nan)
+                voi_split_list.append(np.nan)
+                voi_merge_list.append(np.nan)
+            else:
+                split_error_num, split_error_dict = splits_error(graph)
+                numb_split.append(split_error_num)
+                merge_error_num, merge_error_dict = merge_error(graph)
+                numb_merge.append(int(merge_error_num))
+                (rand_split, rand_merge,
+                 voi_split, voi_merge) = rand_voi_split_merge(graph)
+                rand_split_list.append(rand_split)
+                rand_merge_list.append(rand_merge)
+                voi_split_list.append(voi_split)
+                voi_merge_list.append(voi_merge)
+
+                # The following 4 lines create a file containing the error locations
+                origin_scores = (rand_split, rand_merge, voi_split, voi_merge)
+                index = graph_list.index(graph)
+                seg_vol = agglomeration_thresholds[index]
+                output_path = configs["output"]["output_path"] + "/" + configs["output"]["config_JSON"] + "_error_coords"
+                voxel_size = configs["output"]["voxel_size"]
+                generate_error_coordinates_file(output_path, merge_error_dict, split_error_dict, seg_path, seg_vol, graph, origin_scores, voxel_size)
+        
+        model = get_model_name(seg_path, model_name_mapping)
+        split_and_merge.extend((model, numb_merge, numb_split))
+        split_and_merge_rand.extend((model, rand_merge_list, rand_split_list))
+        split_and_merge_voi.extend((model, voi_merge_list, voi_split_list))
+    
+    config_file_name = configs["output"]["config_JSON"]
+    output_path = configs["output"]["output_path"]
+    markers = configs["output"]["markers"]
+    colors = configs["output"]["colors"]
+    generate_error_plot(agglomeration_thresholds, config_file_name, 'number', output_path, markers,
+                      colors, *split_and_merge)
+    generate_error_plot(agglomeration_thresholds, config_file_name, 'rand', output_path, markers,
+                      colors, *split_and_merge_rand)
+    generate_error_plot(agglomeration_thresholds, config_file_name, 'voi', output_path, markers,
+                      colors, *split_and_merge_voi)
+
+
+def generate_error_plot(
+        agglomeration_thresholds,
+        config_file_name,
         chosen_matrice,
         output_path,
         markers,
         colors,
         *split_and_merge):
-
-    # split_and_merge should be modelname,merge,split
     fig, ax = plt.subplots(figsize=(8, 6))
-    # print(len(split_and_merge))
-    # zorder; to make points(markers) over the line
     for j in range(int(len(split_and_merge)/3)):
         ax.plot(split_and_merge[j*3+1], split_and_merge[j*3+2],
                 label=split_and_merge[j*3], color=colors[j],
                 zorder=1, alpha=0.5, linewidth=2.5)
         for a, b, m, l in zip(split_and_merge[j*3+1], split_and_merge[j*3+2],
-                              markers, threshold_list):
+                              markers, agglomeration_thresholds):
             if j == 0:
                 ax.scatter(a, b, marker=m, c=colors[j],
                            label=l.replace("segmentation_", ""),
@@ -120,198 +129,60 @@ def compare_threshold(
         ax.set_xlim(left=-0.01)
         plt.xlabel('Merge VOI')
         plt.ylabel('Split VOI')
-    plt.savefig(output_path+"/"+filename+'_'+chosen_matrice, dpi=300)
+    output_file_name = output_path+"/"+config_file_name+'_'+chosen_matrice 
+    plt.savefig(output_file_name, dpi=300)
 
 
-def get_model_name(volume_path, name_dictionary={}):
-
-    if volume_path in name_dictionary:
-        return name_dictionary[volume_path]
-
-    # print(volume_path)
-
-    if re.search(r"setup[0-9]{2}", volume_path):
-        model = re.search(r"setup[0-9]{2}",
-                          volume_path).group(0) + \
-                          "_"+re.search(r"[0-9]+00",
-                                        volume_path).group(0)
-
-    # model = volume_path.split('.zarr')[0]
-
-    else:
-        # model = re.search(r"[0-9]+000",volume_path).group(0)
-        model = "cb2_130000"
-    return model
+def generate_error_coordinates_file(output_path, merge_error_dict, split_error_dict, seg_path, seg_vol, graph, origin_scores, voxel_size):
+    try:
+        os.makedirs(output_path)
+    except FileExistsError:
+        pass
+    input_info = seg_path.split(("/"))
+    file_name = output_path + "/error_coords_" + input_info[-4] + "_" + input_info[-3] + "_" + input_info[-2] + "_" + seg_vol + ".txt"
+    print(file_name)
+    with open(file_name, "w") as f:
+        print(seg_vol, file = f)
+        append_merge_error_coordinates(file_name, merge_error_dict, seg_vol, graph, origin_scores, voxel_size)
+        append_split_error_coordinates(file_name, split_error_dict, seg_path, "volumes/" + seg_vol, graph, origin_scores, voxel_size)
 
 
-def compare_threshold_multi_model(
-        threshold_list,
-        filename,
-        skeleton_path,
-        list_seg_path,
-        chosen_matrices,
-        num_process,
-        output_path,
-        with_interpolation,
-        step,
-        ignore_glia,
-        leaf_node_removal_depth,  
-        markers,
-        colors):
-    works = False
-    if 'number' in chosen_matrices:
-        split_and_merge = []
-        for seg_path in list_seg_path:
-            numb_split, numb_merge, _, _ = get_error_dict(skeleton_path,
-                                                          seg_path,
-                                                          threshold_list,
-                                                          num_process,
-                                                          with_interpolation,
-							  step,
-                                                          ignore_glia,
-                                                          leaf_node_removal_depth)
-            model = get_model_name(seg_path)
-            split_and_merge.extend((model, numb_merge, numb_split))
-        compare_threshold(threshold_list, filename, 'number', output_path,
-                          markers, colors, *split_and_merge)
-        works = True
-    '''
-    if 'rand' and 'voi' in chosen_matrices:
-        split_and_merge_rand,split_and_merge_voi = [],[]
-        for seg_path in list_seg_path:
-            (rand_split_list,
-             rand_merge_list,
-             voi_split_list,
-             voi_merge_list) = get_rand_voi(skeleton_path,seg_path,
-                                            threshold_list,num_process,
-                                            with_interpolation)
-            model = get_model_name(seg_path)
-            split_and_merge_rand.extend((model,rand_merge_list,rand_split_list))
-            split_and_merge_voi.extend((model,voi_merge_list,voi_split_list))
-        compare_threshold(threshold_list,filename,'rand',markers,colors,*split_and_merge_rand)
-        compare_threshold(threshold_list,filename,'voi',markers,colors,*split_and_merge_voi)
-        works = True
-    '''
-    if 'rand' in chosen_matrices:
-        split_and_merge_rand = []
-        for seg_path in list_seg_path:
-            (rand_split_list,
-             rand_merge_list,
-             _, _) = get_rand_voi(skeleton_path, seg_path, threshold_list,
-                                  num_process, with_interpolation, step, ignore_glia)
-            model = get_model_name(seg_path)
-            split_and_merge_rand.extend((model, rand_merge_list,
-                                         rand_split_list))
-        compare_threshold(threshold_list, filename, 'rand', output_path,
-                          markers, colors, *split_and_merge_rand)
-        works = True
-    if 'voi' in chosen_matrices:
-        split_and_merge_voi = []
-        for seg_path in list_seg_path:
-            (_, _,
-             voi_split_list,
-             voi_merge_list) = get_rand_voi(skeleton_path, seg_path,
-                                            threshold_list, num_process,
-                                            with_interpolation, step, ignore_glia)
-            model = get_model_name(seg_path)
-            split_and_merge_voi.extend((model, voi_merge_list, voi_split_list))
-        compare_threshold(threshold_list, filename, 'voi', output_path,
-                          markers, colors, *split_and_merge_voi)
-        works = True
-    if not works:
-        print("please provide the correct string for chosen matrices from \
-              'number','rand' and 'voi'")
-#################
-# quick compare: after interpolation, the graph is expensive to build, this
-# function could save time and space but less parameter option provided
+def append_merge_error_coordinates(file_name, merge_error_dict, seg_vol, graph, origin_scores, voxel_size):
+    all_errors = []
+    for seg_id in merge_error_dict:
+        errors = merge_error_dict[seg_id]
+        if len(errors):
+            for error in errors:
+                scores = get_rand_voi_gain_after_fix(graph, "merge", error, origin_scores, seg_id=seg_id)
+                all_errors.append({
+                    'segid': seg_id,
+                    'xyz0': to_pixel_coord_xyz(error[0][0], voxel_size),
+                    'xyz1': to_pixel_coord_xyz(error[0][1], voxel_size),
+                    'node0': error[1],
+                    'node1':error[2],
+                    'scores': scores,
+                    })
+    all_errors = sorted(all_errors, key=lambda x: x['scores']['rand_merge'])
+    total_rand_merge = 0.0
+    with open(file_name, "a") as f:
+        print("############################", file = f)
+        print("MERGE ERRORS", file = f)
+        for error in all_errors:
+            print("Segment: %s" % error['segid'], file = f)
+            print("\t%s merged to %s" % (
+                    (error['xyz0']),
+                    (error['xyz1'])), file = f)
+            print("\tCATMAID nodes %s and %d" % (error['node0'], error['node1']), file = f)
+            print("\tRAND merge score: %.4f" % error['scores']['rand_merge'], file = f)
+            total_rand_merge += error['scores']['rand_merge']
+            print("\tVOI  merge score: %.4f" % error['scores']['voi_merge'], file = f)
+        print("Total RAND merge loss: %.4f" % total_rand_merge, file = f)
+        print("", file = f)
 
-
-def quick_compare_with_graph(
-        threshold_list,
-        filename,
-        skeleton_path,
-        list_seg_path,
-        model_name_mapping,
-        num_process,
-        output_path,
-        with_interpolation,
-        step,
-        ignore_glia,
-        leaf_node_removal_depth,
-        markers,
-        colors):
-
-    assert len(threshold_list), "threshold_list is empty: %s" % threshold_list
-
-    split_and_merge, split_and_merge_rand, split_and_merge_voi = [], [], []
-    for seg_path in list_seg_path:
-        numb_split, numb_merge = [], []
-        (rand_split_list,
-         rand_merge_list,
-         voi_split_list,
-         voi_merge_list) = [], [], [], []
-
-        p = Pool(num_process)
-        graph_list = p.map(partial(graph_with_segId_prediction,
-                                   skeleton_path=skeleton_path,
-                                   segmentation_path=seg_path,
-                                   with_interpolation=with_interpolation,
-                                   step=step,
-                                   ignore_glia=ignore_glia,
-                                   leaf_node_removal_depth=leaf_node_removal_depth),
-                           ['volumes/'+threshold
-                            for threshold in threshold_list])
-
-        for graph in graph_list:
-            if graph is None:
-                numb_split.append(np.nan)
-                numb_merge.append(np.nan)
-                rand_split_list.append(np.nan)
-                rand_merge_list.append(np.nan)
-                voi_split_list.append(np.nan)
-                voi_merge_list.append(np.nan)
-            else:
-                split_error_num, _ = splits_error(graph)
-                numb_split.append(split_error_num)
-                merge_error_num, _ = merge_error(graph)
-                numb_merge.append(int(merge_error_num))
-                (rand_split, rand_merge,
-                 voi_split, voi_merge) = rand_voi_split_merge(graph)
-                rand_split_list.append(rand_split)
-                rand_merge_list.append(rand_merge)
-                voi_split_list.append(voi_split)
-                voi_merge_list.append(voi_merge)
-
-        model = get_model_name(seg_path, model_name_mapping)
-        split_and_merge.extend((model, numb_merge, numb_split))
-        split_and_merge_rand.extend((model, rand_merge_list, rand_split_list))
-        split_and_merge_voi.extend((model, voi_merge_list, voi_split_list))
-    # print("for filename: "+filename+" seg_path: "+str(threshold_list))
-    # print("numbers: ")
-    # print(str(split_and_merge))
-    # print("rand: ")
-    # print(str(split_and_merge_rand))
-    # print("voi: ")
-    # print(str(split_and_merge_voi))
-    # print("print done")
-    compare_threshold(threshold_list, filename, 'number', output_path, markers,
-                      colors, *split_and_merge)
-    compare_threshold(threshold_list, filename, 'rand', output_path, markers,
-                      colors, *split_and_merge_rand)
-    compare_threshold(threshold_list, filename, 'voi', output_path, markers,
-                      colors, *split_and_merge_voi)
-
-
-# following code is to find the coordinate of split or merge error
-def to_pixel_coord_xyz(zyx):
-    zyx = (daisy.Coordinate(zyx) / daisy.Coordinate((40, 4, 4)))
-    return daisy.Coordinate((zyx[2], zyx[1], zyx[0]))
 
 ## split_error_dict === (error_dict) or (error_dict, breaking_error_dict). The latter includes breaking_error_dict 
-def print_split_errors(split_error_dict, seg_path, seg_vol, graph, origin_scores):
-
+def append_split_error_coordinates(file_name, split_error_dict, seg_path, seg_vol, graph, origin_scores, voxel_size):
     segment_ds = daisy.open_ds(seg_path, seg_vol)
-    print(seg_vol)
     all_errors = []
     breaking_errors = []
     ### get the routine split errors 
@@ -319,16 +190,19 @@ def print_split_errors(split_error_dict, seg_path, seg_vol, graph, origin_scores
         errors = split_error_dict[0][skel_id]
         if len(errors):
             for error in errors:
+                tree_node_id = error[2]
+                parent_node_id = error[3]
+                error = (error[0], error[1])
                 xyzx = []
                 for point in error:
-                    xyzx.append((to_pixel_coord_xyz(point), segment_ds[Coordinate(point)]))
-                    # print("\t%s (%s)" % (to_pixel_coord_xyz(point),
-                    #                      segment_ds[Coordinate(point)]))
+                    xyzx.append((to_pixel_coord_xyz(point, voxel_size), segment_ds[Coordinate(point)]))
                 scores = get_rand_voi_gain_after_fix(graph, "split", error, origin_scores, segment_ds=segment_ds)
                 all_errors.append({
                     'skeleton': skel_id,
                     'xyzs': xyzx,
                     'scores': scores,
+                    'tree_node_id': tree_node_id,
+                    'parent_node_id': parent_node_id
                     })
     ### get the errors we ignore in presense of an organelle
     if len(split_error_dict) == 2:
@@ -338,103 +212,46 @@ def print_split_errors(split_error_dict, seg_path, seg_vol, graph, origin_scores
                 for error in errors:
                     xyzx = []
                     for point in error:
-                        xyzx.append((to_pixel_coord_xyz(point), segment_ds[Coordinate(point)]))
+                        xyzx.append((to_pixel_coord_xyz(point, voxel_size), segment_ds[Coordinate(point)]))
                     breaking_errors.append({
                         'skeleton': skel_id,
                         'xyzs': xyzx,
                     })
-
     all_errors = sorted(all_errors, key=lambda x: x['scores']['rand_split'])
     total_rand_split = 0.0
-    for error in all_errors:
-        print("Skeleton: %s" % error['skeleton'])
-        for xyz in error["xyzs"]:
-            print("\t%s (%s)" % (xyz[0], xyz[1]))
-        print("\tRAND split score: %.4f" % error['scores']['rand_split'])
-        total_rand_split += error['scores']['rand_split']
-        print("\tVOI  split score: %.4f" % error['scores']['voi_split'])
-    print("Total RAND split loss: %.4f" % total_rand_split)
-    if len(split_error_dict) == 2:
-        print("Following are errors we didn't count in numb_error")
-        for error in breaking_errors:
-            print("Skeleton: %s" % error['skeleton'])
+    with open(file_name, "a") as f:
+        print("SPLIT ERRORS", file = f)
+        for error in all_errors:
+            print("Skeleton: %s" % error['skeleton'], file = f)
             for xyz in error["xyzs"]:
-                print("\t%s (%s)" % (xyz[0], xyz[1]))
-        
-def print_merge_errors(merge_error_dict, seg_vol, graph, origin_scores):
-    # print(seg_vol)
-
-    all_errors = []
-
-    for seg_id in merge_error_dict:
-        errors = merge_error_dict[seg_id]
-        if len(errors):
-            # print("Segmentation:", seg_id)
-            for error in errors:
-                # print("%s merged to %s" % (
-                #     to_pixel_coord_xyz(error[0][0]),
-                #     to_pixel_coord_xyz(error[0][1])))
-                scores = get_rand_voi_gain_after_fix(graph, "merge", error, origin_scores, seg_id=seg_id)
-                all_errors.append({
-                    'segid': seg_id,
-                    'xyz0': to_pixel_coord_xyz(error[0][0]),
-                    'xyz1': to_pixel_coord_xyz(error[0][1]),
-                    'scores': scores,
-                    })
-
-    all_errors = sorted(all_errors, key=lambda x: x['scores']['rand_merge'])
-    total_rand_merge = 0.0
-    for error in all_errors:
-        print("Segment: %s" % error['segid'])
-        print("\t%s merged to %s" % (
-                (error['xyz0']),
-                (error['xyz1'])))
-        print("\tRAND merge score: %.4f" % error['scores']['rand_merge'])
-        total_rand_merge += error['scores']['rand_merge']
-        print("\tVOI  merge score: %.4f" % error['scores']['voi_merge'])
-    print("Total RAND merge loss: %.4f" % total_rand_merge)
+                print("\t%s (%s)" % (xyz[0], xyz[1]), file = f)
+            print("\tCATMAID nodes %s and %d" % (error['tree_node_id'], error['parent_node_id']), file = f)            
+            print("\tRAND split score: %.4f" % error['scores']['rand_split'], file = f)
+            total_rand_split += error['scores']['rand_split']
+            print("\tVOI  split score: %.4f" % error['scores']['voi_split'], file = f)
+        print("Total RAND split loss: %.4f" % total_rand_split, file = f)
+        if len(split_error_dict) == 2:
+            print("Following are errors we didn't count in numb_error", file = f)
+            for error in breaking_errors:
+                print("Skeleton: %s" % error['skeleton'], file = f)
+                for xyz in error["xyzs"]:
+                    print("\t%s (%s)" % (xyz[0], xyz[1]), file = f)
 
 
 
-def get_merge_split_error(
-        skeleton_path,
-        seg_path,
-        seg_vol,
-        error_type,
-        num_process,
-        with_interpolation,
-        step,
-        z_weight_multiplier,
-        ignore_glia,
-        leaf_node_removal_depth):
-
-    graph = graph_with_segId_prediction2(
-        seg_vol,
-        skeleton_path,
-        seg_path,
-        with_interpolation,
-        step,
-        ignore_glia,
-        leaf_node_removal_depth)
-    print(graph)
-    # get the origin rand or voi scores
-    origin_scores = ()
-    origin_scores = rand_voi_split_merge(graph)
-    # origin_scores = (rand_split, rand_merge, voi_split, voi_merge )
-
-    if "merge" in error_type or "both" in error_type:
-        _, merge_dict = merge_error(graph,z_weight_multiplier)
-        print('Merge errors:')
-        print_merge_errors(merge_dict, seg_vol, graph, origin_scores)
-
-    if "split" in error_type or "both" in error_type:
-        _, split_dict = splits_error(graph,include_breaking_error=False)
-        print('Split errors:')
-        print_split_errors(split_dict, seg_path, seg_vol, graph, origin_scores)
+def get_model_name(volume_path, name_dictionary={}):
+    if volume_path in name_dictionary:
+        return name_dictionary[volume_path]
+    if re.search(r"setup[0-9]{2}", volume_path):
+        model = re.search(r"setup[0-9]{2}",
+                          volume_path).group(0) + \
+                          "_"+re.search(r"[0-9]+00",
+                                        volume_path).group(0)
+    return model
 
 
-def get_multi_merge_split_error(skeleton_path, seg_path_list, threshold_list, error_type, 
-                                num_process, with_interpolation, step, leaf_node_removal_depth, z_weight_multiplier):
-    for seg_path in seg_path_list:
-        get_merge_split_error(skeleton_path, seg_path, threshold_list,
-                              error_type, num_process, with_interpolation, step, leaf_node_removal_depth, z_weight_multiplier)
+# following code is to find the coordinate of split or merge error
+def to_pixel_coord_xyz(zyx, voxel_size):
+    zyx = (daisy.Coordinate(zyx) / daisy.Coordinate(voxel_size))
+    return daisy.Coordinate((zyx[2], zyx[1], zyx[0]))
+
