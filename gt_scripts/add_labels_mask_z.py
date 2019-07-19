@@ -312,7 +312,8 @@ if __name__ == "__main__":
     z_hi_threshold_ds = daisy.open_ds(file, "volumes/segmentation_slice_z_0.900")
     z_lo_threshold_ds = daisy.open_ds(file, "volumes/segmentation_slice_z_0.100")
     if "skeleton_file" in config:
-        segment_ds_path = "volumes/segmentation_skeleton"
+        #segment_ds_path = "volumes/segmentation_skeleton"
+        segment_ds_path = config["segmentation_skeleton_ds"]
     else:
         assert False
         segment_ds_path = config["segment_ds"]

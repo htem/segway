@@ -31,7 +31,8 @@ if __name__ == "__main__":
     if "myelin_mask_file" in config:
         segment_ds_name = "volumes/labels/neuron_ids_myelin"
     elif "skeleton_file" in config:
-        segment_ds_name = "volumes/segmentation_skeleton"
+        #segment_ds_name = "volumes/segmentation_skeleton"
+        segment_ds_name = config["segmentation_skeleton_ds"]
 
     segment_ds = daisy.open_ds(
         file,
