@@ -2,13 +2,15 @@
     "Input":
         {
             "segment_dataset":[
+                "segmentation_0.500",
                 "segmentation_0.600",
                 "segmentation_0.700",
                 "segmentation_0.800",
                 "segmentation_0.900"
             ],
-            "colors":["b", "g", "r", "c", "m", "y", "k", "coral", "gold", "purple", "navy", "lime", "salmon", "saddlebrown"],
-            "markers":["o", "", "^", "s", " ", "", "p", "", "D"]
+            "colors":["y","k","coral","purple","navy","lime","salmon","saddlebrown","gold"],
+            "markers":["o", "", "^", "s", " ", "", "p", "", "D"],
+            "voxel_size":[40, 4, 4]
         },
     "Output":
         {

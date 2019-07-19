@@ -6,45 +6,9 @@ import copy
 from utility import shortest_euclidean_bw_two_sk, to_pixel_coord_xyz
 
 
-# 1. number of splits or merges errors and the coordiante of error
+# 1. number of splits or merges errors and the coordinate of error
 
-'''
-##deprecated function
-def num_splits_or_merges(dic):
-    ##input should be dictionary embedded with dictionary {seg_id:{skeleton_id:
-    # counts}} or {skeleton_id:{seg_id:counts}}
-    #find the number of split or merges
-    num_merge_split = 0
-    for split_or_merge in dic.values():
-        num_merge_split += len(split_or_merge)-1
-    #print(num_split_or_merge)
-    #print(num_split_or_merge)
-    return num_merge_split
 
-##deprecated function
-def num_splits(graph):
-    #input should be skeleton graph with attr segId
-    sk_id = -1
-    seg_id = -1
-    sk_dict = {}
-    for treenode_id, attr in graph.nodes(data=True):
-        if attr['skeleton_id'] != sk_id:
-            tree
-            sk_id = attr['skeleton_id']
-            seg_id = attr['segId_pred']
-            seg_dict = {}
-            seg_dict[seg_id] = treenode_id
-            sk_dict[sk_id] = seg_dict
-        else:
-            if attr['segId_pred'] != seg_id :
-                seg_list = []
-                seg_list.append(treenode_id)
-                seg_dict[seg_id] = seg_list
-                seg_id = attr['segId_pred']
-                seg_list = [treenode_id]
-            else:
-                seg_list.append(treenode_id)
-'''
 
 ## here we consider the situation that network to sometimes miss small internal areas of larger processes without breakingtheir overall continuity. 
 ## include_breaking_error=True means we didn't consider such situation. include_breaking_error=False means we will consider such situation.  
@@ -57,7 +21,6 @@ def splits_error(graph, include_breaking_error=False):  # dict === {sk_id_1:(((z
     sk_id = -1
     breaking_error_dict = {}
     for treenode_id, attr in graph.nodes(data=True):
-        # print (attr)
         if attr['skeleton_id'] != sk_id:
             sk_id = attr['skeleton_id']
             error_dict[sk_id] = set()
@@ -82,7 +45,9 @@ def splits_error(graph, include_breaking_error=False):  # dict === {sk_id_1:(((z
                                                     attr['x'])),
                                         Coordinate((parent_node['z'],
                                                     parent_node['y'],
-                                                    parent_node['x']))))
+                                                    parent_node['x'])),
+                                                    treenode_id,
+                                                    attr['parent_id']))
                 else:
                     ancestor_node = parent_node
                     while not (ancestor_node['parent_id'] is None or math.isnan(ancestor_node['parent_id'])):
@@ -105,7 +70,9 @@ def splits_error(graph, include_breaking_error=False):  # dict === {sk_id_1:(((z
                                                         attr['x'])),
                                             Coordinate((parent_node['z'],
                                                         parent_node['y'],
-                                                        parent_node['x']))))
+                                                        parent_node['x'])),
+                                                        treenode_id,
+                                                        attr['parent_id']))
     if include_breaking_error:
         return error_count, (error_dict)
     else:
@@ -164,7 +131,6 @@ def merge_error(graph,z_weight_multiplier=1):  # dict === {seg_id:([{(zyx),(zyx)
 # transform the script below to python code
 # https://github.com/funkelab/funlib.evaluate/blob/master/funlib/evaluate/impl/rand_voi.hpp
 
-
 def rand_voi_split_merge(graph, return_cluster_scores=False):
     p_ij = {}
     p_i = {}
@@ -206,9 +172,6 @@ def rand_voi_split_merge(graph, return_cluster_scores=False):
     sum_p_j = 0
     for freq_label in p_j.values():
         sum_p_j += freq_label * freq_label
-    # print (sum_p_i)
-    # print (sum_p_j)
-    # print (sum_p_ij)
     # we have everything we need for RAND, normalize histograms for VOI
     for sk_id, i_dict in p_ij.items():
         for seg_id in i_dict:
@@ -250,44 +213,6 @@ def rand_voi_split_merge(graph, return_cluster_scores=False):
     return rand_split, rand_merge, voi_split, voi_merge
 
 
-def print_rand_voi_gain_after_fix(
-        graph,
-        error_type,
-        error,
-        origin_scores,
-        segment_ds=None,
-        seg_id=None):
-
-    if error_type == "split":
-        graph_fix = copy.deepcopy(graph)
-        seg_id = segment_ds[Coordinate(error[0])]
-        replace_seg_id = segment_ds[Coordinate(error[1])]
-        for treenode_id, attr in graph_fix.nodes(data=True):
-            if attr['segId_pred'] == replace_seg_id:
-                attr['segId_pred'] = seg_id
-        print_diff(origin_scores, graph_fix)
-
-    if error_type == "merge":
-        graph_fix_0 = copy.deepcopy(graph)
-        next_seg_id = max([attr['segId_pred'] for _, attr in graph_fix_0.nodes(data=True)])+1
-        replace_sk_id_0 = error[1]
-        replace_sk_id_1 = error[2]
-        for treenode_id, attr in graph_fix_0.nodes(data=True):
-            if attr['segId_pred'] == seg_id:
-                if attr['skeleton_id'] == replace_sk_id_0:
-                    attr['segId_pred'] = next_seg_id
-        print("below is the error impact scores of %s" %(to_pixel_coord_xyz(error[0][0]),))
-        print_diff(origin_scores, graph_fix_0)
-        next_seg_id += 1
-        graph_fix_1 = copy.deepcopy(graph)
-        for treenode_id, attr in graph_fix_1.nodes(data=True):
-            if attr['segId_pred'] == seg_id:
-                if attr['skeleton_id'] == replace_sk_id_1:
-                    attr['segId_pred'] = next_seg_id   
-        print("below is the error impact scores of %s" %(to_pixel_coord_xyz(error[0][1]),))
-        print_diff(origin_scores, graph_fix_1)
-
-
 def get_rand_voi_gain_after_fix(
         graph,
         error_type,
@@ -304,7 +229,6 @@ def get_rand_voi_gain_after_fix(
             if attr['segId_pred'] == replace_seg_id:
                 attr['segId_pred'] = seg_id
         return get_diff(origin_scores, graph_fix)
-
     if error_type == "merge":
         graph_fix_0 = copy.deepcopy(graph)
         next_seg_id = max([attr['segId_pred'] for _, attr in graph_fix_0.nodes(data=True)])+1
@@ -313,25 +237,7 @@ def get_rand_voi_gain_after_fix(
             if attr['segId_pred'] == seg_id:
                 if attr['skeleton_id'] == replace_sk_id_0:
                     attr['segId_pred'] = next_seg_id
-        # print("below is the error impact scores of %s" %(to_pixel_coord_xyz(error[0][0]),))
         return get_diff(origin_scores, graph_fix_0)
-        # next_seg_id += 1
-        # replace_sk_id_1 = error[2]
-        # graph_fix_1 = copy.deepcopy(graph)
-        # for treenode_id, attr in graph_fix_1.nodes(data=True):
-        #     if attr['segId_pred'] == seg_id:
-        #         if attr['skeleton_id'] == replace_sk_id_1:
-        #             attr['segId_pred'] = next_seg_id   
-        # print("below is the error impact scores of %s" %(to_pixel_coord_xyz(error[0][1]),))
-        # return get_diff(origin_scores, graph_fix_1)
-
-
-def print_diff(origin_scores, graph_fix):
-    rand_split_fix, rand_merge_fix, voi_split_fix, voi_merge_fix = rand_voi_split_merge(graph_fix)
-    print ("rand_split diff is : %f" % (rand_split_fix - origin_scores[0]))
-    print ("rand_merge diff is : %f" % (rand_merge_fix - origin_scores[1]))
-    print ("voi_split diff is : %f" % (voi_split_fix - origin_scores[2]))
-    print ("voi_merge diff is : %f" % (voi_merge_fix - origin_scores[3]))
 
 
 def get_diff(origin_scores, graph_fix):

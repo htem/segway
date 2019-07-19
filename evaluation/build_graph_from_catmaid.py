@@ -142,13 +142,6 @@ def add_nodes_from_catmaidCSV_with_interpolation(CSVdata, step, ignore_glia = Tr
 def add_nodes_from_catmaidJson_with_interpolation(JSONdata,step,ignore_glia = True):
     graph = nx.Graph()
     glia_cells_sk = glia_cells_sk_id_Json(JSONdata)
-
-    # sanity check the provided input
-    for skelid in JSONdata['skeletons']:
-        skel = JSONdata['skeletons'][skelid]
-        if len(skel['treenodes'].keys()) == 0:
-            assert False, "Error in JSON file: skeleton %s has no treenodes" % skelid
-
     id_to_start = int(max(max(list(i['treenodes'].keys()))
                           for i in JSONdata['skeletons'].values()))+1
     for sk_id, sk_dict in JSONdata['skeletons'].items():
@@ -164,7 +157,7 @@ def add_nodes_from_catmaidJson_with_interpolation(JSONdata,step,ignore_glia = Tr
                                                         sk_dict['treenodes'],
                                                         tr_dict,
                                                         id_to_start,
-							step)
+                                                        step)
     return graph
 
 
@@ -184,8 +177,6 @@ def add_nodes_from_catmaidCSV(CSVdata, ignore_glia=True):
             skeleton_graph.add_nodes_from([nrow['treenode_id']],
                                       parent_id=nrow['parent_treenode_id'])
             skeleton_graph.add_nodes_from([nrow['treenode_id']], segId_pred=-1)
-            # print(nrow['treenode_id'])
-            # print(nrow[['skeleton_id','x','y','z']].to_dict())
     return skeleton_graph
 
 
@@ -208,6 +199,8 @@ def add_nodes_from_catmaidJson(JSONdata,ignore_glia = True):
                                           parent_id=tr_dict['parent_id'])
             skeleton_graph.add_nodes_from([tr_id], segId_pred=-1)
     return skeleton_graph
+
+
 
 def glia_cells_sk_id_CSV(CSVdata):
     glia_cell_sk_id = set() #store the sk_id which are glia cells
@@ -258,28 +251,3 @@ def glia_cells_sk_id_Json(JSONdata):
                     glia_cell_sk_id.add(int(sk_id))  
     return glia_cell_sk_id 
 	
-	
-
-# def add_edges_from_catamaidCSV(CSVdata, graph):
-#     for i, nrow in CSVdata.iterrows():
-#         if np.isnan(nrow['parent_treenode_id']):
-#             continue
-#         else:
-#             graph.add_edge(nrow['parent_treenode_id'], nrow['treenode_id'])
-#     return graph
-
-
-# def add_segId_from_prediction(graph,segmentation_path,threshold):
-#     print(segmentation_path)
-#     print(threshold)
-#     segment_ds = daisy.open_ds(
-#     segmentation_path,
-#     threshold)
-#     for treenode_id, attr in graph.nodes(data=True):
-#         treenode_zyx = (attr['z'],attr['y'],attr['x'])
-#         if segment_ds.roi.contains(Coordinate(treenode_zyx)):
-#             seg_id = segment_ds[Coordinate(treenode_zyx)]
-#             #graph.add_nodes_from([treenode_id], seg_pred = seg_id)
-#             attr['segId_pred'] = seg_id
-
-#     return graph
