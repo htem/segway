@@ -9,7 +9,8 @@
                 "segmentation_0.900"
             ],
             "colors":["y","k","coral","purple","navy","lime","salmon","saddlebrown","gold"],
-            "markers":["o", "", "^", "s", " ", "", "p", "", "D"]
+            "markers":["o", "", "^", "s", " ", "", "p", "", "D"],
+            "voxel_size":[40, 4, 4]
         },
     "Output":
         {

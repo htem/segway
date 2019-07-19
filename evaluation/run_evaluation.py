@@ -1,7 +1,9 @@
 import argparse
 import json
 import os
-from task_05_graph_evaluation_print_error import quick_compare_with_graph
+from task_05_graph_evaluation_print_error import compare_segmentation_to_ground_truth_skeleton
+
+# Consider altering task_defaults/configs to reflect actual method parameters
 
 def parseConfigs(path):
     global_configs = {}
@@ -38,7 +40,7 @@ def construct_name_mapping(paths, names):
 
 
 def run_evaluation(
-        config_path, num_process, with_interpolation, filename):
+        config_path, num_processes, with_interpolation, filename):
 
     config = parseConfigs(config_path)
     if "skeleton" in config["Input"]:
@@ -57,21 +59,22 @@ def run_evaluation(
             config["Input"]["segment_names"])
         print(model_name_mapping)
 
-    quick_compare_with_graph(
+    skeleton_configs = config["AdditionalFeatures"]
+    skeleton_configs["with_interpolation"] = with_interpolation
+    skeleton_configs["skeleton_path"] = skeleton
+    config["Input"]["voxel_size"] = tuple(config["Input"]["voxel_size"])
+    output_configs = config["Input"]
+    output_configs["output_path"] = os.path.dirname(config_path)
+    output_configs["config_JSON"] = filename
+    parameter_configs = {}
+    parameter_configs["output"] = output_configs
+    parameter_configs["skeleton"] = skeleton_configs
+    compare_segmentation_to_ground_truth_skeleton(
         config["Input"]["segment_dataset"],
-        filename,
-        skeleton,
         config["Input"]["segment_volumes"],
         model_name_mapping,
-        num_process,
-        os.path.dirname(config_path),
-        # config["Output"]["output_path"],
-        with_interpolation,
-        config["AdditionalFeatures"]["step"],
-        config["AdditionalFeatures"]["ignore_glia"],
-        config["AdditionalFeatures"]["leaf_node_removal_depth"],
-        config["Input"]["markers"],
-        config["Input"]["colors"])
+        num_processes,
+        parameter_configs)
 
 
 if __name__ == "__main__":

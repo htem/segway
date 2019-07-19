@@ -22,18 +22,17 @@ def add_segId_from_prediction(graph, segmentation_path, segment_dataset, leaf_no
         treenode_zyx = (attr['z'], attr['y'], attr['x'])
         if segment_array.roi.contains(Coordinate(treenode_zyx)):
             seg_id = segment_array[Coordinate(treenode_zyx)]
-            # graph.add_nodes_from([treenode_id], seg_pred = seg_id)
             attr['segId_pred'] = seg_id
-    # print("Stop add_segId_from_prediction %s" % time.time())
     print("Task add_segId_from_prediction of %s took %s seconds" %
           (segment_dataset, time.time()-start_time))
+    connect_nodes_to_parents(graph)
     remove_leaf_nodes(graph, leaf_node_removal_depth)
     return graph
 
 
-def graph_with_segId_prediction(threshold, skeleton_path, segmentation_path,
-                                with_interpolation,step,ignore_glia,leaf_node_removal_depth):
-    if os.path.isdir(segmentation_path+"/"+threshold):
+def graph_with_segId_prediction(agglomeration_threshold, skeleton_path, segmentation_path,
+                                with_interpolation, step, ignore_glia, leaf_node_removal_depth):
+    if os.path.isdir(segmentation_path+"/"+agglomeration_threshold):
         if skeleton_path.endswith('.csv'):
             skeleton_data = pd.read_csv(skeleton_path)
             skeleton_data.columns = ['skeleton_id', 'treenode_id',
@@ -42,7 +41,6 @@ def graph_with_segId_prediction(threshold, skeleton_path, segmentation_path,
                 gNode = add_nodes_from_catmaidCSV_with_interpolation(skeleton_data,step,ignore_glia)
             else:
                 gNode = add_nodes_from_catmaidCSV(skeleton_data,ignore_glia)
-            # gNodeEdge = add_edges_from_catamaidCSV(skeleton_data,gNode)
         if skeleton_path.endswith('.json'):
             with open(skeleton_path, 'r') as f:
                 skeleton_data = json.load(f)
@@ -50,7 +48,7 @@ def graph_with_segId_prediction(threshold, skeleton_path, segmentation_path,
                 gNode = add_nodes_from_catmaidJson_with_interpolation(skeleton_data,step,ignore_glia)
             else:
                 gNode = add_nodes_from_catmaidJson(skeleton_data,ignore_glia)
-        return add_segId_from_prediction(gNode, segmentation_path, threshold, leaf_node_removal_depth)
+        return add_segId_from_prediction(gNode, segmentation_path, agglomeration_threshold, leaf_node_removal_depth)
     else:
         pass
 
@@ -59,7 +57,6 @@ def graph_with_segId_prediction(threshold, skeleton_path, segmentation_path,
 # from the graph in order to avoid penalizing the model for small, unimportant 
 # misclassifications at the ends of a cell.
 def remove_leaf_nodes(graph, removal_depth):
-    graph = connect_nodes_to_parents(graph)
     for i in range(removal_depth):
         leaf_nodes = []
         for node in graph.nodes:
@@ -75,7 +72,8 @@ def remove_leaf_nodes(graph, removal_depth):
     return graph
 
 # This method connects every node in the graph to its parent node
-# (the node specified by its 'parent_id' attribute).
+# (the node specified by its 'parent_id' attribute) to facilitate
+# removing the leaf nodes.
 def connect_nodes_to_parents(graph):
     for node in graph.nodes:
         parent = graph.nodes[node]['parent_id']

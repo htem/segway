@@ -157,7 +157,7 @@ def add_nodes_from_catmaidJson_with_interpolation(JSONdata,step,ignore_glia = Tr
                                                         sk_dict['treenodes'],
                                                         tr_dict,
                                                         id_to_start,
-							step)
+                                                        step)
     return graph
 
 
@@ -177,8 +177,6 @@ def add_nodes_from_catmaidCSV(CSVdata, ignore_glia=True):
             skeleton_graph.add_nodes_from([nrow['treenode_id']],
                                       parent_id=nrow['parent_treenode_id'])
             skeleton_graph.add_nodes_from([nrow['treenode_id']], segId_pred=-1)
-            # print(nrow['treenode_id'])
-            # print(nrow[['skeleton_id','x','y','z']].to_dict())
     return skeleton_graph
 
 
@@ -201,6 +199,8 @@ def add_nodes_from_catmaidJson(JSONdata,ignore_glia = True):
                                           parent_id=tr_dict['parent_id'])
             skeleton_graph.add_nodes_from([tr_id], segId_pred=-1)
     return skeleton_graph
+
+
 
 def glia_cells_sk_id_CSV(CSVdata):
     glia_cell_sk_id = set() #store the sk_id which are glia cells
