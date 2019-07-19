@@ -93,7 +93,7 @@ if __name__ == "__main__":
         type=int,
         default=16)
     parser.add_argument("-i", "--interpolation",
-                        default=True, choices=[True, False],
+                        default=False, choices=[True, False],
                         help="graph with interpolation or not")
     args = parser.parse_args()
 

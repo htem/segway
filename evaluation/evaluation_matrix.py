@@ -21,7 +21,6 @@ def splits_error(graph, include_breaking_error=False):  # dict === {sk_id_1:(((z
     sk_id = -1
     breaking_error_dict = {}
     for treenode_id, attr in graph.nodes(data=True):
-        # print (attr)
         if attr['skeleton_id'] != sk_id:
             sk_id = attr['skeleton_id']
             error_dict[sk_id] = set()
@@ -46,7 +45,9 @@ def splits_error(graph, include_breaking_error=False):  # dict === {sk_id_1:(((z
                                                     attr['x'])),
                                         Coordinate((parent_node['z'],
                                                     parent_node['y'],
-                                                    parent_node['x']))))
+                                                    parent_node['x'])),
+                                                    treenode_id,
+                                                    attr['parent_id']))
                 else:
                     ancestor_node = parent_node
                     while not (ancestor_node['parent_id'] is None or math.isnan(ancestor_node['parent_id'])):
@@ -69,7 +70,9 @@ def splits_error(graph, include_breaking_error=False):  # dict === {sk_id_1:(((z
                                                         attr['x'])),
                                             Coordinate((parent_node['z'],
                                                         parent_node['y'],
-                                                        parent_node['x']))))
+                                                        parent_node['x'])),
+                                                        treenode_id,
+                                                        attr['parent_id']))
     if include_breaking_error:
         return error_count, (error_dict)
     else:
@@ -169,9 +172,6 @@ def rand_voi_split_merge(graph, return_cluster_scores=False):
     sum_p_j = 0
     for freq_label in p_j.values():
         sum_p_j += freq_label * freq_label
-    # print (sum_p_i)
-    # print (sum_p_j)
-    # print (sum_p_ij)
     # we have everything we need for RAND, normalize histograms for VOI
     for sk_id, i_dict in p_ij.items():
         for seg_id in i_dict:

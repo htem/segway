@@ -22,13 +22,6 @@ matplotlib.use('Agg')
 #################
 # quick compare: after interpolation, the graph is expensive to build, this
 # function could save time and space but less parameter option provided
-#
-# Parameters:
-# agglomeration_thresholds - list of agglomeration thresholds to compare
-# config_file_name - name of JSON file spefifying configs
-# skeleton_path - path to JSON or CSV file describing catmaid skeleton
-# segmentation_paths - list of file paths to automated segmentations being evaluations
-# num_processes - number of processes to spawn (for parallel processing)
 def compare_segmentation_to_ground_truth_skeleton(
         agglomeration_thresholds,
         segmentation_paths,
@@ -141,7 +134,6 @@ def generate_error_plot(
 
 
 def generate_error_coordinates_file(output_path, merge_error_dict, split_error_dict, seg_path, seg_vol, graph, origin_scores, voxel_size):
-    print("*************************************")
     try:
         os.makedirs(output_path)
     except FileExistsError:
@@ -166,6 +158,8 @@ def append_merge_error_coordinates(file_name, merge_error_dict, seg_vol, graph, 
                     'segid': seg_id,
                     'xyz0': to_pixel_coord_xyz(error[0][0], voxel_size),
                     'xyz1': to_pixel_coord_xyz(error[0][1], voxel_size),
+                    'node0': error[1],
+                    'node1':error[2],
                     'scores': scores,
                     })
     all_errors = sorted(all_errors, key=lambda x: x['scores']['rand_merge'])
@@ -178,6 +172,7 @@ def append_merge_error_coordinates(file_name, merge_error_dict, seg_vol, graph, 
             print("\t%s merged to %s" % (
                     (error['xyz0']),
                     (error['xyz1'])), file = f)
+            print("\tCATMAID nodes %s and %d" % (error['node0'], error['node1']), file = f)
             print("\tRAND merge score: %.4f" % error['scores']['rand_merge'], file = f)
             total_rand_merge += error['scores']['rand_merge']
             print("\tVOI  merge score: %.4f" % error['scores']['voi_merge'], file = f)
@@ -195,6 +190,9 @@ def append_split_error_coordinates(file_name, split_error_dict, seg_path, seg_vo
         errors = split_error_dict[0][skel_id]
         if len(errors):
             for error in errors:
+                tree_node_id = error[2]
+                parent_node_id = error[3]
+                error = (error[0], error[1])
                 xyzx = []
                 for point in error:
                     xyzx.append((to_pixel_coord_xyz(point, voxel_size), segment_ds[Coordinate(point)]))
@@ -203,6 +201,8 @@ def append_split_error_coordinates(file_name, split_error_dict, seg_path, seg_vo
                     'skeleton': skel_id,
                     'xyzs': xyzx,
                     'scores': scores,
+                    'tree_node_id': tree_node_id,
+                    'parent_node_id': parent_node_id
                     })
     ### get the errors we ignore in presense of an organelle
     if len(split_error_dict) == 2:
@@ -225,6 +225,7 @@ def append_split_error_coordinates(file_name, split_error_dict, seg_path, seg_vo
             print("Skeleton: %s" % error['skeleton'], file = f)
             for xyz in error["xyzs"]:
                 print("\t%s (%s)" % (xyz[0], xyz[1]), file = f)
+            print("\tCATMAID nodes %s and %d" % (error['tree_node_id'], error['parent_node_id']), file = f)            
             print("\tRAND split score: %.4f" % error['scores']['rand_split'], file = f)
             total_rand_split += error['scores']['rand_split']
             print("\tVOI  split score: %.4f" % error['scores']['voi_split'], file = f)
@@ -237,7 +238,7 @@ def append_split_error_coordinates(file_name, split_error_dict, seg_path, seg_vo
                     print("\t%s (%s)" % (xyz[0], xyz[1]), file = f)
 
 
-# 
+
 def get_model_name(volume_path, name_dictionary={}):
     if volume_path in name_dictionary:
         return name_dictionary[volume_path]
