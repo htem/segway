@@ -3,11 +3,10 @@ import logging
 import sys
 import os
 import os.path as path
-
+from itertools import product
 import numpy as np
 
 import daisy
-
 import task_helper
 from task_04c_find_segment_blockwise import FindSegmentsBlockwiseTask3
 
@@ -44,6 +43,7 @@ class FindSegmentsBlockwiseTask4(task_helper.SlurmTask):
                 tuple(self.sub_roi_offset), tuple(self.sub_roi_shape))
         else:
             total_roi = fragments.roi
+        self.total_roi = total_roi
 
         assert fragments.roi.contains(total_roi)
         
@@ -101,7 +101,12 @@ class FindSegmentsBlockwiseTask4(task_helper.SlurmTask):
             return []
         return [FindSegmentsBlockwiseTask3(global_config=self.global_config)]
 
-    def block_done(self, block):
+    def block_done(self, chunk):
+
+        # get the last chunk in the chunk
+        blocks = enumerate_blocks_in_chunks(
+            chunk, self.block_size, self.chunk_size, self.total_roi)
+        block = blocks[-1]
 
         block_id = block.block_id
         lookup = 'seg_local2global_%s_%d/%d' % (
@@ -110,10 +115,38 @@ class FindSegmentsBlockwiseTask4(task_helper.SlurmTask):
             block_id
             )
         out_file = os.path.join(self.out_dir, lookup) + '.npz'
-        logger.debug("Checking %s" % out_file)
         exists = path.exists(out_file)
+        if not exists:
+            logger.info("%s not found" % out_file)
         return exists
 
+
+def enumerate_blocks_in_chunks(block, block_size, chunk_size, total_roi):
+
+    if chunk_size is None:
+        return block
+
+    block_size = daisy.Coordinate(block_size)
+    chunk_size = daisy.Coordinate(chunk_size)
+
+    blocks = []
+    # roi_shape = block.requested_write_roi.get_shape()
+    chunk_shape = block_size / chunk_size
+    # print(roi_shape / chunk_shape)
+    # print(product(*list(roi_shape / chunk_shape)))
+    chunk_roi = daisy.Roi(block.write_roi.get_offset(), chunk_shape)
+
+    offsets = [range(n) for n in chunk_size]
+
+    for offset_mult in product(*offsets):
+
+        # print(offset_mult)
+        shifted_roi = chunk_roi.shift(chunk_shape*offset_mult)
+        if total_roi.intersects(shifted_roi):
+            blocks.append(
+                daisy.Block(total_roi, shifted_roi, shifted_roi))
+
+    return blocks
 
 if __name__ == "__main__":
 

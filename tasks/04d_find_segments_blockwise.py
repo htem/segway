@@ -7,8 +7,8 @@ import sys
 import time
 import numpy as np
 import pymongo
-from itertools import product
 
+from task_04d_find_segments_blockwise import enumerate_blocks_in_chunks
 import task_helper
 
 logging.basicConfig(level=logging.INFO)
@@ -16,31 +16,6 @@ logging.basicConfig(level=logging.INFO)
 # np.set_printoptions(threshold=sys.maxsize, formatter={'all':lambda x: str(x)})
 
 
-def enumerate_blocks_in_chunks(block, block_size, chunk_size, total_roi):
-
-    if chunk_size is None:
-        return block
-
-    blocks = []
-    # roi_shape = block.requested_write_roi.get_shape()
-    chunk_shape = block_size / chunk_size
-    # print(roi_shape / chunk_shape)
-    # print(product(*list(roi_shape / chunk_shape)))
-    chunk_roi = daisy.Roi(block.write_roi.get_offset(), chunk_shape)
-
-    offsets = [range(n) for n in chunk_size]
-
-    for offset_mult in product(*offsets):
-
-        # print(offset_mult)
-        shifted_roi = chunk_roi.shift(chunk_shape*offset_mult)
-        if total_roi.intersects(shifted_roi):
-            blocks.append(
-                daisy.Block(total_roi, shifted_roi, shifted_roi))
-
-    # print(blocks)
-    return blocks
-    # exit(0)
 
 
 def remap_in_block(
@@ -62,8 +37,14 @@ def remap_in_block(
     # for e in np.dstack((global_lut[0], global_lut[1])):
     #     print(e)
 
+    print("block_size: ", block_size)
+    print("chunk_size: ", chunk_size)
+    print("total_roi: ", total_roi)
+
     blocks = enumerate_blocks_in_chunks(
         block, block_size, chunk_size, total_roi)
+
+    print(blocks); exit(0)
 
     local_nodes_list = []
     for b in blocks:
