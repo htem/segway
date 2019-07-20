@@ -36,10 +36,12 @@ class SlurmTask(daisy.Task):
     db_host = daisy.Parameter()
     db_name = daisy.Parameter()
 
+
     def slurmSetup(
             self, config, actor_script,
             python_module=False,
             python_interpreter='python',
+            completion_db_name_extra=None,
             **kwargs):
         '''Write config file and sbatch file for the actor, and generate
         `new_actor_cmd`. We also keep track of new jobs so to kill them
@@ -58,7 +60,11 @@ class SlurmTask(daisy.Task):
 
         db_client = pymongo.MongoClient(self.db_host)
         db = db_client[self.db_name]
+
         completion_db_name = self.__class__.__name__ + '_finished_blocks'
+        if completion_db_name_extra:
+            completion_db_name = completion_db_name + completion_db_name_extra
+
         if completion_db_name not in db.list_collection_names():
             self.completion_db = db[completion_db_name]
             self.completion_db.create_index(

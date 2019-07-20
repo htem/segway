@@ -82,7 +82,7 @@ class ExtractSegmentationFromLUTBlockwiseTask(task_helper.SlurmTask):
                 force_exact_write_size=True,
                 compressor={'id': 'zlib', 'level': 5})
 
-        # self.last_threshold = self.thresholds[-1]
+        last_threshold = self.thresholds[-1]
 
         config = {
             'fragments_file': self.fragments_file,
@@ -96,7 +96,8 @@ class ExtractSegmentationFromLUTBlockwiseTask(task_helper.SlurmTask):
         }
         self.slurmSetup(
             config,
-            '05_extract_segmentation_from_lut_blockwise.py')
+            '05_extract_segmentation_from_lut_blockwise.py',
+            completion_db_name_extra="_%.3f" % last_threshold)
 
         check_function = self.check_block
         if self.overwrite:

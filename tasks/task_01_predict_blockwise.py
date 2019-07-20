@@ -313,6 +313,7 @@ class PredictTask(task_helper.SlurmTask):
                 lambda b: self.check_block(b, precheck=True),
                 lambda b: self.check_block(b, precheck=False)
                 )
+
         if self.overwrite:
             check_function = None
 
