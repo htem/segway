@@ -8,7 +8,7 @@ import time
 import numpy as np
 import pymongo
 
-from task_04d_find_segments_blockwise import enumerate_blocks_in_chunks
+from task_04d_find_segment_blockwise import enumerate_blocks_in_chunks
 import task_helper
 
 logging.basicConfig(level=logging.INFO)
@@ -33,18 +33,8 @@ def remap_in_block(
     if global_lut is None:
         global_lut = load_global_lut(threshold, lut_dir, merge_function)
 
-    # print("global_lut:")
-    # for e in np.dstack((global_lut[0], global_lut[1])):
-    #     print(e)
-
-    print("block_size: ", block_size)
-    print("chunk_size: ", chunk_size)
-    print("total_roi: ", total_roi)
-
     blocks = enumerate_blocks_in_chunks(
         block, block_size, chunk_size, total_roi)
-
-    print(blocks); exit(0)
 
     local_nodes_list = []
     for b in blocks:
@@ -58,9 +48,6 @@ def remap_in_block(
     lens = [len(l) for l in local_nodes_list]
     chunk_start_index = [sum(lens[0:i+1]) for i in range(len(lens))]
     chunk_start_index.insert(0, 0)
-
-    # print(lens)
-    # print(chunk_start_index)
 
     local_nodes_chunks = np.concatenate(local_nodes_list)
 
@@ -80,11 +67,6 @@ def remap_in_block(
         remapped = remapped[non_self_refs]
 
         lut = np.array([local_nodes, remapped])
-
-        # print("local_nodes:")
-        # print(local_nodes)
-        # print("remapped:")
-        # print(remapped)
 
         # write
         out_file = 'seg_local2global_%s_%d/%d.npz' % (
