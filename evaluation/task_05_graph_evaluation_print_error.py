@@ -74,6 +74,7 @@ def compare_segmentation_to_ground_truth_skeleton(
                 voxel_size = configs["output"]["voxel_size"]
                 write_CSV = configs['output']['write_CSV']
                 generate_error_coordinates_file(output_path, merge_error_dict, split_error_dict, seg_path, seg_vol, graph, origin_scores, voxel_size, write_CSV)
+
         model = get_model_name(seg_path, model_name_mapping)
         split_and_merge.extend((model, numb_merge, numb_split))
         split_and_merge_rand.extend((model, rand_merge_list, rand_split_list))

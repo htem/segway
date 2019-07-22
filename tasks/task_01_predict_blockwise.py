@@ -273,7 +273,11 @@ class PredictTask(task_helper.SlurmTask):
                         predict_script,
                         gpu='any')
 
-        check_function = (self.check_block, self.check_block)
+        check_function = (
+                lambda b: self.check_block(b, precheck=True),
+                lambda b: self.check_block(b, precheck=False)
+                )
+
         if self.overwrite:
             check_function = None
 
