@@ -36,6 +36,8 @@ class SlurmTask(daisy.Task):
     db_host = daisy.Parameter()
     db_name = daisy.Parameter()
 
+    timeout = daisy.Parameter(None)
+
 
     def slurmSetup(
             self, config, actor_script,
