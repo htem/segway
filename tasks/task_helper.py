@@ -128,7 +128,8 @@ class SlurmTask(daisy.Task):
         if RUNNING_REMOTELY:
             process_cmd = "ssh o2 " + "\"" + run_cmd + "\""
         elif RUNNING_IN_LOCAL_CLUSTER:
-            assert 'CUDA_VISIBLE_DEVICES' in os.environ
+            if not self.debug_print_command_only:
+                assert 'CUDA_VISIBLE_DEVICES' in os.environ
             process_cmd = run_cmd
         else:
             process_cmd = run_cmd
@@ -212,7 +213,6 @@ class SlurmTask(daisy.Task):
 
     def recording_block_done(self, block):
 
-        # document = dict(worker_config)
         document = dict()
         document.update({
             'block_id': block.block_id,
@@ -221,10 +221,7 @@ class SlurmTask(daisy.Task):
             'start': 0,
             'duration': 0
         })
-
         self.completion_db.insert(document)
-
-        # print("Recorded block-done for %s" % (block,))
 
 
 def generateActorSbatch(
@@ -430,8 +427,11 @@ def aggregateConfigs(configs):
     db_host, db_name = (input_config['db_host'], input_config['db_name'])
     myclient = pymongo.MongoClient(db_host)
     db_name_hashed = "%s_%s" % (db_name, path_hash)
+    # print("hashed db: ", db_name_hashed)
     if db_name_hashed in myclient.database_names():
-        db_name = db_name_hashed
+        # assert False
+        # db_name = db_name_hashed
+        input_config['db_name'] = db_name_hashed
 
     assert len(input_config['db_name']) < 64, "db_name has to be 63 or less characters"
     # if len(input_config['db_name']) >= 64:
@@ -443,6 +443,23 @@ def aggregateConfigs(configs):
     os.makedirs(input_config['log_dir'], exist_ok=True)
 
     merge_function = configs["AgglomerateTask"]["merge_function"]
+    thresholds = configs["ExtractSegmentationFromLUTBlockwiseTask"]["thresholds"]
+
+    for config in configs:
+
+        if "Task" not in config:
+            print("Skipping %s" % config)
+            continue
+        # print("Skipping %s" % config)
+
+        config = configs[config]
+        copyParameter(input_config, config, 'db_name')
+        copyParameter(input_config, config, 'db_host')
+        copyParameter(input_config, config, 'log_dir')
+        copyParameter(input_config, config, 'sub_roi_offset')
+        copyParameter(input_config, config, 'sub_roi_shape')
+        # config['edges_collection'] = "edges_" + merge_function
+
 
     if "PredictTask" in configs:
         config = configs["PredictTask"]
@@ -472,8 +489,8 @@ def aggregateConfigs(configs):
         config['myelin_prediction'] = network_config.get('myelin_prediction', 0)
         copyParameter(input_config, config, 'delete_section_list')
         copyParameter(input_config, config, 'replace_section_list')
-        copyParameter(input_config, config, 'db_host')
-        copyParameter(input_config, config, 'db_name')
+        copyParameter(input_config, config, 'overwrite_sections')
+        copyParameter(input_config, config, 'overwrite_mask_f')
 
         if RUNNING_IN_LOCAL_CLUSTER:
         # restrict number of workers to 1 for predict task if we're running locally to avoid conflict with other daisies
@@ -483,14 +500,11 @@ def aggregateConfigs(configs):
         config = configs["FixRawFromCatmaidTask"]
         copyParameter(input_config, config, 'raw_file')
         copyParameter(input_config, config, 'raw_dataset')
-        copyParameter(input_config, config, 'sub_roi_offset')
-        copyParameter(input_config, config, 'sub_roi_shape')
 
     if "PredictMyelinTask" in configs:
         config = configs["PredictMyelinTask"]
         config['raw_file'] = input_config['raw_file']
         config['myelin_file'] = input_config['output_file']
-        config['log_dir'] = input_config['log_dir']
         if 'roi_offset' in input_config:
             config['roi_offset'] = input_config['roi_offset']
         if 'roi_shape' in input_config:
@@ -510,11 +524,8 @@ def aggregateConfigs(configs):
         copyParameter(input_config, config, 'output_file', 'fragments_file')
         copyParameter(input_config, config, 'raw_file')
         copyParameter(input_config, config, 'raw_dataset')
-        copyParameter(input_config, config, 'db_name')
-        copyParameter(input_config, config, 'db_host')
-        copyParameter(input_config, config, 'log_dir')
-        copyParameter(input_config, config, 'sub_roi_offset')
-        copyParameter(input_config, config, 'sub_roi_shape')
+        copyParameter(input_config, config, 'overwrite_sections')
+        copyParameter(input_config, config, 'overwrite_mask_f')
         if RUNNING_IN_LOCAL_CLUSTER:
             # tmn7: in local cluster we're limited by GPU not by CPUs
             # so allocating as much as we can
@@ -527,12 +538,12 @@ def aggregateConfigs(configs):
         if 'affs_file' not in config:
             config['affs_file'] = input_config['output_file']
         config['fragments_file'] = input_config['output_file']
-        config['db_name'] = input_config['db_name']
-        config['db_host'] = input_config['db_host']
-        config['log_dir'] = input_config['log_dir']
         config['merge_function'] = merge_function
         copyParameter(input_config, config, 'sub_roi_offset')
         copyParameter(input_config, config, 'sub_roi_shape')
+        copyParameter(input_config, config, 'overwrite_sections')
+        copyParameter(input_config, config, 'overwrite_mask_f')
+        config['edges_collection'] = "edges_" + merge_function
         if RUNNING_IN_LOCAL_CLUSTER:
             # tmn7: in local cluster we're limited by GPU not by CPUs
             # so allocating as much as we can
@@ -544,55 +555,71 @@ def aggregateConfigs(configs):
         config['fragments_file'] = input_config['output_file']
         if 'out_file' not in config:
             config['out_file'] = input_config['output_file']
-        config['db_name'] = input_config['db_name']
-        config['db_host'] = input_config['db_host']
-        config['log_dir'] = input_config['log_dir']
         config['edges_collection'] = "edges_" + merge_function
 
     if "GrowSegmentationTask" in configs:
         config = configs["GrowSegmentationTask"]
         config['fragments_file'] = input_config['output_file']
         config['out_file'] = input_config['output_file']
-        # config['out_file'] = input_config['output_file']
-        config['db_name'] = input_config['db_name']
-        config['db_host'] = input_config['db_host']
-        config['log_dir'] = input_config['log_dir']
-        config['edges_collection'] = "edges_" + merge_function
 
     if "SparseSegmentationServer" in configs:
         config = configs["SparseSegmentationServer"]
         config['fragments_file'] = input_config['output_file']
-        config['db_name'] = input_config['db_name']
-        config['db_host'] = input_config['db_host']
-        config['log_dir'] = input_config['log_dir']
         config['segment_file'] = input_config['output_file']
-        config['edges_collection'] = "edges_" + merge_function
 
     if "BlockwiseSegmentationTask" in configs:
         config = configs["BlockwiseSegmentationTask"]
         config['fragments_file'] = input_config['output_file']
-        config['db_name'] = input_config['db_name']
-        config['db_host'] = input_config['db_host']
-        config['log_dir'] = input_config['log_dir']
         config['out_file'] = input_config['output_file']
-        config['edges_collection'] = "edges_" + merge_function
 
     if "SplitFixTask" in configs:
         config = configs["SplitFixTask"]
         config['fragments_file'] = input_config['output_file']
         config['segment_file'] = input_config['output_file']
-        config['db_name'] = input_config['db_name']
-        config['db_host'] = input_config['db_host']
-        config['log_dir'] = input_config['log_dir']
         config['out_file'] = input_config['output_file']
-        config['edges_collection'] = "edges_" + merge_function
 
     if "FixMergeTask" in configs:
         config = configs["FixMergeTask"]
         config['fragments_file'] = input_config['output_file']
         config['segment_file'] = input_config['output_file']
-        config['db_name'] = input_config['db_name']
-        config['db_host'] = input_config['db_host']
-        config['log_dir'] = input_config['log_dir']
         # config['out_file'] = input_config['output_file']
+
+    if "FindSegmentTask" in configs:
+        config = configs["FindSegmentTask"]
+        copyParameter(input_config, config, 'output_file', 'fragments_file')
+
+    if "FindSegmentsBlockwiseTask" in configs:
+        config = configs["FindSegmentsBlockwiseTask"]
+        copyParameter(input_config, config, 'output_file', 'fragments_file')
+        config['merge_function'] = merge_function
         config['edges_collection'] = "edges_" + merge_function
+        config['thresholds'] = thresholds
+
+    if "FindSegmentsBlockwiseTask2" in configs:
+        config = configs["FindSegmentsBlockwiseTask2"]
+        copyParameter(input_config, config, 'output_file', 'fragments_file')
+        config['merge_function'] = merge_function
+        config['thresholds'] = thresholds
+
+    if "FindSegmentsBlockwiseTask3" in configs:
+        config = configs["FindSegmentsBlockwiseTask3"]
+        copyParameter(input_config, config, 'output_file', 'fragments_file')
+        config['merge_function'] = merge_function
+        config['thresholds'] = thresholds
+
+    if "FindSegmentsBlockwiseTask4" in configs:
+        config = configs["FindSegmentsBlockwiseTask4"]
+        copyParameter(input_config, config, 'output_file', 'fragments_file')
+        config['merge_function'] = merge_function
+        config['thresholds'] = thresholds
+
+    if "ExtractSegmentationFromLUT" in configs:
+        config = configs["ExtractSegmentationFromLUT"]
+        copyParameter(input_config, config, 'output_file', 'fragments_file')
+        copyParameter(input_config, config, 'output_file', 'out_file')
+
+    if "ExtractSegmentationFromLUTBlockwiseTask" in configs:
+        config = configs["ExtractSegmentationFromLUTBlockwiseTask"]
+        copyParameter(input_config, config, 'output_file', 'fragments_file')
+        copyParameter(input_config, config, 'output_file', 'out_file')
+        config['merge_function'] = merge_function

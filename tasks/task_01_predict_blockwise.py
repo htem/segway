@@ -86,6 +86,11 @@ class PredictTask(task_helper.SlurmTask):
     delete_section_list = daisy.Parameter([])
     replace_section_list = daisy.Parameter([])
 
+    overwrite_mask_f = daisy.Parameter(None)
+    overwrite_sections = daisy.Parameter(None)
+
+    no_check = daisy.Parameter(False)
+
     def prepare(self):
         '''Daisy calls `prepare` for each task prior to scheduling
         any block.'''
@@ -213,6 +218,11 @@ class PredictTask(task_helper.SlurmTask):
 
         logging.info('Preparing output dataset')
 
+        write_size = chunk_size
+        write_size = write_size / (2, 2, 2)
+        logger.info("ZARR write size:")
+        logger.info(write_size)
+
         self.affs_ds = daisy.prepare_ds(
             self.out_file,
             self.out_dataset,
@@ -220,7 +230,9 @@ class PredictTask(task_helper.SlurmTask):
             voxel_size,
             out_dtype,
             # write_roi=daisy.Roi((0, 0, 0), chunk_size),
-            write_size=chunk_size,
+            # write_size=chunk_size,
+            write_size=write_size,
+            force_exact_write_size=True,
             num_channels=out_dims,
             compressor={'id': 'zlib', 'level': 5}
             )
@@ -241,6 +253,30 @@ class PredictTask(task_helper.SlurmTask):
             with open(self.raw_file, 'r') as f:
                 spec = json.load(f)
                 self.raw_file = spec['container']
+
+        self.overwrite_mask = None
+        if self.overwrite_mask_f:
+            # force precheck = False for any ROI with any voxel in mask = 1
+            self.overwrite_mask = daisy.open_ds(
+                self.overwrite_mask_f, "overwrite_mask")
+
+        if self.overwrite_sections is not None:
+            write_shape = [k for k in output_roi.get_shape()]
+            write_shape[0] = 40
+            write_shape = tuple(write_shape)
+
+            rois = []
+            # overwrite_sections_begin = output_roi.get_begin()
+            for s in self.overwrite_sections:
+                write_offset = [k for k in output_roi.get_begin()]
+                write_offset[0] = s*40
+                rois.append(daisy.Roi(write_offset, write_shape))
+
+            self.overwrite_sections = rois
+
+        # print(self.delete_section_list)
+        # print(self.replace_section_list)
+        # exit(0)
 
         config = {
             'iteration': self.iteration,
@@ -281,6 +317,9 @@ class PredictTask(task_helper.SlurmTask):
         if self.overwrite:
             check_function = None
 
+        if self.no_check:
+            check_function = (lambda b: False, lambda b: True)
+
         # any task must call schedule() at the end of prepare
         self.schedule(
             total_roi=input_roi,
@@ -295,13 +334,31 @@ class PredictTask(task_helper.SlurmTask):
             # log_to_file=True
             )
 
-    def check_block(self, block):
+    def check_block(self, block, precheck):
         logger.debug("Checking if block %s is complete..." % block.write_roi)
 
         write_roi = self.affs_ds.roi.intersect(block.write_roi)
         if write_roi.empty():
             logger.debug("Block outside of output ROI")
             return True
+
+        if precheck and self.overwrite_sections is not None:
+            read_roi_mask = self.overwrite_mask.roi.intersect(block.read_roi)
+            for roi in self.overwrite_sections:
+                if roi.intersects(read_roi_mask):
+                    logger.debug("Block overlaps overwrite_sections %s" % roi)
+                    return False
+
+        if precheck and self.overwrite_mask:
+            read_roi_mask = self.overwrite_mask.roi.intersect(block.read_roi)
+            if not read_roi_mask.empty():
+                try:
+                    sum = np.sum(self.overwrite_mask[read_roi_mask].to_ndarray())
+                    if sum != 0:
+                        logger.debug("Block inside overwrite_mask")
+                        return False
+                except:
+                    return False
 
         if self.completion_db.count({'block_id': block.block_id}) >= 1:
             logger.debug("Skipping block with db check")
@@ -315,7 +372,7 @@ class PredictTask(task_helper.SlurmTask):
         s += np.sum(self.affs_ds[write_roi.get_begin() + quarter*1])
         s += np.sum(self.affs_ds[write_roi.get_begin() + quarter*2])
         s += np.sum(self.affs_ds[write_roi.get_begin() + quarter*3])
-        logger.debug("Sum of center values in %s is %f" % (write_roi, s))
+        logger.info("Sum of center values in %s is %f" % (write_roi, s))
 
         done = s != 0
         if done:

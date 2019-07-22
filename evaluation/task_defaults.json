@@ -14,8 +14,7 @@
         },
     "Output":
         {
-            "output_path":"./",
-            "write_CSV": true
+            "output_path":"./"
         },
     "GraphMatricesTask" :
         {   

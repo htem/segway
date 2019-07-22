@@ -13,9 +13,7 @@ import task_helper
 from funlib.evaluate import split_graph
 from funlib.segment.arrays import replace_values
 
-# logging.basicConfig(level=logging.DEBUG)
 logging.basicConfig(level=logging.INFO)
-# logging.getLogger('task_grow_segmentation').setLevel(logging.DEBUG)
 
 
 def get_graph(input, threshold=0.9, rag_weight_attribute="capacity"):

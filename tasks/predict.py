@@ -117,7 +117,7 @@ def predict(
     else:
         raise RuntimeError("Unknown raw file type!")
 
-    if len(delete_section_list):
+    if len(delete_section_list) or len(replace_section_list):
         pipeline += ReplaceSectionsNode(
             initial_raw,
             delete_section_list=delete_section_list,
@@ -179,8 +179,8 @@ def block_done_callback(
         block,
         start,
         duration):
-    # print("Recording block-done for %s" % (block,))
-    # document = dict(worker_config)
+
+    pass
     document = dict()
     document.update({
         'block_id': block.block_id,
@@ -189,9 +189,7 @@ def block_done_callback(
         'start': start,
         'duration': duration
     })
-
     completion_db.insert(document)
-    # print("Recorded block-done for %s" % (block,))
 
 
 if __name__ == "__main__":
