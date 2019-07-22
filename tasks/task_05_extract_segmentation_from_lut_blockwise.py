@@ -94,10 +94,12 @@ class ExtractSegmentationFromLUTBlockwiseTask(task_helper.SlurmTask):
             'out_file': self.out_file,
             # 'chunk_size': self.chunk_size,
         }
+
+        self.completion_db_class_name = "Task05"
         self.slurmSetup(
             config,
             '05_extract_segmentation_from_lut_blockwise.py',
-            completion_db_name_extra="_%.3f" % last_threshold)
+            completion_db_name_extra="%d" % int(last_threshold*1000))
 
         check_function = self.check_block
         if self.overwrite:
