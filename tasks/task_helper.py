@@ -37,7 +37,7 @@ class SlurmTask(daisy.Task):
     db_name = daisy.Parameter()
 
     timeout = daisy.Parameter(None)
-
+    completion_db_class_name = daisy.Parameter(None)
 
     def slurmSetup(
             self, config, actor_script,
@@ -63,7 +63,11 @@ class SlurmTask(daisy.Task):
         db_client = pymongo.MongoClient(self.db_host)
         db = db_client[self.db_name]
 
-        completion_db_name = self.__class__.__name__ + '_finished_blocks'
+        if self.completion_db_class_name:
+            class_name = self.completion_db_class_name
+        else:
+            class_name = self.__class__.__name__
+        completion_db_name = class_name + '_fb'
         if completion_db_name_extra:
             completion_db_name = completion_db_name + completion_db_name_extra
 
