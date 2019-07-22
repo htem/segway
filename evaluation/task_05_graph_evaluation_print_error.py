@@ -11,6 +11,7 @@ from multiprocessing import Pool
 from functools import partial
 import numpy as np
 import os
+import csv
 matplotlib.use('Agg')
 
 # TODO
@@ -66,14 +67,13 @@ def compare_segmentation_to_ground_truth_skeleton(
                 voi_split_list.append(voi_split)
                 voi_merge_list.append(voi_merge)
 
-                # The following 4 lines create a file containing the error locations
                 origin_scores = (rand_split, rand_merge, voi_split, voi_merge)
                 index = graph_list.index(graph)
                 seg_vol = agglomeration_thresholds[index]
                 output_path = configs["output"]["output_path"] + "/" + configs["output"]["config_JSON"] + "_error_coords"
                 voxel_size = configs["output"]["voxel_size"]
-                generate_error_coordinates_file(output_path, merge_error_dict, split_error_dict, seg_path, seg_vol, graph, origin_scores, voxel_size)
-        
+                write_CSV = configs['output']['write_CSV']
+                generate_error_coordinates_file(output_path, merge_error_dict, split_error_dict, seg_path, seg_vol, graph, origin_scores, voxel_size, write_CSV)
         model = get_model_name(seg_path, model_name_mapping)
         split_and_merge.extend((model, numb_merge, numb_split))
         split_and_merge_rand.extend((model, rand_merge_list, rand_split_list))
@@ -133,21 +133,58 @@ def generate_error_plot(
     plt.savefig(output_file_name, dpi=300)
 
 
-def generate_error_coordinates_file(output_path, merge_error_dict, split_error_dict, seg_path, seg_vol, graph, origin_scores, voxel_size):
+def generate_error_coordinates_file(output_path, merge_error_dict, split_error_dict, seg_path, seg_vol, graph, origin_scores, voxel_size, write_CSV):
     try:
         os.makedirs(output_path)
     except FileExistsError:
         pass
     input_info = seg_path.split(("/"))
-    file_name = output_path + "/error_coords_" + input_info[-4] + "_" + input_info[-3] + "_" + input_info[-2] + "_" + seg_vol + ".txt"
-    print(file_name)
-    with open(file_name, "w") as f:
+    file_name = output_path + "/error_coords_" + input_info[-4] + "_" + input_info[-3] + "_" + input_info[-2] + "_" + seg_vol
+    fields = ["error type", "ID (segment if merge, skeleton if split)", "coordinate 1", "coordinate 2", "node 1", "node 2", "RAND score", "VOI score"]
+    merge_errors = format_merge_error_rows(merge_error_dict, seg_vol, graph, origin_scores, voxel_size)
+    split_errors = format_split_error_rows(split_error_dict, seg_path, "volumes/" + seg_vol, graph, origin_scores, voxel_size)
+    with open(file_name + ".txt", "w") as f:
         print(seg_vol, file = f)
-        append_merge_error_coordinates(file_name, merge_error_dict, seg_vol, graph, origin_scores, voxel_size)
-        append_split_error_coordinates(file_name, split_error_dict, seg_path, "volumes/" + seg_vol, graph, origin_scores, voxel_size)
+        print("MERGE ERRORS", file = f)
+        total_rand_merge = 0.0
+        for error in merge_errors:
+                print("", file = f)
+                print("Segment: %s" % error[1], file = f)
+                print("\t%s merged to %s" % (error[2], error[3]), file = f)
+                print("\tCATMAID nodes %s and %d" % (error[4], error[5]), file = f)
+                print("\tRAND merge score: %.4f" % error[6], file = f)
+                total_rand_merge += error[6]
+                print("\tVOI  merge score: %.4f" % error[7], file = f)
+        print("Total RAND merge loss: %.4f" % total_rand_merge, file = f)
+        print("", file = f)
+        print("SPLIT ERRORS", file = f)
+        total_rand_split = 0.0
+        breaking_errors = []
+        for error in split_errors:
+            if error[0] == "s(b)":
+                breaking_errors.append(error)
+            print("Skeleton: %s" % error[1], file = f)
+            print("\t%s (%s)" % (error[2], error[3]), file = f)
+            print("\tCATMAID nodes %s and %d" % (error[4], error[5]), file = f)            
+            print("\tRAND split score: %.4f" % error[6], file = f)
+            total_rand_split += error[6]
+            print("\tVOI  split score: %.4f" % error[7], file = f)
+        print("Total RAND split loss: %.4f" % total_rand_split, file = f)
+        if len(breaking_errors):
+            print("Following are errors we didn't count in numb_error", file = f)
+            for error in breaking_errors:
+                print("Skeleton: %s" % error[1], file = f)
+                for xyz in error["xyzs"]:
+                    print("\t%s (%s)" % (error[2], error[3]), file = f)
+    if write_CSV:
+        with open(file_name + ".csv", "w") as f:
+            csvwriter = csv.writer(f)
+            csvwriter.writerow(fields)
+            csvwriter.writerows(merge_errors)
+            csvwriter.writerows(split_errors)
 
 
-def append_merge_error_coordinates(file_name, merge_error_dict, seg_vol, graph, origin_scores, voxel_size):
+def format_merge_error_rows(merge_error_dict, seg_vol, graph, origin_scores, voxel_size):
     all_errors = []
     for seg_id in merge_error_dict:
         errors = merge_error_dict[seg_id]
@@ -163,25 +200,21 @@ def append_merge_error_coordinates(file_name, merge_error_dict, seg_vol, graph, 
                     'scores': scores,
                     })
     all_errors = sorted(all_errors, key=lambda x: x['scores']['rand_merge'])
-    total_rand_merge = 0.0
-    with open(file_name, "a") as f:
-        print("############################", file = f)
-        print("MERGE ERRORS", file = f)
-        for error in all_errors:
-            print("Segment: %s" % error['segid'], file = f)
-            print("\t%s merged to %s" % (
-                    (error['xyz0']),
-                    (error['xyz1'])), file = f)
-            print("\tCATMAID nodes %s and %d" % (error['node0'], error['node1']), file = f)
-            print("\tRAND merge score: %.4f" % error['scores']['rand_merge'], file = f)
-            total_rand_merge += error['scores']['rand_merge']
-            print("\tVOI  merge score: %.4f" % error['scores']['voi_merge'], file = f)
-        print("Total RAND merge loss: %.4f" % total_rand_merge, file = f)
-        print("", file = f)
+    formatted = []
+    for error in all_errors:
+        row = ["m"]
+        row.append(error['segid'])
+        row.append(error['xyz0'])
+        row.append(error['xyz1'])
+        row.append(error['node0'])
+        row.append(error['node1'])
+        row.append(error['scores']['rand_merge'])
+        row.append(error['scores']['voi_merge'])
+        formatted.append(row)
+    return formatted
 
 
-## split_error_dict === (error_dict) or (error_dict, breaking_error_dict). The latter includes breaking_error_dict 
-def append_split_error_coordinates(file_name, split_error_dict, seg_path, seg_vol, graph, origin_scores, voxel_size):
+def format_split_error_rows(split_error_dict, seg_path, seg_vol, graph, origin_scores, voxel_size):
     segment_ds = daisy.open_ds(seg_path, seg_vol)
     all_errors = []
     breaking_errors = []
@@ -218,24 +251,22 @@ def append_split_error_coordinates(file_name, split_error_dict, seg_path, seg_vo
                         'xyzs': xyzx,
                     })
     all_errors = sorted(all_errors, key=lambda x: x['scores']['rand_split'])
-    total_rand_split = 0.0
-    with open(file_name, "a") as f:
-        print("SPLIT ERRORS", file = f)
-        for error in all_errors:
-            print("Skeleton: %s" % error['skeleton'], file = f)
-            for xyz in error["xyzs"]:
-                print("\t%s (%s)" % (xyz[0], xyz[1]), file = f)
-            print("\tCATMAID nodes %s and %d" % (error['tree_node_id'], error['parent_node_id']), file = f)            
-            print("\tRAND split score: %.4f" % error['scores']['rand_split'], file = f)
-            total_rand_split += error['scores']['rand_split']
-            print("\tVOI  split score: %.4f" % error['scores']['voi_split'], file = f)
-        print("Total RAND split loss: %.4f" % total_rand_split, file = f)
-        if len(split_error_dict) == 2:
-            print("Following are errors we didn't count in numb_error", file = f)
-            for error in breaking_errors:
-                print("Skeleton: %s" % error['skeleton'], file = f)
-                for xyz in error["xyzs"]:
-                    print("\t%s (%s)" % (xyz[0], xyz[1]), file = f)
+    formatted = []
+    for error in all_errors:
+        entry = {'skeleton': error["skeleton"], 'xyzs': error['xyzs']}
+        if entry in breaking_errors:
+            row = ["s(b)"]
+        else:
+            row = ["s"]
+        row.append(error['skeleton'])
+        row.append(error['xyzs'][0][0])
+        row.append(error['xyzs'][1][0])
+        row.append(error['tree_node_id'])
+        row.append(error['parent_node_id'])
+        row.append(error['scores']['rand_split'])
+        row.append(error['scores']['voi_split'])
+        formatted.append(row)
+    return formatted
 
 
 
