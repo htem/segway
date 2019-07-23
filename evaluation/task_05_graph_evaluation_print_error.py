@@ -70,7 +70,10 @@ def compare_segmentation_to_ground_truth_skeleton(
                 origin_scores = (rand_split, rand_merge, voi_split, voi_merge)
                 index = graph_list.index(graph)
                 seg_vol = agglomeration_thresholds[index]
-                output_path = configs["output"]["output_path"] + "/" + configs["output"]["config_JSON"] + "_error_coords"
+                output_path = configs["output"]["output_path"]
+                if not output_path.endswith("/"):
+                    output_path += "/"
+                output_path += configs["output"]["config_JSON"] + "_error_coords/"
                 voxel_size = configs["output"]["voxel_size"]
                 write_CSV = configs['output']['write_CSV']
                 generate_error_coordinates_file(output_path, merge_error_dict, split_error_dict, seg_path, seg_vol, graph, origin_scores, voxel_size, write_CSV)
@@ -138,8 +141,9 @@ def generate_error_coordinates_file(output_path, merge_error_dict, split_error_d
         os.makedirs(output_path)
     except FileExistsError:
         pass
-    input_info = seg_path.split(("/"))
-    file_name = output_path + "/error_coords_" + input_info[-4] + "_" + input_info[-3] + "_" + input_info[-2] + "_" + seg_vol
+    print("output path:", output_path)
+    input_info = seg_path.split("/")
+    file_name = output_path + "error_coords_" + input_info[-4] + "_" + input_info[-3] + "_" + input_info[-2] + "_" + seg_vol
     fields = ["error type", "ID (segment if merge, skeleton if split)", "coordinate 1", "coordinate 2", "node 1", "node 2", "RAND score", "VOI score"]
     merge_errors = format_merge_error_rows(merge_error_dict, seg_vol, graph, origin_scores, voxel_size)
     split_errors = format_split_error_rows(split_error_dict, seg_path, "volumes/" + seg_vol, graph, origin_scores, voxel_size)
