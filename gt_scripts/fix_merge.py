@@ -18,16 +18,9 @@ logging.basicConfig(level=logging.INFO)
 
 def get_graph(input, threshold=0.9, rag_weight_attribute="capacity"):
     graph = networkx.Graph()
-    # graph.add_nodes_from(input.nodes(data=True))
     for n, n_data in input.nodes(data=True):
         if 'center_z' in n_data:
             graph.add_node(n, **n_data)
-        # if n == 58723333:
-        #     print(n_data)
-
-    # print(58723333 in graph.node)
-    # print(graph.node[58723333])
-    # exit(0)
 
     for u, v, data in input.edges(data=True):
         if u not in graph or v not in graph:
