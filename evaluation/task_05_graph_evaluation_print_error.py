@@ -134,6 +134,7 @@ def generate_error_plot(
 
 
 def generate_error_coordinates_file(output_path, merge_error_dict, split_error_dict, seg_path, seg_vol, graph, origin_scores, voxel_size, write_CSV):
+    print('output folder for error csv files: %s' % output_path)
     try:
         os.makedirs(output_path)
     except FileExistsError:
