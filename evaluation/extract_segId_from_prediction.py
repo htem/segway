@@ -12,7 +12,7 @@ import os.path
 def add_segId_from_prediction(graph, segmentation_path, segment_dataset, leaf_node_removal_depth):
     print(segmentation_path)
     start_time = time.time()
-    print("Start add_segId_from_prediction of %s" % segment_dataset)
+    print("Adding segmentation predictions from %s" % segment_dataset)
     segment_array = daisy.open_ds(
         segmentation_path,
         segment_dataset)
@@ -20,13 +20,15 @@ def add_segId_from_prediction(graph, segmentation_path, segment_dataset, leaf_no
 
     for treenode_id, attr in graph.nodes(data=True):
         treenode_zyx = (attr['z'], attr['y'], attr['x'])
+        graph.nodes[treenode_id]['zyx_coord'] = treenode_zyx
         if segment_array.roi.contains(Coordinate(treenode_zyx)):
             seg_id = segment_array[Coordinate(treenode_zyx)]
             attr['segId_pred'] = seg_id
     print("Task add_segId_from_prediction of %s took %s seconds" %
-          (segment_dataset, time.time()-start_time))
+          (segment_dataset, round(time.time()-start_time, 3)))
     connect_nodes_to_parents(graph)
     remove_leaf_nodes(graph, leaf_node_removal_depth)
+    remove_nodes_outside_roi(graph)
     return graph
 
 
@@ -79,4 +81,17 @@ def connect_nodes_to_parents(graph):
         parent = graph.nodes[node]['parent_id']
         if not parent is None:
             graph.add_edge(node, parent)
+            graph[node][parent]['error_type'] = ""
+    return graph
+
+# When the CATMAID skeleton extends beyond the segmented region,
+# some nodes are not assigned segmentation IDs, making them irrelevent
+# to the evaluation.
+def remove_nodes_outside_roi(graph):
+    for node in list(graph.nodes):
+        if graph.nodes[node]['segId_pred'] == -1:
+            for neighbor in graph.neighbors(node):
+                if graph.nodes[neighbor]['parent_id'] == node:
+                    graph.nodes[neighbor]['parent_id'] = None
+            graph.remove_node(node)
     return graph

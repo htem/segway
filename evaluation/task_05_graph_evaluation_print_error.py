@@ -20,9 +20,6 @@ matplotlib.use('Agg')
 # compare with lines with any model and cutouts
 
 
-#################
-# quick compare: after interpolation, the graph is expensive to build, this
-# function could save time and space but less parameter option provided
 def compare_segmentation_to_ground_truth_skeleton(
         agglomeration_thresholds,
         segmentation_paths,
@@ -46,7 +43,6 @@ def compare_segmentation_to_ground_truth_skeleton(
                                    leaf_node_removal_depth=configs["skeleton"]["leaf_node_removal_depth"]),
                            ['volumes/'+threshold
                             for threshold in agglomeration_thresholds])
-
         for graph in graph_list:
             if graph is None:
                 numb_split.append(np.nan)
@@ -76,7 +72,9 @@ def compare_segmentation_to_ground_truth_skeleton(
                 output_path += configs["output"]["config_JSON"] + "_error_coords/"
                 voxel_size = configs["output"]["voxel_size"]
                 write_CSV = configs['output']['write_CSV']
-                generate_error_coordinates_file(output_path, merge_error_dict, split_error_dict, seg_path, seg_vol, graph, origin_scores, voxel_size, write_CSV)
+                IDs_to_print = configs['output']['skeleton_IDs_to_print']
+                generate_error_coordinates_file(output_path, merge_error_dict, split_error_dict, seg_path, seg_vol, 
+                                                graph, origin_scores, voxel_size, write_CSV, IDs_to_print)
         model = get_model_name(seg_path, model_name_mapping)
         split_and_merge.extend((model, numb_merge, numb_split))
         split_and_merge_rand.extend((model, rand_merge_list, rand_split_list))
@@ -136,13 +134,13 @@ def generate_error_plot(
     plt.savefig(output_file_name, dpi=300)
 
 
-def generate_error_coordinates_file(output_path, merge_error_dict, split_error_dict, seg_path, seg_vol, graph, origin_scores, voxel_size, write_CSV):
+def generate_error_coordinates_file(output_path, merge_error_dict, split_error_dict, seg_path, seg_vol,
+                                    graph, origin_scores, voxel_size, write_CSV, IDs_to_print):
     print('output folder for error csv files: %s' % output_path)
     try:
         os.makedirs(output_path)
     except FileExistsError:
         pass
-    print("output path:", output_path)
     input_info = seg_path.split("/")
     file_name = output_path + "error_coords_" + input_info[-4] + "_" + input_info[-3] + "_" + input_info[-2] + "_" + seg_vol
     fields = ["error type", "ID (segment if merge, skeleton if split)", "coordinate 1", "coordinate 2", "node 1", "node 2", "RAND score", "VOI score"]
@@ -181,6 +179,13 @@ def generate_error_coordinates_file(output_path, merge_error_dict, split_error_d
                 print("Skeleton: %s" % error[1], file = f)
                 for xyz in error["xyzs"]:
                     print("\t%s (%s)" % (error[2], error[3]), file = f)
+    for skeleton_id in IDs_to_print:
+        print("Skeleton", skeleton_id, "split errors", "(threshold = " + seg_vol + ")")
+        errors = [error for error in split_errors if error[1] == skeleton_id]
+        for error in errors:
+            print(error[2], error[3], error[4], error[5])
+        if len(errors) == 0:
+            print("None")
     if write_CSV:
         with open(file_name + ".csv", "w") as f:
             csvwriter = csv.writer(f)
