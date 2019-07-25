@@ -15,7 +15,8 @@
     "Output":
         {
             "output_path":"./",
-            "write_CSV": true
+            "write_CSV": true,
+            "skeleton_IDs_to_print":[]
         },
     "GraphMatricesTask" :
         {   

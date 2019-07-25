@@ -67,6 +67,7 @@ def run_evaluation(
     output_configs["output_path"] = os.path.dirname(config_path)
     output_configs["config_JSON"] = filename
     output_configs["write_CSV"] = config['Output']['write_CSV']
+    output_configs["skeleton_IDs_to_print"] = config['Output']['skeleton_IDs_to_print']
     parameter_configs = {}
     parameter_configs["output"] = output_configs
     parameter_configs["skeleton"] = skeleton_configs
