@@ -9,10 +9,10 @@ from build_graph_from_catmaid import \
 import os.path
 
 
-def add_segId_from_prediction(graph, segmentation_path, segment_dataset, leaf_node_removal_depth):
+def add_predicted_seg_labels(graph, segmentation_path, segment_dataset, leaf_node_removal_depth):
     print(segmentation_path)
     start_time = time.time()
-    print("Adding segmentation predictions from %s" % segment_dataset)
+    print('Adding segmentation predictions from %s' % segment_dataset)
     segment_array = daisy.open_ds(
         segmentation_path,
         segment_dataset)
@@ -23,8 +23,8 @@ def add_segId_from_prediction(graph, segmentation_path, segment_dataset, leaf_no
         graph.nodes[treenode_id]['zyx_coord'] = treenode_zyx
         if segment_array.roi.contains(Coordinate(treenode_zyx)):
             seg_id = segment_array[Coordinate(treenode_zyx)]
-            attr['segId_pred'] = seg_id
-    print("Task add_segId_from_prediction of %s took %s seconds" %
+            attr['seg_label'] = seg_id
+    print('Task add_segId_from_prediction of %s took %s seconds' %
           (segment_dataset, round(time.time()-start_time, 3)))
     connect_nodes_to_parents(graph)
     remove_leaf_nodes(graph, leaf_node_removal_depth)
@@ -32,25 +32,25 @@ def add_segId_from_prediction(graph, segmentation_path, segment_dataset, leaf_no
     return graph
 
 
-def graph_with_segId_prediction(agglomeration_threshold, skeleton_path, segmentation_path,
-                                with_interpolation, step, ignore_glia, leaf_node_removal_depth):
-    if os.path.isdir(segmentation_path+"/"+agglomeration_threshold):
+def construct_graph_with_seg_labels(agglomeration_threshold, skeleton_path, segmentation_path,
+                                with_interpolation, step, leaf_node_removal_depth):
+    if os.path.isdir(segmentation_path+'/'+agglomeration_threshold):
         if skeleton_path.endswith('.csv'):
             skeleton_data = pd.read_csv(skeleton_path)
             skeleton_data.columns = ['skeleton_id', 'treenode_id',
                                      'parent_treenode_id', 'x', 'y', 'z', 'r']
             if with_interpolation:
-                gNode = add_nodes_from_catmaidCSV_with_interpolation(skeleton_data,step,ignore_glia)
+                skeleton_nodes = add_nodes_from_catmaidCSV_with_interpolation(skeleton_data,step)
             else:
-                gNode = add_nodes_from_catmaidCSV(skeleton_data,ignore_glia)
+                skeleton_nodes = add_nodes_from_catmaidCSV(skeleton_data)
         if skeleton_path.endswith('.json'):
             with open(skeleton_path, 'r') as f:
                 skeleton_data = json.load(f)
             if with_interpolation:
-                gNode = add_nodes_from_catmaidJson_with_interpolation(skeleton_data,step,ignore_glia)
+                skeleton_nodes = add_nodes_from_catmaidJson_with_interpolation(skeleton_data,step)
             else:
-                gNode = add_nodes_from_catmaidJson(skeleton_data,ignore_glia)
-        return add_segId_from_prediction(gNode, segmentation_path, agglomeration_threshold, leaf_node_removal_depth)
+                skeleton_nodes = add_nodes_from_catmaidJson(skeleton_data)
+        return add_predicted_seg_labels(skeleton_nodes, segmentation_path, agglomeration_threshold, leaf_node_removal_depth)
     else:
         pass
 
@@ -81,7 +81,7 @@ def connect_nodes_to_parents(graph):
         parent = graph.nodes[node]['parent_id']
         if not parent is None:
             graph.add_edge(node, parent)
-            graph[node][parent]['error_type'] = ""
+            graph[node][parent]['error_type'] = ''
     return graph
 
 # When the CATMAID skeleton extends beyond the segmented region,
@@ -89,7 +89,7 @@ def connect_nodes_to_parents(graph):
 # to the evaluation.
 def remove_nodes_outside_roi(graph):
     for node in list(graph.nodes):
-        if graph.nodes[node]['segId_pred'] == -1:
+        if graph.nodes[node]['seg_label'] == -1:
             for neighbor in graph.neighbors(node):
                 if graph.nodes[neighbor]['parent_id'] == node:
                     graph.nodes[neighbor]['parent_id'] = None

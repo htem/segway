@@ -3,69 +3,67 @@ from daisy import Coordinate
 import networkx as nx
 import copy
 from utility import shortest_euclidean_bw_two_sk, to_pixel_coord_xyz
+from itertools import combinations, product
 
-## here we consider the situation that network to sometimes miss small internal areas of larger processes without breakingtheir overall continuity. 
-## include_breaking_error=True means we didn't consider such situation. include_breaking_error=False means we will consider such situation.  
-## Thus the numb of splits error is decreasing and we will provide dict of breaking_errors will be ignored in counting the numb of split error.
 
-# more information https://arxiv.org/pdf/1611.00421.pdf  see 4.3 and 5 
-def splits_error(graph, include_breaking_error=False):  # dict === {sk_id_1:(((zyx),(zyx)),....),sk_id_2:(),...}
-    error_count = 0
-    error_dict = {}
-    sk_id = -1
-    breaking_error_dict = {}
+# For more information on the way we count errors, see https://arxiv.org/pdf/1611.00421.pdf
+def get_merge_errors(graph, z_weight_multiplier = 1, ignore_glia = True):
+    seg_dict = {}
+    glia_skeletons = set()
     for treenode_id, attr in graph.nodes(data=True):
-        if attr['skeleton_id'] != sk_id:
-            sk_id = attr['skeleton_id']
-            error_dict[sk_id] = set()
-            breaking_error_dict[sk_id] = set()
-        if attr['parent_id'] is None or math.isnan(attr['parent_id']):
-            continue
-        parent_node = graph.node[attr['parent_id']]
-        if attr['segId_pred'] != parent_node['segId_pred']:
-            if include_breaking_error:
-                error_count += 1
-                error_dict[sk_id].add((Coordinate(attr['zyx_coord']),
-                                        Coordinate(parent_node['zyx_coord']),
-                                        treenode_id, attr['parent_id']))
-            else:
-                ancestor_node = parent_node
-                while not (ancestor_node['parent_id'] is None or math.isnan(ancestor_node['parent_id'])):
-                    ancestor_node = graph.node[ancestor_node['parent_id']]
-                    if ancestor_node['segId_pred'] == attr['segId_pred']:
-                        breaking_error_dict[sk_id].add((Coordinate(attr['zyx_coord']),
-                                                        Coordinate(parent_node['zyx_coord']),
-                                                        Coordinate(ancestor_node['zyx_coord'])))
-                        break
-                if ancestor_node['segId_pred'] != attr['segId_pred']:
-                    error_count += 1
-                error_dict[sk_id].add((Coordinate(attr['zyx_coord']),
-                                        Coordinate(parent_node['zyx_coord']),
-                                        treenode_id, attr['parent_id']))
-    if include_breaking_error:
-        return error_count, (error_dict)
-    else:
-        return error_count, (error_dict, breaking_error_dict)
-###breaking_error_dict stores three coordinate, first two is the same as error_dict, third one is the ancestor node save it from split error.
-###for example, for node with segId A, if it's parent segId is B, it is split error. But if it's ancstor has same segId A, it's not split error.
-### A....BA, BA is not split error any more. ....CBBA, here BA is split eror   
- 
+        seg_label, skeleton_id = attr['seg_label'], attr['skeleton_id']
+        if attr['cell_type'] == 'glia':
+            glia_skeletons.add(skeleton_id)  
+        if seg_label not in seg_dict:
+            seg_dict[seg_label] = {}
+            seg_dict[seg_label][skeleton_id] = {treenode_id}
+        elif skeleton_id not in seg_dict[seg_label]:
+            seg_dict[seg_label][skeleton_id] = {treenode_id}
+        else:
+            seg_dict[seg_label][skeleton_id].add(treenode_id)
+    merge_errors = set()
+    for seg_id, seg_skeleton in seg_dict.items():
+        sk_id_list = seg_skeleton.keys()
+        for (sk_id_1, sk_id_2) in combinations(sk_id_list, 2):
+            seg_skel_1, seg_skel_2 = seg_skeleton[sk_id_1], seg_skeleton[sk_id_2]
+            if not ignore_glia or sk_id_1 not in glia_skeletons or \
+                    sk_id_2 not in glia_skeletons:
+                error_site = get_closest_node_pair_between_two_skeletons(seg_skel_1, seg_skel_2, z_weight_multiplier, graph)
+                merge_errors.add(error_site)
+    return merge_errors
+
+
+# Returns the closest pair of nodes on 2 skeletons
+def get_closest_node_pair_between_two_skeletons(skel1, skel2, z_weight_multiplier, graph):
+    multiplier = (z_weight_multiplier, 1, 1)
+    shortest_len = math.inf
+    for (node1, node2) in product(skel1, skel2):
+        coord1, coord2 = graph.nodes[node1]['zyx_coord'], graph.nodes[node2]['zyx_coord']
+        distance = math.sqrt(sum([(a-b)**2 for a, b in zip(map(lambda c,d: c*d, coord1, multiplier),
+                                                           map(lambda c,d: c*d, coord2, multiplier))]))
+        if distance < shortest_len:
+            shortest_len = distance
+            closest_pair = (node1, node2)
+    return closest_pair
+
 
 # A split error occurs when a pair of adjacent nodes receive different predicted segmentation IDs
 # despite belong to the same neuron. 
-def get_split_errors(graph):
+def get_split_errors(graph, ignore_glia = True):
     for edge in graph.edges:
         node1 = edge[0]
         node2 = edge[1]
-        if graph.nodes[node1]['segId_pred'] != graph.nodes[node2]['segId_pred']:
-            breaks = fomd_local_breaking_errors(edge, graph)
+        if ignore_glia and graph.nodes[node1]['cell_type'] == 'glia':
+            continue
+        elif graph.nodes[node1]['seg_label'] != graph.nodes[node2]['seg_label']:
+            breaks = find_local_breaking_errors(edge, graph)
             if len(breaks):
                 for break_edge in breaks:
-                    graph.edges[break_edge]['error_type'] = "breaking"
+                    graph.edges[break_edge]['error_type'] = 'breaking'
             else:
-                graph.edges[edge]['error_type'] = "split"
-    split_edges = {edge for edge in graph.edges if graph.edges[edge]['error_type'] == "split"}
-    breaking_edges = {edge for edge in graph.edges if graph.edges[edge]['error_type'] == "breaking"}
+                graph.edges[edge]['error_type'] = 'split'
+    split_edges = {edge for edge in graph.edges if graph.edges[edge]['error_type'] == 'split'}
+    breaking_edges = {edge for edge in graph.edges if graph.edges[edge]['error_type'] == 'breaking'}
     return split_edges, breaking_edges
 
 
@@ -75,7 +73,7 @@ def get_split_errors(graph):
 # that of X. If Y1 and Y2 have different ids, Y1-Y2 will also be labelled a breaking error to prevent it from being counted as a split error.
 # Breaking errors typically occur when a large organelle is labeled as background, preventing correct agglomeration at that location.
 def find_local_breaking_errors(edge, graph, max_size = 1):
-    if graph.edges[edge]['error_type'] == "breaking":
+    if graph.edges[edge]['error_type'] == 'breaking':
         return {edge}
     node1, node2 = edge[0], edge[1]
     for i in range(2):
@@ -85,7 +83,7 @@ def find_local_breaking_errors(edge, graph, max_size = 1):
             hits = set()
             for node in subgraph:
                 for neighbor in graph.neighbors(node):
-                    if graph.nodes[neighbor]['segId_pred'] != graph.nodes[node1]['segId_pred']:
+                    if graph.nodes[neighbor]['seg_label'] != graph.nodes[node1]['seg_label']:
                         hits.add(neighbor)
             subgraph = subgraph.union(hits)
         # Retrieves all the nodes at the periphery of the subgraph and checks that they all have the correct ID
@@ -94,8 +92,8 @@ def find_local_breaking_errors(edge, graph, max_size = 1):
             for neighbor in graph.neighbors(node):
                 if neighbor not in subgraph:
                     borders.add(neighbor)
-        breaking_error = len(borders) and all(graph.nodes[node]['segId_pred'] ==
-                                                graph.nodes[node1]['segId_pred'] for node in borders)
+        breaking_error = len(borders) and all(graph.nodes[node]['seg_label'] ==
+                                                graph.nodes[node1]['seg_label'] for node in borders)
 
         # If the error is a breaking error, all the other edges at the periphery of the subgraph (and the adjacent nodes
         # with differing segmentation ID prediction within the subgraph) will be labelled breaking errors)
@@ -107,7 +105,7 @@ def find_local_breaking_errors(edge, graph, max_size = 1):
                         breaks.add((node, neighbor))
             for node in subgraph:
                 for neighbor in set(graph.neighbors(node)) - borders:
-                    if graph.nodes[node]['segId_pred'] != graph.nodes[neighbor]['segId_pred']:
+                    if graph.nodes[node]['seg_label'] != graph.nodes[neighbor]['seg_label']:
                         breaks.add((node, neighbor))
             return breaks
         else:
@@ -117,34 +115,6 @@ def find_local_breaking_errors(edge, graph, max_size = 1):
     return set()
 
 
-def merge_error(graph,z_weight_multiplier=1):  # dict === {seg_id:([{(zyx),(zyx)},sk1,sk2],....),...}
-    seg_dict = {}
-    seg_error_dict = {}
-    # build the {seg_id:{sk_id:[((zyx),(zyx),...]}}
-    for treenode_id, attr in graph.nodes(data=True):
-        if attr['segId_pred'] == -1:
-            continue
-        elif attr['segId_pred'] not in seg_dict:
-            # collections.dafaultdict(dict) did the same thing
-            seg_dict[attr['segId_pred']] = {}
-            seg_dict[attr['segId_pred']][attr['skeleton_id']] = set()
-            seg_dict[attr['segId_pred']][attr['skeleton_id']].add(attr['zyx_coord'])
-        elif attr['skeleton_id'] not in seg_dict[attr['segId_pred']]:
-            seg_dict[attr['segId_pred']][attr['skeleton_id']] = set()
-            seg_dict[attr['segId_pred']][attr['skeleton_id']].add(attr['zyx_coord'])
-        else:
-            seg_dict[attr['segId_pred']][attr['skeleton_id']].add(attr['zyx_coord'])
-    error_counts = 0
-    for seg_id, seg_skeleton in seg_dict.items():
-        seg_error_dict[seg_id] = []
-        sk_id_list = [sk_id for sk_id in seg_skeleton.keys()] 
-        for pos1 in range(len(sk_id_list)):
-            for pos2 in range(len(sk_id_list)):
-                if pos1 < pos2:
-                    seg_error_dict[seg_id].append([shortest_euclidean_bw_two_sk(seg_skeleton[sk_id_list[pos1]], seg_skeleton[sk_id_list[pos2]], z_weight_multiplier), sk_id_list[pos1], sk_id_list[pos2]])
-                    error_counts += 1
-    return error_counts, seg_error_dict
-
 
 # 2. rand and voi
 # i : gt(skeleton) , j : prediction(segmentation)
@@ -152,17 +122,16 @@ def merge_error(graph,z_weight_multiplier=1):  # dict === {seg_id:([{(zyx),(zyx)
 # voi could be higher than 1, lower is better
 # transform the script below to python code
 # https://github.com/funkelab/funlib.evaluate/blob/master/funlib/evaluate/impl/rand_voi.hpp
-
 def rand_voi_split_merge(graph, return_cluster_scores=False):
     p_ij = {}
     p_i = {}
     p_j = {}
     total = 0
     for treenode_id, attr in graph.nodes(data=True):
-        if attr['segId_pred'] == -1:
+        if attr['seg_label'] == -1:
             continue
         sk_id = attr['skeleton_id']
-        seg_id = attr['segId_pred']
+        seg_id = attr['seg_label']
         total += 1
         if sk_id not in p_i:
             p_i[sk_id] = 1
@@ -235,6 +204,14 @@ def rand_voi_split_merge(graph, return_cluster_scores=False):
     return rand_split, rand_merge, voi_split, voi_merge
 
 
+################################### METHODS TO GET RID OF #############################################
+# I think this method is calculating the rand/voi scores for a segment/skeleton by correcting the seg labels
+# on the graph associated with that segment/skeleton and then subtracting that from the original to get the difference.
+# Doing so would give the RAND/VOI contribution from that skeleton. Solution: make origin scores map IDs/labels to scores
+# and read up on RAND VOI scores to figure out how to do that
+
+#https://en.wikipedia.org/wiki/Variation_of_information
+#https://en.wikipedia.org/wiki/Rand_index
 def get_rand_voi_gain_after_fix(
         graph,
         error_type,
@@ -242,23 +219,22 @@ def get_rand_voi_gain_after_fix(
         origin_scores,
         segment_ds=None,
         seg_id=None):
-
-    if error_type == "split":
+    if error_type == 'split':
         graph_fix = copy.deepcopy(graph)
         seg_id = segment_ds[Coordinate(error[0])]
         replace_seg_id = segment_ds[Coordinate(error[1])]
         for treenode_id, attr in graph_fix.nodes(data=True):
-            if attr['segId_pred'] == replace_seg_id:
-                attr['segId_pred'] = seg_id
+            if attr['seg_label'] == replace_seg_id:
+                attr['seg_label'] = seg_id
         return get_diff(origin_scores, graph_fix)
-    if error_type == "merge":
+    if error_type == 'merge':
         graph_fix_0 = copy.deepcopy(graph)
-        next_seg_id = max([attr['segId_pred'] for _, attr in graph_fix_0.nodes(data=True)])+1
+        next_seg_id = max([attr['seg_label'] for _, attr in graph_fix_0.nodes(data=True)])+1
         replace_sk_id_0 = error[1]
         for treenode_id, attr in graph_fix_0.nodes(data=True):
-            if attr['segId_pred'] == seg_id:
+            if attr['seg_label'] == seg_id:
                 if attr['skeleton_id'] == replace_sk_id_0:
-                    attr['segId_pred'] = next_seg_id
+                    attr['seg_label'] = next_seg_id
         return get_diff(origin_scores, graph_fix_0)
 
 
@@ -270,3 +246,70 @@ def get_diff(origin_scores, graph_fix):
         'voi_split': abs(origin_scores[2] - voi_split_fix),
         'voi_merge': abs(origin_scores[3] - voi_merge_fix),
         }
+
+def splits_error(graph, include_breaking_error=False):  # dict === {sk_id_1:(((zyx),(zyx)),....),sk_id_2:(),...}
+    error_count = 0
+    error_dict = {}
+    sk_id = -1
+    breaking_error_dict = {}
+    for treenode_id, attr in graph.nodes(data=True):
+        if attr['skeleton_id'] != sk_id:
+            sk_id = attr['skeleton_id']
+            error_dict[sk_id] = set()
+            breaking_error_dict[sk_id] = set()
+        if attr['parent_id'] is None or math.isnan(attr['parent_id']):
+            continue
+        parent_node = graph.node[attr['parent_id']]
+        if attr['seg_label'] != parent_node['seg_label']:
+            if include_breaking_error:
+                error_count += 1
+                error_dict[sk_id].add((Coordinate(attr['zyx_coord']),
+                                        Coordinate(parent_node['zyx_coord']),
+                                        treenode_id, attr['parent_id']))
+            else:
+                ancestor_node = parent_node
+                while not (ancestor_node['parent_id'] is None or math.isnan(ancestor_node['parent_id'])):
+                    ancestor_node = graph.node[ancestor_node['parent_id']]
+                    if ancestor_node['seg_label'] == attr['seg_label']:
+                        breaking_error_dict[sk_id].add((Coordinate(attr['zyx_coord']),
+                                                        Coordinate(parent_node['zyx_coord']),
+                                                        Coordinate(ancestor_node['zyx_coord'])))
+                        break
+                if ancestor_node['seg_label'] != attr['seg_label']:
+                    error_count += 1
+                error_dict[sk_id].add((Coordinate(attr['zyx_coord']),
+                                        Coordinate(parent_node['zyx_coord']),
+                                        treenode_id, attr['parent_id']))
+    if include_breaking_error:
+        return error_count, (error_dict)
+    else:
+        return error_count, (error_dict, breaking_error_dict)
+###breaking_error_dict stores three coordinate, first two is the same as error_dict, third one is the ancestor node save it from split error.
+###for example, for node with segId A, if it's parent segId is B, it is split error. But if it's ancstor has same segId A, it's not split error.
+### A....BA, BA is not split error any more. ....CBBA, here BA is split eror   
+ 
+def merge_error(graph,z_weight_multiplier=1):  # dict === {seg_id:([{(zyx),(zyx)},sk1,sk2],....),...}
+    seg_dict = {}
+    seg_error_dict = {}
+    # build the {seg_id:{sk_id:[((zyx),(zyx),...]}}
+    for treenode_id, attr in graph.nodes(data=True):
+        if attr['seg_label'] not in seg_dict:
+            # collections.dafaultdict(dict) did the same thing
+            seg_dict[attr['seg_label']] = {}
+            seg_dict[attr['seg_label']][attr['skeleton_id']] = set()
+            seg_dict[attr['seg_label']][attr['skeleton_id']].add(attr['zyx_coord'])
+        elif attr['skeleton_id'] not in seg_dict[attr['seg_label']]:
+            seg_dict[attr['seg_label']][attr['skeleton_id']] = set()
+            seg_dict[attr['seg_label']][attr['skeleton_id']].add(attr['zyx_coord'])
+        else:
+            seg_dict[attr['seg_label']][attr['skeleton_id']].add(attr['zyx_coord'])
+    error_counts = 0
+    for seg_id, seg_skeleton in seg_dict.items():
+        seg_error_dict[seg_id] = []
+        sk_id_list = [sk_id for sk_id in seg_skeleton.keys()] 
+        for pos1 in range(len(sk_id_list)):
+            for pos2 in range(len(sk_id_list)):
+                if pos1 < pos2:
+                    seg_error_dict[seg_id].append([shortest_euclidean_bw_two_sk(seg_skeleton[sk_id_list[pos1]], seg_skeleton[sk_id_list[pos2]], z_weight_multiplier), sk_id_list[pos1], sk_id_list[pos2]])
+                    error_counts += 1
+    return error_counts, seg_error_dict
