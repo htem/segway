@@ -9,7 +9,7 @@ from utility import shortest_euclidean_bw_two_sk, to_pixel_coord_xyz
 ## Thus the numb of splits error is decreasing and we will provide dict of breaking_errors will be ignored in counting the numb of split error.
 
 # more information https://arxiv.org/pdf/1611.00421.pdf  see 4.3 and 5 
-def splits_error(graph, include_breaking_error=False):  # dict === {sk_id_1:(((zyx),(zyx)),....),sk_id_2:(),...}
+def splits_error(graph, include_breaking_error=True):  # dict === {sk_id_1:(((zyx),(zyx)),....),sk_id_2:(),...}
     error_count = 0
     error_dict = {}
     sk_id = -1
@@ -43,7 +43,7 @@ def splits_error(graph, include_breaking_error=False):  # dict === {sk_id_1:(((z
                                         Coordinate(parent_node['zyx_coord']),
                                         treenode_id, attr['parent_id']))
     if include_breaking_error:
-        return error_count, (error_dict)
+        return error_count, error_dict
     else:
         return error_count, (error_dict, breaking_error_dict)
 ###breaking_error_dict stores three coordinate, first two is the same as error_dict, third one is the ancestor node save it from split error.
