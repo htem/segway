@@ -90,7 +90,7 @@ def interpolate_locations_in_z(zyx0, zyx1):
     return res
 
 
-def parse_skeleton_json(json):
+def parse_skeleton_json(json, interpolation=True):
     skeletons = {}
     nodes = {}
     json = json["skeletons"]
@@ -104,18 +104,20 @@ def parse_skeleton_json(json):
             node_id = len(nodes)
             nodes[node_id] = node
 
-            if node_json["parent_id"] is not None:
-                # need to check and make intermediate nodes
-                # before appending current node
-                prev_node_id = str(node_json["parent_id"])
-                prev_node = skel_json["treenodes"][prev_node_id]
-                intermediates = interpolate_locations_in_z(
-                    to_zyx(prev_node["location"]), node["zyx"])
-                for loc in intermediates:
-                    int_node_id = len(nodes)
-                    int_node = {"zyx": loc}
-                    nodes[int_node_id] = int_node
-                    skeleton.append(int_node_id)
+            if interpolation:
+                if node_json["parent_id"] is not None:
+                    # need to check and make intermediate nodes
+                    # before appending current node
+                    prev_node_id = str(node_json["parent_id"])
+                    prev_node = skel_json["treenodes"][prev_node_id]
+                    intermediates = interpolate_locations_in_z(
+                        to_zyx(prev_node["location"]), node["zyx"])
+                    for loc in intermediates:
+                        int_node_id = len(nodes)
+                        int_node = {"zyx": loc}
+                        nodes[int_node_id] = int_node
+                        skeleton.append(int_node_id)
+
             skeleton.append(node_id)
 
         if len(skeleton) == 1:
@@ -144,7 +146,7 @@ if __name__ == "__main__":
 
     skeleton_json = config["skeleton_file"]
     with open(skeleton_json) as f:
-        skeletons, nodes = parse_skeleton_json(json.load(f))
+        skeletons, nodes = parse_skeleton_json(json.load(f), interpolation=True)
 
     segmentation_skeleton_ds = config["segmentation_skeleton_ds"]
 

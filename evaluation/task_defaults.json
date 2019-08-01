@@ -33,6 +33,6 @@
             "z_weight_multiplier": 1,
             "step":40,
             "ignore_glia": true,
-            "leaf_node_removal_depth": 1
+            "leaf_node_removal_depth": 2
         }        
 }

@@ -4,16 +4,18 @@ import numpy as np
 import sys
 import json
 import os
-from funlib.segment.arrays import replace_values
+# from funlib.segment.arrays import replace_values
+
+import gt_tools
 
 '''
 0 = myelin
 255 = no myelin
 '''
 
-config_f = sys.argv[1]
-with open(config_f) as f:
-    config = json.load(f)
+config = gt_tools.load_config(sys.argv[1])
+# with open(config_f) as f:
+    # config = json.load(f)
 
 file = config["file"]
 
@@ -21,26 +23,28 @@ mask_ds = daisy.open_ds(
     file,
     config["mask_ds"])
 
-script_name = os.path.basename(config_f)
-script_name = script_name.split(".")[0]
-raw_file = config["zarr"]["dir"] + "/" + script_name + ".zarr"
-if "raw_file" in config:
-    raw_file = config["raw_file"]
+raw_file = config["raw_file"]
+out_file = config["out_file"]
+# script_name = config["script_name"]
+# script_name = script_name.split(".")[0]
+# raw_file = config["zarr"]["dir"] + "/" + script_name + ".zarr"
+# if "raw_file" in config:
+#     raw_file = config["raw_file"]
 
-raw_ds = daisy.open_ds(
-    raw_file,
-    "volumes/raw")
+# raw_ds = daisy.open_ds(
+#     raw_file,
+#     "volumes/raw")
 
-total_roi = raw_ds.roi
+# total_roi = raw_ds.roi
 
-script_name = os.path.basename(config_f)
-script_name = script_name.split(".")[0]
-out_file = config["zarr"]["dir"] + "/" + script_name + ".zarr"
+# script_name = os.path.basename(config_f)
+# script_name = script_name.split(".")[0]
+# out_file = config["zarr"]["dir"] + "/" + script_name + ".zarr"
 
 out = daisy.prepare_ds(
     out_file,
     "volumes/labels/myelin_gt",
-    total_roi,
+    mask_ds.roi,
     mask_ds.voxel_size,
     mask_ds.dtype,
     compressor={'id': 'zlib', 'level': 5}
@@ -67,10 +71,23 @@ if "myelin_mask_file" in config:
 
     out_array[mask_ds.roi] = myelin_ndarray
 
+elif os.path.exists(os.path.join(file, config["myelin_ds"])):
+
+    # opening predicted myelin
+    myelin_ds = daisy.open_ds(file, config["myelin_ds"])
+    out_array[mask_ds.roi] = myelin_ds
+
+    # sometimes myelin prediction is not too good, so we use label == 0
+    # as a heuristic for getting myelin
+    segment_ds = daisy.open_ds(file, config["segment_ds"])
+    out_ndarray = out_array.to_ndarray()
+    np.place(out_array.to_ndarray(), segment_ds.to_ndarray() == 0, 0)
+    out_array[out_array.roi] = out_ndarray
+
 else:
 
     out_array[mask_ds.roi] = 255  # 255 means no myelin
 
 # out_array[mask_ds.roi] = mask_ds.to_ndarray()
 print("Writing myelin...")
-out[total_roi] = out_array
+out[mask_ds.roi] = out_array
