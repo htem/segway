@@ -9,8 +9,6 @@ import gt_tools
 
 from funlib.segment.arrays import replace_values
 
-# import task_helper
-# sys.path.insert(0, "/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_segmentation/segway/fix")
 from fix_merge import get_graph, fix_merge
 
 logging.basicConfig(level=logging.INFO)
@@ -29,12 +27,9 @@ def to_zyx(xyz):
 
 
 def segment_from_skeleton(skeletons, segment_array, nodes):
-    # segments = collections.defaultdict(collections.defaultdict(list))
     segments = collections.defaultdict(lambda: collections.defaultdict(list))
-    # print(nodes)
 
     for skeleton_id in skeletons:
-        # print(skeletons[skeleton_id])
         for n in skeletons[skeleton_id]:
             zyx = daisy.Coordinate(tuple(nodes[n]["zyx"]))
             if not segment_array.roi.contains(zyx):
@@ -43,13 +38,10 @@ def segment_from_skeleton(skeletons, segment_array, nodes):
             assert(segid is not None)
             segments[segid][skeleton_id].append(n)
 
-    # print(segments)
-    # print(segments.keys())
     return segments
 
 
 def get_one_merged_components(segments, done):
-    # print(segments.keys())
     for s in segments:
         if s in done:
             continue
@@ -70,7 +62,10 @@ def get_one_splitted_component(skeletons, segment_array, nodes, done):
             if not segment_array.roi.contains(zyx):
                 continue
             seg_id = segment_array[zyx]
-            segments.add(seg_id)
+            if seg_id != 0:
+                # TODO: not entirely sure why this could be
+                # when bound is checked above
+                segments.add(seg_id)
         if len(segments) > 1:
             return (segments, skid)
     return (None, None)
@@ -87,9 +82,7 @@ def interpolate_locations_in_z(zyx0, zyx1):
     delta = []
     for i in range(3):
         delta.append((float(zyx1[i]) - zyx0[i]) / steps)
-    # print(delta)
     assert(int(delta[0]) == 40 or int(delta[0]) == -40)
-    # for z in range(zyx0[2], zyx0[2], 40):
     res = []
     for i in range(steps-1):
         res.append([int(zyx0[k] + (i+1)*delta[k]) for k in range(3)])
@@ -97,7 +90,7 @@ def interpolate_locations_in_z(zyx0, zyx1):
     return res
 
 
-def parse_skeleton_json(json):
+def parse_skeleton_json(json, interpolation=True):
     skeletons = {}
     nodes = {}
     json = json["skeletons"]
@@ -111,29 +104,27 @@ def parse_skeleton_json(json):
             node_id = len(nodes)
             nodes[node_id] = node
 
-            if node_json["parent_id"] is not None:
-                # need to check and make intermediate nodes
-                # before appending current node
-                prev_node_id = str(node_json["parent_id"])
-                # print(skel_json["treenodes"])
-                prev_node = skel_json["treenodes"][prev_node_id]
-                intermediates = interpolate_locations_in_z(
-                    to_zyx(prev_node["location"]), node["zyx"])
-                for loc in intermediates:
-                    int_node_id = len(nodes)
-                    int_node = {"zyx": loc}
-                    nodes[int_node_id] = int_node
-                    skeleton.append(int_node_id)
+            if interpolation:
+                if node_json["parent_id"] is not None:
+                    # need to check and make intermediate nodes
+                    # before appending current node
+                    prev_node_id = str(node_json["parent_id"])
+                    prev_node = skel_json["treenodes"][prev_node_id]
+                    intermediates = interpolate_locations_in_z(
+                        to_zyx(prev_node["location"]), node["zyx"])
+                    for loc in intermediates:
+                        int_node_id = len(nodes)
+                        int_node = {"zyx": loc}
+                        nodes[int_node_id] = int_node
+                        skeleton.append(int_node_id)
+
             skeleton.append(node_id)
 
-        # print(skeleton)
-        # exit(0)
         if len(skeleton) == 1:
             # skip single node skeletons (likely to be synapses annotation)
             continue
         
         skeletons[skel_id] = skeleton
-    # print(skeletons)
     return skeletons, nodes
 
 
@@ -155,7 +146,7 @@ if __name__ == "__main__":
 
     skeleton_json = config["skeleton_file"]
     with open(skeleton_json) as f:
-        skeletons, nodes = parse_skeleton_json(json.load(f))
+        skeletons, nodes = parse_skeleton_json(json.load(f), interpolation=True)
 
     segmentation_skeleton_ds = config["segmentation_skeleton_ds"]
 
@@ -213,8 +204,6 @@ if __name__ == "__main__":
 
         rag_weight_attribute = "capacity"
         rag = get_graph(subrag, segment_threshold, rag_weight_attribute)
-        # print(rag.nodes(data=True)); exit(0)
-        # print(rag.edges(data=True)); exit(0)
 
         # sanity check
         assert len(rag.nodes) > 0
@@ -225,6 +214,7 @@ if __name__ == "__main__":
         for n, n_data in rag.nodes(data=True):
             zyx = daisy.Coordinate(tuple([n_data[c] for c in position_attributes]))
             max_segid = max(segment_array[zyx], max_segid)
+        assert max_segid != 0
         next_segid = max_segid + 1
 
         # for known fragments that have nodes of multiple skeletons, we will have to assign them unique IDs, and disable their masks at a later step
@@ -309,13 +299,6 @@ if __name__ == "__main__":
 
             mask_values = list(splitted_segments)
             new_values = [mask_values[0] for k in mask_values]
-
-            # print(mask_values)
-            # print(new_values)
-            # exit(0)
-
-            # mask_values = np.array(mask_values, dtype=segment_array.dtype)
-            # new_values = np.array(new_values, dtype=segment_array.dtype)
 
             print("Replacing values...")
             segment_ndarray = segment_array.to_ndarray()

@@ -55,7 +55,7 @@
         {
             "lut_dir": "luts/fragment_segment",
             "fragments_dataset": "/volumes/fragments",
-            "num_workers": 8,
+            "num_workers": 16,
             "block_size": [4000, 4096, 4096]
         },
 
@@ -63,7 +63,7 @@
         {
             "lut_dir": "luts/fragment_segment",
             "fragments_dataset": "/volumes/fragments",
-            "num_workers": 8,
+            "num_workers": 16,
             "block_size": [4000, 4096, 4096]
         },
 
@@ -79,7 +79,7 @@
         {
             "lut_dir": "luts/fragment_segment",
             "fragments_dataset": "/volumes/fragments",
-            "num_workers": 8,
+            "num_workers": 16,
             "block_size": [4000, 4096, 4096],
             "chunk_size": [4, 4, 4]
         },
@@ -89,7 +89,7 @@
             "fragments_dataset": "/volumes/fragments",
             "out_dataset": "volumes/segmentation",
             "thresholds": [0.6, 0.7, 0.8, 0.9],
-            "num_workers": 8,
+            "num_workers": 16,
             "lut_dir": "luts/fragment_segment",
             "block_size": [4000, 4096, 4096]
         },

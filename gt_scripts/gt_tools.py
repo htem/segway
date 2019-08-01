@@ -42,8 +42,22 @@ def get_db_names(config, file):
 
 def load_config(config_f):
 
-    with open(config_f) as f:
-        config = json.load(f)
+    config_f = config_f.rstrip('/')
+    if config_f.endswith(".zarr"):
+        config = {}
+        config["file"] = config_f
+        config["out_file"] = config_f
+        config["raw_file"] = config_f
+
+    else:
+
+        with open(config_f) as f:
+            config = json.load(f)
+
+        db_name, db_host, db_edges_collection = get_db_names(config, file)
+        config["db_name"] = db_name
+        config["db_host"] = db_host
+        config["db_edges_collection"] = db_edges_collection
 
     if "file" in config:
         file = config["file"]
@@ -61,23 +75,20 @@ def load_config(config_f):
         if f not in config:
             config[f] = file
 
-    if "out_file" not in config:
+    if "script_name" not in config:
         script_name = os.path.basename(config_f)
         script_name = script_name.split(".")[0]
+        config["script_name"] = script_name
+
+    script_name = config["script_name"]
+
+    if "out_file" not in config:
         out_file = config["zarr"]["dir"] + "/" + script_name + ".zarr"
         config["out_file"] = out_file
 
     if 'raw_file' not in config:
-        script_name = os.path.basename(config_f)
-        script_name = script_name.split(".")[0]
         raw_file = config["zarr"]["dir"] + "/" + script_name + ".zarr"
         config["raw_file"] = raw_file
-
-    # mask_ds
-    # affs_ds
-    # fragments_ds
-    # # gt_ds
-    # raw_ds
 
     if "mask_ds" not in config:
         config["mask_ds"] = "volumes/labels/labels_mask_z"
@@ -93,11 +104,6 @@ def load_config(config_f):
         config["segmentation_skeleton_ds"] = "volumes/segmentation_skeleton"
     if "unlabeled_ds" not in config:
         config["unlabeled_ds"] = "volumes/labels/unlabeled_mask_skeleton"
-
-    db_name, db_host, db_edges_collection = get_db_names(config, file)
-    config["db_name"] = db_name
-    config["db_host"] = db_host
-    config["db_edges_collection"] = db_edges_collection
 
     return config
 
