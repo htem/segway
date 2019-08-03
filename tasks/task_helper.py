@@ -623,3 +623,9 @@ def aggregateConfigs(configs):
         copyParameter(input_config, config, 'output_file', 'fragments_file')
         copyParameter(input_config, config, 'output_file', 'out_file')
         config['merge_function'] = merge_function
+
+    if "ExtractChunkwiseSegmentationTask" in configs:
+        config = configs["ExtractChunkwiseSegmentationTask"]
+        copyParameter(input_config, config, 'output_file', 'fragments_file')
+        copyParameter(input_config, config, 'output_file', 'out_file')
+        config['merge_function'] = merge_function

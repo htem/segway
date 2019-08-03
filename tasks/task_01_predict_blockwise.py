@@ -332,6 +332,7 @@ class PredictTask(task_helper.SlurmTask):
             fit='overhang',
             num_workers=self.num_workers,
             # log_to_file=True
+            # timeout=self.timeout
             )
 
     def check_block(self, block, precheck):
