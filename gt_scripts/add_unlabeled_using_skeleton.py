@@ -35,6 +35,10 @@ def segment_from_skeleton(skeletons, segment_array, nodes):
 
     for skeleton_id in skeletons:
         # print(skeletons[skeleton_id])
+        if len(skeletons[skeleton_id]) < 3:
+            # ignore skeletons with less than 2 nodes (namely the pre/post synaptic partner labels)
+            continue
+
         for n in skeletons[skeleton_id]:
             zyx = daisy.Coordinate(tuple(nodes[n]["zyx"]))
             if not segment_array.roi.contains(zyx):

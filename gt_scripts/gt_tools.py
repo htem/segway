@@ -16,6 +16,9 @@ def get_db_names(config, file):
     db_host = config.get("db_host", None)
     db_edges_collection = config.get("db_edges_collection", None)
 
+    if "merge_function" in config:
+        db_edges_collection = 'edges_' + config["merge_function"]
+
     if db_name is None or db_host is None or db_edges_collection is None:
 
         configs = config["task_config_files"]
@@ -54,16 +57,18 @@ def load_config(config_f):
         with open(config_f) as f:
             config = json.load(f)
 
-        db_name, db_host, db_edges_collection = get_db_names(config, file)
-        config["db_name"] = db_name
-        config["db_host"] = db_host
-        config["db_edges_collection"] = db_edges_collection
-
     if "file" in config:
         file = config["file"]
     else:
         file = config["segment_file"]
         config["file"] = file
+
+    if not config_f.endswith(".zarr"):
+
+        db_name, db_host, db_edges_collection = get_db_names(config, file)
+        config["db_name"] = db_name
+        config["db_host"] = db_host
+        config["db_edges_collection"] = db_edges_collection
 
     for f in [
             "mask_file",
@@ -82,12 +87,21 @@ def load_config(config_f):
 
     script_name = config["script_name"]
 
+    # try to prepend the script dir if needed
+    prepend = os.path.split(config_f)[0]
+
     if "out_file" not in config:
         out_file = config["zarr"]["dir"] + "/" + script_name + ".zarr"
+        if not os.path.exists(out_file):
+            out_file = os.path.join(prepend, out_file)
+        assert os.path.exists(out_file)
         config["out_file"] = out_file
 
-    if 'raw_file' not in config:
+    if "raw_file" not in config:
         raw_file = config["zarr"]["dir"] + "/" + script_name + ".zarr"
+        if not os.path.exists(raw_file):
+            raw_file = os.path.join(prepend, raw_file)
+        assert os.path.exists(raw_file)
         config["raw_file"] = raw_file
 
     if "mask_ds" not in config:
@@ -104,6 +118,8 @@ def load_config(config_f):
         config["segmentation_skeleton_ds"] = "volumes/segmentation_skeleton"
     if "unlabeled_ds" not in config:
         config["unlabeled_ds"] = "volumes/labels/unlabeled_mask_skeleton"
+
+
 
     return config
 

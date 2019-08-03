@@ -4,7 +4,7 @@ import logging
 import numpy as np
 import gt_tools
 
-from funlib.segment.arrays import replace_values
+# from funlib.segment.arrays import replace_values
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
