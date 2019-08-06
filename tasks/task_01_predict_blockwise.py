@@ -67,6 +67,8 @@ class PredictTask(task_helper.SlurmTask):
     sub_roi_offset = daisy.Parameter(None)
     sub_roi_shape = daisy.Parameter(None)
 
+    center_roi_offset = daisy.Parameter(False)
+
     # DEPRECATED
     input_shape = daisy.Parameter(None)
     output_shape = daisy.Parameter(None)
@@ -169,6 +171,10 @@ class PredictTask(task_helper.SlurmTask):
 
             output_roi = daisy.Roi(
                 tuple(self.roi_offset), tuple(self.roi_shape))
+
+            if self.center_roi_offset:
+                output_roi = output_roi.shift(-daisy.Coordinate(tuple(self.roi_shape))/2)
+
             input_roi = output_roi.grow(context, context)
             assert input_roi.intersect(source.roi) == input_roi, \
                 "output_roi + context has to be within raw ROI"
@@ -180,6 +186,8 @@ class PredictTask(task_helper.SlurmTask):
                 tuple(self.sub_roi_offset), tuple(self.sub_roi_shape))
             assert output_roi.contains(input_roi)
 
+            if self.center_roi_offset:
+                raise RuntimeError("Unimplemented")
             # need align output_roi to prediction chunk size
 
             output_roi_begin = [k for k in output_roi.get_begin()]
@@ -197,6 +205,10 @@ class PredictTask(task_helper.SlurmTask):
             assert output_roi.contains(input_roi)
 
         else:
+
+            if self.center_roi_offset:
+                raise RuntimeError("Cannot center ROI if not specified")
+
             assert self.roi_offset is None
             assert self.roi_shape is None
             assert self.sub_roi_offset is None
@@ -223,6 +235,10 @@ class PredictTask(task_helper.SlurmTask):
         logger.info("ZARR write size:")
         logger.info(write_size)
 
+        delete_ds = False
+        if self.overwrite:
+            delete_ds = True
+
         self.affs_ds = daisy.prepare_ds(
             self.out_file,
             self.out_dataset,
@@ -234,7 +250,8 @@ class PredictTask(task_helper.SlurmTask):
             write_size=write_size,
             force_exact_write_size=True,
             num_channels=out_dims,
-            compressor={'id': 'zlib', 'level': 5}
+            compressor={'id': 'zlib', 'level': 5},
+            delete=delete_ds,
             )
 
         if self.myelin_prediction:
@@ -246,7 +263,8 @@ class PredictTask(task_helper.SlurmTask):
                 out_dtype,
                 # write_roi=daisy.Roi((0, 0, 0), chunk_size),
                 write_size=chunk_size,
-                compressor={'id': 'zlib', 'level': 5}
+                compressor={'id': 'zlib', 'level': 5},
+                delete=delete_ds,
                 )
 
         if self.raw_file.endswith('.json'):

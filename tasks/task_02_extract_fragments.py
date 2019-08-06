@@ -115,6 +115,10 @@ class ExtractFragmentTask(task_helper.SlurmTask):
             mode='r+')
         logging.info("RAG DB opened")
 
+        delete_ds = False
+        if self.overwrite:
+            delete_ds = True
+
         if self.context is None:
             self.context = daisy.Coordinate((0,)*self.affs.roi.dims())
         else:
@@ -141,7 +145,8 @@ class ExtractFragmentTask(task_helper.SlurmTask):
                 source.voxel_size,
                 np.uint64,
                 daisy.Roi((0, 0, 0), self.block_size),
-                compressor={'id': 'zlib', 'level': 5}
+                compressor={'id': 'zlib', 'level': 5},
+                delete=delete_ds,
                 )
 
             total_roi = daisy.Roi(
@@ -161,7 +166,8 @@ class ExtractFragmentTask(task_helper.SlurmTask):
                 self.affs.voxel_size,
                 np.uint64,
                 daisy.Roi((0, 0, 0), self.block_size),
-                compressor={'id': 'zlib', 'level': 5}
+                compressor={'id': 'zlib', 'level': 5},
+                delete=delete_ds,
                 )
 
             total_roi = self.affs.roi.grow(self.context, self.context)
