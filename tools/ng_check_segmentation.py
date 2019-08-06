@@ -1,9 +1,10 @@
 import daisy
 import neuroglancer
 import sys
-# import numpy as np
+import numpy as np
 import os
 
+from funlib.show.neuroglancer import add_layer
 from segway import task_helper
 
 neuroglancer.set_server_bind_address('0.0.0.0')
@@ -68,7 +69,10 @@ if raw_file[-1] == '/':
     raw_file = raw_file[:-1]
 
 print("Opening %s..." % raw_file)
-raw = daisy.open_ds(raw_file, 'volumes/raw')
+try:
+    raw = daisy.open_ds(raw_file, 'volumes/raw')
+except:
+    raw = daisy.open_ds(raw_file, 'raw')
 
 
 def add(s, a, name, shader=None):
@@ -99,15 +103,20 @@ viewer = neuroglancer.Viewer()
 
 with viewer.txn() as s:
 
-    add(s, raw, 'raw')
+    add_layer(s, raw, 'raw')
 
-    add(s, daisy.open_ds(f, 'volumes/affs'), 'affs', shader='rgb')
-    add(s, daisy.open_ds(f, 'volumes/myelin'), 'myelin')
-    add(s, daisy.open_ds(f, 'volumes/fragments'), 'frag')
-    add(s, daisy.open_ds(f, 'volumes/segmentation_0.600'), 'seg_600')
-    add(s, daisy.open_ds(f, 'volumes/segmentation_0.700'), 'seg_700')
-    add(s, daisy.open_ds(f, 'volumes/segmentation_0.800'), 'seg_800')
-    add(s, daisy.open_ds(f, 'volumes/segmentation_0.900'), 'seg_900')
+    add_layer(s, daisy.open_ds(f, 'volumes/affs'), 'affs', shader='rgb')
+    add_layer(s, daisy.open_ds(f, 'volumes/myelin'), 'myelin', visible=False)
+    add_layer(s, daisy.open_ds(f, 'volumes/fragments'), 'frag', visible=False)
+    add_layer(s, daisy.open_ds(f, 'volumes/segmentation_0.600'), 'seg_600', visible=False)
+    add_layer(s, daisy.open_ds(f, 'volumes/segmentation_0.700'), 'seg_700')
+    add_layer(s, daisy.open_ds(f, 'volumes/segmentation_0.800'), 'seg_800', visible=False)
+    add_layer(s, daisy.open_ds(f, 'volumes/segmentation_0.900'), 'seg_900', visible=False)
+
+    segment = daisy.open_ds(f, 'volumes/segmentation_0.700')
+    s.navigation.position.voxelCoordinates = np.flip(
+        ((segment.roi.get_begin() + segment.roi.get_end()) / 2 / segment.voxel_size))
+
 
 link = str(viewer)
 print(link)

@@ -171,7 +171,8 @@ class PredictTask(task_helper.SlurmTask):
                 tuple(self.roi_offset), tuple(self.roi_shape))
             input_roi = output_roi.grow(context, context)
             assert input_roi.intersect(source.roi) == input_roi, \
-                "output_roi + context has to be within raw ROI"
+                "output_roi (%s) + context (%s) = input_roi (%s) has to be within raw ROI" \
+                % (output_roi, context, input_roi)
 
         elif self.sub_roi_offset is not None and self.sub_roi_shape is not None:
 
