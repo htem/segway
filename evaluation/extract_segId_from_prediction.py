@@ -7,9 +7,9 @@ from build_graph_from_catmaid import \
     add_nodes_from_catmaidCSV_with_interpolation, add_nodes_from_catmaidCSV,\
     add_nodes_from_catmaidJson_with_interpolation, add_nodes_from_catmaidJson
 import os.path
+import networkx as nx
 
-
-def add_predicted_seg_labels(graph, segmentation_path, segment_dataset, leaf_node_removal_depth):
+def add_predicted_seg_labels(graph, segmentation_path, segment_dataset):
     print(segmentation_path)
     start_time = time.time()
     print('Adding segmentation predictions from %s' % segment_dataset)
@@ -17,23 +17,24 @@ def add_predicted_seg_labels(graph, segmentation_path, segment_dataset, leaf_nod
         segmentation_path,
         segment_dataset)
     segment_array = segment_array[segment_array.roi]
-
-    for treenode_id, attr in graph.nodes(data=True):
-        treenode_zyx = (attr['z'], attr['y'], attr['x'])
-        graph.nodes[treenode_id]['zyx_coord'] = treenode_zyx
-        if segment_array.roi.contains(Coordinate(treenode_zyx)):
-            seg_id = segment_array[Coordinate(treenode_zyx)]
+    nodes = list(graph.nodes)
+    for i, treenode_id in enumerate(nodes):
+        attr = graph.nodes[treenode_id]
+        attr['zyx_coord'] = (attr['z'], attr['y'], attr['x'])
+        if segment_array.roi.contains(Coordinate(attr['zyx_coord'])):
+            seg_id = segment_array[Coordinate(attr['zyx_coord'])]
             attr['seg_label'] = seg_id
+        else:
+            graph.remove_node(treenode_id)
+        if i % 1500 == 0:
+            print("(%s/%s) nodes labelled" % (i, len(nodes)))
     print('Task add_segId_from_prediction of %s took %s seconds' %
           (segment_dataset, round(time.time()-start_time, 3)))
-    connect_nodes_to_parents(graph)
-    remove_leaf_nodes(graph, leaf_node_removal_depth)
-    remove_nodes_outside_roi(graph)
-    return graph
+    return assign_skeleton_indexes(graph)
 
 
 def construct_graph_with_seg_labels(agglomeration_threshold, skeleton_path, segmentation_path,
-                                with_interpolation, step, leaf_node_removal_depth):
+                                    with_interpolation, step, leaf_node_removal_depth):
     if os.path.isdir(segmentation_path+'/'+agglomeration_threshold):
         if skeleton_path.endswith('.csv'):
             skeleton_data = pd.read_csv(skeleton_path)
@@ -50,7 +51,9 @@ def construct_graph_with_seg_labels(agglomeration_threshold, skeleton_path, segm
                 skeleton_nodes = add_nodes_from_catmaidJson_with_interpolation(skeleton_data,step)
             else:
                 skeleton_nodes = add_nodes_from_catmaidJson(skeleton_data)
-        return add_predicted_seg_labels(skeleton_nodes, segmentation_path, agglomeration_threshold, leaf_node_removal_depth)
+        edge_connect_nodes_to_parents(skeleton_nodes)
+        remove_leaf_nodes(skeleton_nodes, leaf_node_removal_depth)
+        return add_predicted_seg_labels(skeleton_nodes, segmentation_path, agglomeration_threshold)
     else:
         pass
 
@@ -73,25 +76,30 @@ def remove_leaf_nodes(graph, removal_depth):
             graph.remove_node(node)
     return graph
 
+
 # This method connects every node in the graph to its parent node
 # (the node specified by its 'parent_id' attribute) to facilitate
 # removing the leaf nodes.
-def connect_nodes_to_parents(graph):
+def edge_connect_nodes_to_parents(graph):
     for node in graph.nodes:
         parent = graph.nodes[node]['parent_id']
         if not parent is None:
             graph.add_edge(node, parent)
+            # Line below might be unnecessary
             graph[node][parent]['error_type'] = ''
     return graph
+    
 
-# When the CATMAID skeleton extends beyond the segmented region,
-# some nodes are not assigned segmentation IDs, making them irrelevent
-# to the evaluation.
-def remove_nodes_outside_roi(graph):
-    for node in list(graph.nodes):
-        if graph.nodes[node]['seg_label'] == -1:
-            for neighbor in graph.neighbors(node):
-                if graph.nodes[neighbor]['parent_id'] == node:
-                    graph.nodes[neighbor]['parent_id'] = None
-            graph.remove_node(node)
+# Assign unique ids to each cluster of connected nodes. This is to
+# differentiate between sets of nodes that are discontinuous in the
+# ROI but actually belong to the same skeleton ID, which is necessary
+# because the network should not be penalized for incorrectly judging
+# that these processes belong to different neurons.
+def assign_skeleton_indexes(graph):
+    skeleton_index_to_id = {}
+    skel_clusters = nx.connected_components(graph)
+    for i, cluster in enumerate(skel_clusters):
+        for node in cluster:
+            graph.nodes[node]['skeleton_index'] = i
+        skeleton_index_to_id[i] = graph.nodes[cluster.pop()]['skeleton_id']
     return graph

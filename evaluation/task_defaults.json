@@ -10,12 +10,12 @@
             ],
             "colors":["y","k","coral","purple","navy","lime","salmon","saddlebrown","gold"],
             "markers":["o", "", "^", "s", " ", "", "p", "", "D"],
-            "voxel_size":[40, 4, 4],
-            "with_interpolation": false
+            "voxel_size":[40, 4, 4]
         },
     "Output":
         {
             "output_path":"./",
+            "write_TXT": true,
             "write_CSV": true,
             "skeleton_IDs_to_print":[]
         },
@@ -32,6 +32,9 @@
             "z_weight_multiplier": 1,
             "step":40,
             "ignore_glia": true,
-            "leaf_node_removal_depth": 1
+            "leaf_node_removal_depth": 1,
+            "with_interpolation": false,
+            "assume_minimal_merges": false,
+            "max_break_size": 1
         }        
 }
