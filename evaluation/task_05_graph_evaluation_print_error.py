@@ -159,6 +159,7 @@ def write_error_files(output_path, file_name, merge_errors, split_errors,
                 print("Skeleton %s" % error[1], file = f)
                 print("\t%s and %s split" % (error[2], error[3]), file = f)
                 print("\tCATMAID nodes %s and %s" % (error[4], error[5]), file = f)
+
                 print(file = f)
     if write_csv:
         with open(output_path + file_name + '.csv', 'w') as f:

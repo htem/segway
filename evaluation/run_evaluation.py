@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 from task_05_graph_evaluation_print_error import compare_segmentation_to_ground_truth_skeleton
+from extract_segId_from_prediction import load_lut, test_lut
 
 # Consider altering task_defaults/configs to reflect actual method parameters
 
