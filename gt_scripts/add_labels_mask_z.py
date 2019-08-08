@@ -256,6 +256,8 @@ def process_block(
     # mask_array[gt_ndarray == 0] = 0
     # mask_ds[block.read_roi] = mask_array
 
+    return 0
+
 
 def get_ambiguous_boundary(fragment_pairs, fragments, steps=5):
 

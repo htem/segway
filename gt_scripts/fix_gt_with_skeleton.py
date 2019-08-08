@@ -11,6 +11,12 @@ from funlib.segment.arrays import replace_values
 
 from fix_merge import get_graph, fix_merge
 
+try:
+    import graph_tool
+except ImportError:
+    print("Error: graph_tool is not found.")
+    exit(0)
+
 logging.basicConfig(level=logging.INFO)
 
 
@@ -54,6 +60,7 @@ def get_one_merged_components(segments, done):
 def get_one_splitted_component(skeletons, segment_array, nodes, done):
     for skid in skeletons:
         segments = set()
+        zyxs = []
         if skid in done:
             continue
         s = skeletons[skid]
@@ -66,9 +73,10 @@ def get_one_splitted_component(skeletons, segment_array, nodes, done):
                 # TODO: not entirely sure why this could be
                 # when bound is checked above
                 segments.add(seg_id)
+                zyxs.append(zyx)
         if len(segments) > 1:
-            return (segments, skid)
-    return (None, None)
+            return (segments, skid, zyxs)
+    return (None, None, None)
 
 
 def interpolate_locations_in_z(zyx0, zyx1):
@@ -133,14 +141,16 @@ if __name__ == "__main__":
     config = gt_tools.load_config(sys.argv[1])
     file = config["file"]
 
-    try:
-        if sys.argv[2] == "--update":
-            update_existing_volume = True
-    except:
-        update_existing_volume = False
+    update_existing_volume = False
+    if len(sys.argv) > 2 and sys.argv[2] == "--update":
+        update_existing_volume = True
 
     correct_merges = True
+    if len(sys.argv) > 2 and sys.argv[2] == "--no_correct_merge":
+        correct_merges = False
     correct_splits = True
+    if len(sys.argv) > 2 and sys.argv[2] == "--no_correct_split":
+        correct_splits = False
     make_segment_cache = True
     make_fragment_cache = True
 
@@ -285,7 +295,7 @@ if __name__ == "__main__":
         processed_segments = set()
 
         while True:
-            splitted_segments, skeleton_id = get_one_splitted_component(
+            splitted_segments, skeleton_id, coords = get_one_splitted_component(
                     skeletons,
                     segment_array,
                     nodes,
@@ -295,7 +305,10 @@ if __name__ == "__main__":
             if splitted_segments is None:
                 break  # done
 
-            print("Splitted segments: %s" % splitted_segments)
+            print("Splitted segments:")
+            for s, zyx in zip(splitted_segments, coords):
+                # print("Splitted segments: %s" % splitted_segments)
+                print("%s (%s)" % (s, to_pixel_coord(zyx)), end=', ')
 
             mask_values = list(splitted_segments)
             new_values = [mask_values[0] for k in mask_values]

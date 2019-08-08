@@ -58,10 +58,16 @@ def load_config(config_f):
             config = json.load(f)
 
     if "file" in config:
+        if config["file"] == "":
+            raise RuntimeError('"file" is empty in config...')
         file = config["file"]
     else:
+        if config["segment_file"] == "":
+            raise RuntimeError('"segment_file" is empty in config...')
         file = config["segment_file"]
         config["file"] = file
+
+    assert os.path.exists(file), "file %s does not exist..." % file
 
     if not config_f.endswith(".zarr"):
 
@@ -94,14 +100,16 @@ def load_config(config_f):
         out_file = config["zarr"]["dir"] + "/" + script_name + ".zarr"
         if not os.path.exists(out_file):
             out_file = os.path.join(prepend, out_file)
-        assert os.path.exists(out_file)
+        if not os.path.exists(out_file):
+            raise RuntimeError("out_file must exists: %s" % out_file)
         config["out_file"] = out_file
 
     if "raw_file" not in config:
         raw_file = config["zarr"]["dir"] + "/" + script_name + ".zarr"
         if not os.path.exists(raw_file):
             raw_file = os.path.join(prepend, raw_file)
-        assert os.path.exists(raw_file)
+        if not os.path.exists(raw_file):
+            raise RuntimeError("raw_file must exists: %s" % raw_file)
         config["raw_file"] = raw_file
 
     if "mask_ds" not in config:
@@ -118,8 +126,6 @@ def load_config(config_f):
         config["segmentation_skeleton_ds"] = "volumes/segmentation_skeleton"
     if "unlabeled_ds" not in config:
         config["unlabeled_ds"] = "volumes/labels/unlabeled_mask_skeleton"
-
-
 
     return config
 
@@ -158,6 +164,7 @@ def print_ng_link(viewer):
         ['gandalf', 'catmaid3.hms.harvard.edu'],
         ['lee-htem-gpu0', '10.117.28.249'],
         ['lee-lab-gpu1', '10.117.28.82'],
+        ['catmaid2', 'catmaid2.hms.harvard.edu'],
         ]
     for alias, ip in ip_mapping:
         if alias in link:

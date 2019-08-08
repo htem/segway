@@ -15,7 +15,9 @@ try:
     f = global_config["Input"]["output_file"]
     raw_file = global_config["Input"]["raw_file"]
 
-except:
+except Exception as e:
+
+    print(e)
 
     f = sys.argv[1]
     try:
@@ -108,6 +110,8 @@ with viewer.txn() as s:
     add_layer(s, daisy.open_ds(f, 'volumes/affs'), 'affs', shader='rgb')
     add_layer(s, daisy.open_ds(f, 'volumes/myelin'), 'myelin', visible=False)
     add_layer(s, daisy.open_ds(f, 'volumes/fragments'), 'frag', visible=False)
+    try: add_layer(s, daisy.open_ds(f, 'volumes/segmentation_0.500'), 'seg_500', visible=False)
+    except: pass
     add_layer(s, daisy.open_ds(f, 'volumes/segmentation_0.600'), 'seg_600', visible=False)
     add_layer(s, daisy.open_ds(f, 'volumes/segmentation_0.700'), 'seg_700')
     add_layer(s, daisy.open_ds(f, 'volumes/segmentation_0.800'), 'seg_800', visible=False)

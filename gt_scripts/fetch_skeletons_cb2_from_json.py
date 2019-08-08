@@ -1,6 +1,7 @@
 import daisy
 import sys
 import json
+import os
 sys.path.insert(0, "/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/catpy")
 
 import catpy
@@ -8,6 +9,7 @@ from catpy.applications import CatmaidClientApplication
 from catpy.applications.export import ExportWidget
 
 import gt_tools
+
 
 def get_coordinates(offset, shape, context):
 
@@ -72,6 +74,15 @@ if __name__ == "__main__":
 
     config = gt_tools.load_config(sys.argv[1])
 
+    if "skeleton_file" not in config:
+        raise RuntimeError('"skeleton_file" not in config')
+    skeleton_f = config["skeleton_file"]
+    if os.path.exists(skeleton_f):
+        i = input("Overwrite %s? [y/N] " % skeleton_f)
+        if i == '' or i == 'n' or i == 'N':
+            print("Aborting...")
+            exit(0)
+
     client = catpy.CatmaidClient(
         'http://catmaid3.hms.harvard.edu/catmaidcb2/',
         '1342ab7fa3426d67890b42e4bac40c644adaf2ec'
@@ -79,17 +90,48 @@ if __name__ == "__main__":
     project_id = 2  # CB2 main project ID
     script_name = config["script_name"]
 
-    in_config = config["CatmaidIn"]
-    z, y, x = daisy.Coordinate(in_config["roi_offset"]) * daisy.Coordinate(in_config["tile_shape"])
-    offset = (x, y, z)
-    z, y, x = daisy.Coordinate(in_config["roi_shape_nm"]) / daisy.Coordinate(in_config["voxel_size"])
-    shape = (x, y, z)
-    z, y, x = daisy.Coordinate(in_config["roi_context_nm"]) / daisy.Coordinate(in_config["voxel_size"])
-    context = (x, y, z)
+    if "CatmaidIn" in config:
+        in_config = config["CatmaidIn"]
+        z, y, x = daisy.Coordinate(in_config["roi_offset"]) * daisy.Coordinate(in_config["tile_shape"])
+        offset = (x, y, z)
+        z, y, x = daisy.Coordinate(in_config["roi_shape_nm"]) / daisy.Coordinate(in_config["voxel_size"])
+        shape = (x, y, z)
+        z, y, x = daisy.Coordinate(in_config["roi_context_nm"]) / daisy.Coordinate(in_config["voxel_size"])
+        context = (x, y, z)
 
-    # FORMAT
+    elif "ZarrIn" in config:
+
+        in_config = config["ZarrIn"]
+        voxel_size = daisy.Coordinate(in_config["voxel_size"])
+        roi_offset = in_config["roi_offset"]
+        if in_config["roi_offset_encoding"] == "voxel":
+            roi_offset = [m*n for m, n in zip(roi_offset, voxel_size)]
+        elif in_config["roi_offset_encoding"] == "nm":
+            pass
+        else:
+            raise RuntimeError("ZarrIn only supports roi_offset_encoding == `voxel` or `nm`")
+
+        roi_context = daisy.Coordinate(in_config.get("roi_context_nm", [0, 0, 0]))
+        roi_shape = daisy.Coordinate(in_config["roi_shape_nm"])
+        roi_offset = daisy.Coordinate(roi_offset)
+        print("roi_shape: ", roi_shape)
+        print("roi_context: ", roi_context)
+
+        if in_config["center_roi_offset"]:
+            roi_offset = roi_offset - roi_shape/2
+
+        # roi_shape = roi_shape + roi_context*2
+        # roi_offset = roi_offset - roi_context
+
+        roi_context /= voxel_size
+        roi_shape /= voxel_size
+        roi_offset /= voxel_size
+
+        offset = (roi_offset[2], roi_offset[1], roi_offset[0])
+        shape = (roi_shape[2], roi_shape[1], roi_shape[0])
+        context = (roi_context[2], roi_context[1], roi_context[0])
+
     # GT alias: (proj_id, ((offset, shape, context)))
-    # WARNING: offset needs to be exactly that of the segmentation volume
     projects = {
         script_name: (project_id, (offset, shape, context)),
     }
@@ -113,5 +155,7 @@ if __name__ == "__main__":
 
         geometry = subtract_offset(geometry, offset, context)
 
-        with open('%s_skeleton.json' % project, 'w') as f:
+        # with open('%s_skeleton.json' % project, 'w') as f:
+        with open(skeleton_f, 'w') as f:
+            print("Writing to %s" % skeleton_f)
             json.dump(geometry, f)

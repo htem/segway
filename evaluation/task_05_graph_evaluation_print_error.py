@@ -170,6 +170,7 @@ def generate_error_coordinates_file(output_path, merge_error_dict, split_error_d
                 print("Skeleton: %s" % error[1], file = f)
                 print("\t%s (%s)" % (error[2], error[3]), file = f)
                 print("\tCATMAID nodes %s and %d" % (error[4], error[5]), file = f)
+                print("\tSegs %s %s" % (graph.nodes[error[4]]['segId_pred'], graph.nodes[error[5]]['segId_pred']), file=f)
                 print("", file = f)                    
     if write_CSV:
         with open(file_name + ".csv", "w") as f:

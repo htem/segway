@@ -72,23 +72,6 @@ if __name__ == "__main__":
 
     logging.basicConfig(level=logging.DEBUG)
 
-    # try:
-    #     config_f = sys.argv[1]
-    #     with open(config_f) as f:
-    #         config = json.load(f)
-    #     file = config["affs_file"]
-
-    # except:
-    #     # try using taskhelper
-    #     user_configs, global_config = task_helper.parseConfigs(sys.argv[1:])
-    #     file = global_config["Input"]["output_file"]
-    # config_f = sys.argv[1]
-    # with open(config_f) as f:
-    #     config = json.load(f)
-    # user_configs, global_config = task_helper.parseConfigs(config["task_config_files"])
-    # file = global_config["Input"]["output_file"]
-    # file = "/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_segmentation/" + file
-
     config = gt_tools.load_config(sys.argv[1])
     file = config["file"]
 
@@ -98,23 +81,18 @@ if __name__ == "__main__":
         affs_ds = daisy.open_ds(file, "volumes/affs")
     fragments_ds = daisy.open_ds(file, "volumes/fragments")
 
-    num_workers = 16
+    num_workers = 12
 
     total_roi_shape = affs_ds.roi.get_shape()
     block_roi_x_dim = [x for x in total_roi_shape]
     block_roi_x_dim[2] = 80
     block_roi_x_dim = daisy.Roi((0, 0, 0), block_roi_x_dim)
-    # print(block_roi_x_dim)
     block_roi_y_dim = [x for x in total_roi_shape]
     block_roi_y_dim[1] = 40
     block_roi_y_dim = daisy.Roi((0, 0, 0), block_roi_y_dim)
-    # print(block_roi_y_dim)
     block_roi_z_dim = [x for x in total_roi_shape]
     block_roi_z_dim[0] = 40
     block_roi_z_dim = daisy.Roi((0, 0, 0), block_roi_z_dim)
-    # print(block_roi_z_dim)
-
-    # exit(0)
 
     thresholds = [.1, .15, .85, .9]
     segmentation_dss = []
