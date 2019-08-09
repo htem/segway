@@ -1,5 +1,56 @@
 import networkx as nx
 import numpy as np
+import pandas as pd
+import json
+import csv
+
+
+def construct_skeleton_graph(skeleton_path, with_interpolation,
+                             step, leaf_node_removal_depth):
+    if skeleton_path.endswith('.json'):
+        with open(skeleton_path, 'r') as f:
+            skeleton_data = json.load(f)
+        if with_interpolation:
+            skeleton_nodes = add_nodes_from_catmaidJson_with_interpolation(skeleton_data,step)
+        else:
+            skeleton_nodes = add_nodes_from_catmaidJson(skeleton_data)
+    elif skeleton_path.endswith('.csv'):
+        skeleton_data = pd.read_csv(skeleton_path)
+        skeleton_data.columns = ['skeleton_id', 'treenode_id',
+                                 'parent_treenode_id', 'x', 'y', 'z', 'r']
+        if with_interpolation:
+            skeleton_nodes = add_nodes_from_catmaidCSV_with_interpolation(skeleton_data,step)
+        else:
+            skeleton_nodes = add_nodes_from_catmaidCSV(skeleton_data)
+    edge_connect_nodes_to_parents(skeleton_nodes)
+    return remove_leaf_nodes(skeleton_nodes, leaf_node_removal_depth)
+
+
+# This method connects every node in the graph to its parent node
+# (the node specified by its 'parent_id' attribute) to facilitate
+# removing the leaf nodes.
+def edge_connect_nodes_to_parents(graph):
+    for node in graph.nodes:
+        parent = graph.nodes[node]['parent_id']
+        if not parent is None:
+            graph.add_edge(node, parent)
+            # Line below might be unnecessary
+            graph[node][parent]['error_type'] = ''
+    return graph
+
+
+# This method removes all the leaf nodes (those with 0 or 1 neighbors) 
+# from the graph in order to avoid penalizing the model for small, unimportant 
+# misclassifications at the ends of a process.
+def remove_leaf_nodes(graph, removal_depth):
+    for i in range(removal_depth):
+        leaf_nodes = []
+        for node in graph.nodes:
+            if graph.degree[node] <= 1:
+                leaf_nodes.append(node)
+        for node in leaf_nodes:
+            graph.remove_node(node)
+    return graph
 
 
 def add_nodes(graph, node_z, node_y, node_x, treenode_id, parent_treenode_id,
@@ -9,7 +60,6 @@ def add_nodes(graph, node_z, node_y, node_x, treenode_id, parent_treenode_id,
     graph.add_nodes_from([treenode_id], y=node_y)
     graph.add_nodes_from([treenode_id], z=node_z)
     graph.add_nodes_from([treenode_id], parent_id=parent_treenode_id)
-    graph.add_nodes_from([treenode_id], seg_label=-1)
     return graph
 
 
@@ -26,9 +76,7 @@ def add_nodes_from_catmaidJson(JSONdata):
             skeleton_graph.add_nodes_from([tr_id], x=tr_dict['location'][0])
             skeleton_graph.add_nodes_from([tr_id], y=tr_dict['location'][1])
             skeleton_graph.add_nodes_from([tr_id], z=tr_dict['location'][2])
-            skeleton_graph.add_nodes_from([tr_id],
-                                          parent_id=tr_dict['parent_id'])
-            skeleton_graph.add_nodes_from([tr_id], seg_label=-1)
+            skeleton_graph.add_nodes_from([tr_id], parent_id=tr_dict['parent_id'])
     for node in skeleton_graph.nodes:
         if skeleton_graph.nodes[node]['skeleton_id'] in glia_cells_sk:
             skeleton_graph.nodes[node]['cell_type'] = 'glia'
@@ -122,7 +170,6 @@ def interpolation_sections_JSON(graph, sk_id, tr_id, sk_dict, current_dict,
             next_id_to_start = next_treenode_id+2
     return graph, next_id_to_start
 
-
 	
 def glia_cells_sk_id_Json(JSONdata):
     glia_cell_sk_id = set() #store the sk_id which are glia cells
@@ -157,14 +204,11 @@ def add_nodes_from_catmaidCSV(CSVdata, ignore_glia=True):
         if ignore_glia and current_row['skeleton_id'] in glia_cells_sk:
             continue
         else: 
-            skeleton_graph.add_nodes_from([nrow['treenode_id']],
-                                      skeleton_id=nrow['skeleton_id'])
+            skeleton_graph.add_nodes_from([nrow['treenode_id']], skeleton_id=nrow['skeleton_id'])
             skeleton_graph.add_nodes_from([nrow['treenode_id']], x=nrow['x'])
             skeleton_graph.add_nodes_from([nrow['treenode_id']], y=nrow['y'])
             skeleton_graph.add_nodes_from([nrow['treenode_id']], z=nrow['z'])
-            skeleton_graph.add_nodes_from([nrow['treenode_id']],
-                                      parent_id=nrow['parent_treenode_id'])
-            skeleton_graph.add_nodes_from([nrow['treenode_id']], seg_label=-1)
+            skeleton_graph.add_nodes_from([nrow['treenode_id']], parent_id=nrow['parent_treenode_id'])
     return skeleton_graph
 
 

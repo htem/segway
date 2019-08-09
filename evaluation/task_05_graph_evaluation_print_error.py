@@ -1,7 +1,9 @@
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from extract_segId_from_prediction import construct_graph_with_seg_labels
+from extract_segId_from_prediction import add_predicted_seg_labels_from_vol, \
+                                          replace_fragment_ids_with_LUT_values
+from build_graph_from_catmaid import construct_skeleton_graph
 from evaluation_matrix import find_merge_errors, find_split_errors, rand_voi_split_merge
 import re
 import daisy
@@ -9,11 +11,11 @@ from daisy import Coordinate
 from multiprocessing import Pool
 from functools import partial
 import numpy as np
+import networkx as nx
 import os
-import sys
 import csv
+import copy
 from itertools import product
-matplotlib.use('Agg')
 
 
 def compare_segmentation_to_ground_truth_skeleton(
@@ -29,8 +31,10 @@ def compare_segmentation_to_ground_truth_skeleton(
          rand_merge_list,
          voi_split_list,
          voi_merge_list) = [], [], [], []
-        graph_list = construct_graphs_in_parallel(agglomeration_thresholds, seg_path,
-                                                num_processes, configs['skeleton'])
+        graph_list = generate_graphs_with_seg_labels(agglomeration_thresholds,
+                                                     seg_path,
+                                                     num_processes,
+                                                     configs['skeleton'])
         for graph in graph_list:
             if graph is None:
                 numb_split.append(np.nan)
@@ -40,18 +44,22 @@ def compare_segmentation_to_ground_truth_skeleton(
                 voi_split_list.append(np.nan)
                 voi_merge_list.append(np.nan)
             else:
-                z_weight_multiplier = configs['error_count']['z_weight_multiplier']
-                ignore_glia = configs['error_count']['ignore_glia']
-                assume_minimal_merges = configs['error_count']['assume_minimal_merges']
-                max_break_size = configs['error_count']['max_break_size']
-                split_errors, _= find_split_errors(graph, ignore_glia, max_break_size)
-                merge_errors, _ = find_merge_errors(graph, z_weight_multiplier, ignore_glia, assume_minimal_merges)
-                write_txt, write_csv = configs['output']['write_TXT'], configs['output']['write_CSV']
-                if write_txt or write_csv:
+                error_configs, output_configs = configs['error_count'], configs['output']
+                split_errors, _= find_split_errors(graph,
+                                                   error_configs['ignore_glia'],
+                                                   error_configs['max_break_size'])
+                merge_errors, _ = find_merge_errors(graph,
+                                                    error_configs['z_weight_multiplier'],
+                                                    error_configs['ignore_glia'],
+                                                    error_configs['assume_minimal_merges'])
+                if output_configs['write_TXT'] or output_configs['write_CSV']:
                     seg_vol = agglomeration_thresholds[graph_list.index(graph)]
-                    output_path, file_name = generate_output_path_and_file_name(configs, seg_vol, seg_path)
-                    write_error_files(output_path, file_name, merge_errors, split_errors, graph,
-                                        configs['output']['voxel_size'], write_txt, write_csv)
+                    merge_error_rows, split_error_rows = format_errors(merge_errors, split_errors, graph, output_configs['voxel_size'])
+                    output_path, file_name = generate_output_path_and_file_name(output_configs, seg_vol, seg_path)
+                    write_error_files(output_path, file_name,
+                                      merge_error_rows, split_error_rows,
+                                      output_configs['write_TXT'],
+                                      output_configs['write_CSV'])
                 (rand_split, rand_merge,
                 voi_split, voi_merge) = rand_voi_split_merge(graph)
                 numb_split.append(len(split_errors))
@@ -64,34 +72,52 @@ def compare_segmentation_to_ground_truth_skeleton(
         split_and_merge.extend((model, numb_merge, numb_split))
         split_and_merge_rand.extend((model, rand_merge_list, rand_split_list))
         split_and_merge_voi.extend((model, voi_merge_list, voi_split_list))
-    output = configs['output']
-    generate_error_plot(agglomeration_thresholds, output['config_JSON'], 'number', output['output_path'], 
-                        output['markers'], output['colors'], *split_and_merge)
-    generate_error_plot(agglomeration_thresholds, output['config_JSON'], 'rand', output['output_path'],
-                        output['markers'], output['colors'], *split_and_merge_rand)
-    generate_error_plot(agglomeration_thresholds, output['config_JSON'], 'voi', output['output_path'],
-                        output['markers'], output['colors'], *split_and_merge_voi)
+    plot_errors = partial(generate_error_plot,
+                          agglomeration_thresholds,
+                          configs['output']['config_JSON'],
+                          configs['output']['output_path'], 
+                          configs['output']['markers'],
+                          configs['output']['colors'],)
+    plot_errors('number', *split_and_merge)
+    plot_errors('rand', *split_and_merge_rand)
+    plot_errors('voi', *split_and_merge_voi)
 
 
-def construct_graphs_in_parallel(agglomeration_thresholds, segmentation_path,
-                                num_processes, configs):
+
+
+def generate_graphs_with_seg_labels(agglomeration_thresholds, segmentation_path,
+                                    num_processes, skeleton_configs):
+    graph_list = []
+    unlabelled_skeleton = construct_skeleton_graph(skeleton_configs['skeleton_path'],
+                                                   skeleton_configs['with_interpolation'],
+                                                   skeleton_configs['step'],
+                                                   skeleton_configs['leaf_node_removal_depth'])
     p = Pool(num_processes)
-    return p.map(partial(construct_graph_with_seg_labels,
-                        skeleton_path=configs['skeleton_path'],
-                        segmentation_path=segmentation_path,
-                        with_interpolation=configs['with_interpolation'],
-                        step=configs['step'],
-                        leaf_node_removal_depth=configs['leaf_node_removal_depth']),
-                        ['volumes/'+threshold for threshold in agglomeration_thresholds])
+    if os.path.exists(os.path.join(segmentation_path, 'luts/fragment_segment')):
+        fragment_graph = add_predicted_seg_labels_from_vol(unlabelled_skeleton.copy(),
+                                                           segmentation_path,
+                                                           'volumes/fragments',
+                                                           skeleton_configs['load_segment_array_to_memory'])
+        parameters_list = [(fragment_graph.copy(), segmentation_path, 'volumes/'+threshold)
+                            for threshold in agglomeration_thresholds]
+        graph_list = p.starmap(replace_fragment_ids_with_LUT_values,
+                               parameters_list)
+    else:
+        parameters_list = [(unlabelled_skeleton.copy(), segmentation_path, 'volumes/'+threshold,
+                            skeleton_configs['load_segment_array_to_memory'])
+                            for threshold in agglomeration_thresholds]
+        graph_list = p.starmap(add_predicted_seg_labels_from_vol,
+                               parameters_list)
+    return graph_list
 
 
 def generate_error_plot(
         agglomeration_thresholds,
         config_file_name,
-        chosen_matrice,
         output_path,
         markers,
         colors,
+        error_metric,
         *split_and_merge):
     fig, ax = plt.subplots(figsize=(8, 6))
     for j in range(int(len(split_and_merge)/3)):
@@ -108,22 +134,22 @@ def generate_error_plot(
                 ax.scatter(a, b, marker=m, c=colors[j], zorder=2, alpha=0.5,
                            s=50)
     ax.legend()
-    if chosen_matrice == 'number':
+    if error_metric == 'number':
         ax.set_ylim(bottom=-0.8)
         ax.set_xlim(left=-0.8)
         plt.xlabel('Merge Error Count')
         plt.ylabel('Split Error Count')
-    elif chosen_matrice == 'rand':
+    elif error_metric == 'rand':
         ax.set_ylim(bottom=0)
         ax.set_xlim(left=-0.01)
         plt.xlabel('Merge Rand')
         plt.ylabel('Split Rand')
-    elif chosen_matrice == 'voi':
+    elif error_metric == 'voi':
         ax.set_ylim(bottom=0)
         ax.set_xlim(left=-0.01)
         plt.xlabel('Merge VOI')
         plt.ylabel('Split VOI')
-    output_file_name = output_path+'/'+config_file_name+'_'+chosen_matrice 
+    output_file_name = output_path+'/'+config_file_name+'_'+error_metric 
     plt.savefig(output_file_name, dpi=300)
 
 
@@ -138,23 +164,23 @@ def get_model_name(volume_path, name_dictionary={}):
     return model
 
 
-def write_error_files(output_path, file_name, merge_errors, split_errors,
-                    graph, voxel_size, write_txt, write_csv):
+def write_error_files(output_path, file_name,
+                      merge_error_rows, split_error_rows,
+                      write_txt, write_csv):
     try:
         os.makedirs(output_path)
     except FileExistsError:
         pass
     print("output path:", output_path)
-    merge_error_rows, split_error_rows = format_errors(merge_errors, split_errors, graph, voxel_size)
     if write_txt:    
         with open(output_path + file_name + '.txt', 'w') as f:
-            print("MERGE ERRORS (" + str(len(merge_errors)) + ")", file = f)
+            print("MERGE ERRORS (" + str(len(merge_error_rows)) + ")", file = f)
             for error in merge_error_rows:
                 print("Segment %s" % error[1], file = f)
                 print("\t%s and %s merged" % (error[2], error[3]), file = f)
                 print("\tCATMAID nodes %s and %s" % (error[4], error[5]), file = f)
                 print(file = f)
-            print("SPLIT_ERRORS (" + str(len(split_errors)) + ")", file = f)
+            print("SPLIT_ERRORS (" + str(len(split_error_rows)) + ")", file = f)
             for error in split_error_rows:
                 print("Skeleton %s" % error[1], file = f)
                 print("\t%s and %s split" % (error[2], error[3]), file = f)
@@ -164,7 +190,8 @@ def write_error_files(output_path, file_name, merge_errors, split_errors,
     if write_csv:
         with open(output_path + file_name + '.csv', 'w') as f:
             csvwriter = csv.writer(f)
-            fields = ["error type", "ID (segment if merge, skeleton if split)", "coordinate 1", "coordinate 2", "node 1", "node 2"]
+            fields = ["error type", "ID (segment if merge, skeleton if split)",
+                      "coordinate 1", "coordinate 2", "node 1", "node 2"]
             csvwriter.writerow(fields)
             csvwriter.writerows(merge_error_rows)
             csvwriter.writerows(split_error_rows)
@@ -187,11 +214,9 @@ def format_errors(merge_errors, split_errors, graph, voxel_size):
     return merge_error_rows, split_error_rows
 
 
-def generate_output_path_and_file_name(configs, seg_vol, seg_path):
-    output_path = configs['output']['output_path']
-    if not output_path.endswith('/'):
-        output_path += '/'
-    output_path += configs['output']['config_JSON'] + '_error_coords/'
+def generate_output_path_and_file_name(output_configs, seg_vol, seg_path):
+    output_path = os.path.join(output_configs['output_path'], 
+                               output_configs['config_JSON'] + '_error_coords/')
     seg_info = seg_path.split('/')
     file_name = 'error_coords_' + seg_info[-4] + '_' + \
             seg_info[-3] + '_' + seg_info[-2] + '_' + seg_vol
@@ -202,3 +227,4 @@ def generate_output_path_and_file_name(configs, seg_vol, seg_path):
 def to_pixel_coord_xyz(zyx, voxel_size):
     zyx = (Coordinate(zyx) / Coordinate(voxel_size))
     return Coordinate((zyx[2], zyx[1], zyx[0]))
+

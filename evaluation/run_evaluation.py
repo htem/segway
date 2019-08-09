@@ -2,14 +2,11 @@ import argparse
 import json
 import os
 from task_05_graph_evaluation_print_error import compare_segmentation_to_ground_truth_skeleton
-from extract_segId_from_prediction import load_lut, test_lut
 
 # Consider altering task_defaults/configs to reflect actual method parameters
 
 def parse_configs(path):
     global_configs = {}
-    # hierarchy_configs = collections.defaultdict(dict)
-
     # first load default configs if avail
     try:
         default_filepath = os.path.dirname(os.path.realpath(__file__))
@@ -43,24 +40,12 @@ def construct_name_mapping(paths, names):
 # clean this method up and/or consider reformatting the config JSONs and task_defaults
 def format_parameter_configs(config):
     skeleton_configs = config['AdditionalFeatures']
-    skeleton_configs['with_interpolation'] = config['AdditionalFeatures']['with_interpolation']
     skeleton_configs['skeleton_path'] = config['Input']['skeleton']
-    
     error_count_configs = config['AdditionalFeatures']
-
-    config['Input']['voxel_size'] = tuple(config['Input']['voxel_size'])
-    output_configs = config['Input']
-    output_configs['output_path'] = config['Output']['output_path']
+    output_configs = config['Output']
     output_configs['config_JSON'] = config['file_name']
-    output_configs['write_CSV'] = config['Output']['write_CSV']
-    output_configs['write_TXT'] = config['Output']['write_TXT']
-    output_configs['skeleton_IDs_to_print'] = config['Output']['skeleton_IDs_to_print']
-    
-    parameter_configs = {}
-    parameter_configs['skeleton'] = skeleton_configs
-    parameter_configs['error_count'] = error_count_configs
-    parameter_configs['output'] = output_configs
-    return parameter_configs
+    output_configs['voxel_size'] = tuple(config['Input']['voxel_size'])
+    return {'skeleton': skeleton_configs, 'error_count': error_count_configs, 'output': output_configs}
 
 
 def run_evaluation(
@@ -79,7 +64,7 @@ def run_evaluation(
         model_name_mapping = construct_name_mapping(
             config['Input']['segment_volumes'],
             config['Input']['segment_names'])
-        print(model_name_mapping)
+        print(model_name_mapping, "&&&&&")
     config['file_name'] = file_name
     parameter_configs = format_parameter_configs(config)
     compare_segmentation_to_ground_truth_skeleton(
