@@ -110,6 +110,14 @@ with viewer.txn() as s:
     add_layer(s, daisy.open_ds(f, 'volumes/affs'), 'affs', shader='rgb')
     add_layer(s, daisy.open_ds(f, 'volumes/myelin'), 'myelin', visible=False)
     add_layer(s, daisy.open_ds(f, 'volumes/fragments'), 'frag', visible=False)
+    try: add_layer(s, daisy.open_ds(f, 'volumes/segmentation_0.100'), 'seg_100', visible=False)
+    except: pass
+    try: add_layer(s, daisy.open_ds(f, 'volumes/segmentation_0.200'), 'seg_200', visible=False)
+    except: pass
+    try: add_layer(s, daisy.open_ds(f, 'volumes/segmentation_0.300'), 'seg_300', visible=False)
+    except: pass
+    try: add_layer(s, daisy.open_ds(f, 'volumes/segmentation_0.400'), 'seg_400', visible=False)
+    except: pass
     try: add_layer(s, daisy.open_ds(f, 'volumes/segmentation_0.500'), 'seg_500', visible=False)
     except: pass
     add_layer(s, daisy.open_ds(f, 'volumes/segmentation_0.600'), 'seg_600', visible=False)

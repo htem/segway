@@ -239,16 +239,16 @@ def process_block(
         rag,
         ambiguous_fragments)
 
-    print("Relabeling %s" % total_roi)
-    print("Reading fragments..")
+    # print("Relabeling %s" % total_roi)
+    # print("Reading fragments..")
     fragments = fragments_ds[total_roi].to_ndarray()
 
-    print("Relabeling ambiguous regions..")
+    # print("Relabeling ambiguous regions..")
     labels_mask = np.ones_like(fragments, dtype=mask_ds.dtype)
     ambiguous_regions = get_ambiguous_boundary(ambiguous_fragments, fragments)
     labels_mask = np.logical_and(labels_mask, ambiguous_regions)
 
-    print("Write mask..")
+    # print("Write mask..")
     mask_ds[total_roi] = labels_mask
 
     # print("Masking out unknown regions...")

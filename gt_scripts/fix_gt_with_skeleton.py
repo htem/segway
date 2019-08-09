@@ -183,6 +183,8 @@ if __name__ == "__main__":
 
     print("Creating corrected segment at %s" % segmentation_skeleton_ds)
 
+    max_segid = None
+
     corrected_segment_ds = daisy.prepare_ds(
         segment_file,
         segmentation_skeleton_ds,
@@ -227,26 +229,27 @@ if __name__ == "__main__":
         assert max_segid != 0
         next_segid = max_segid + 1
 
-        # for known fragments that have nodes of multiple skeletons, we will have to assign them unique IDs, and disable their masks at a later step
         ignored_fragments = []
         if "ignored_fragments" in config:
-            print("Processing ignored_fragments...")
             ignored_fragments = config["ignored_fragments"]
-            mask_values = []
-            new_values = []
-            for f in ignored_fragments:
-                mask_values.append(f)
-                new_values.append(next_segid)
-                next_segid += 1
 
-            segment_ndarray = segment_array.to_ndarray()
-            replace_values(
-                segment_ndarray,
-                mask_values,
-                new_values,
-                segment_ndarray,
-                )
-            segment_array[segment_array.roi] = segment_ndarray
+            # for known fragments that have nodes of multiple skeletons, we will have to assign them unique IDs, and disable their masks at a later step
+            # print("Processing ignored_fragments...")
+            # mask_values = []
+            # new_values = []
+            # for f in ignored_fragments:
+            #     mask_values.append(f)
+            #     new_values.append(next_segid)
+            #     next_segid += 1
+
+            # segment_ndarray = segment_array.to_ndarray()
+            # replace_values(
+            #     segment_ndarray,
+            #     mask_values,
+            #     new_values,
+            #     segment_ndarray,
+            #     )
+            # segment_array[segment_array.roi] = segment_ndarray
 
         print("Correcting merges...")
         processed_segments = set()
