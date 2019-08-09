@@ -1,6 +1,7 @@
 import daisy
 import neuroglancer
 import sys
+import os
 
 import gt_tools
 
@@ -22,5 +23,7 @@ viewer = neuroglancer.Viewer()
 with viewer.txn() as s:
 
     gt_tools.add_ng_layer(s, raw, 'raw')
+
+print("Raw ZARR at %s" % os.path.realpath(raw_file))
 
 gt_tools.print_ng_link(viewer)

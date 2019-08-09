@@ -18,16 +18,9 @@ logging.basicConfig(level=logging.INFO)
 
 def get_graph(input, threshold=0.9, rag_weight_attribute="capacity"):
     graph = networkx.Graph()
-    # graph.add_nodes_from(input.nodes(data=True))
     for n, n_data in input.nodes(data=True):
         if 'center_z' in n_data:
             graph.add_node(n, **n_data)
-        # if n == 58723333:
-        #     print(n_data)
-
-    # print(58723333 in graph.node)
-    # print(graph.node[58723333])
-    # exit(0)
 
     for u, v, data in input.edges(data=True):
         if u not in graph or v not in graph:
@@ -152,7 +145,8 @@ def fix_merge(
     parent_cut_id = rag.nodes[components[0][0]]["cut_id"]
 
     if next_segid is None:
-        next_segid = int(random.random()*65536)
+        assert False
+        # next_segid = int(random.random()*65536)
 
     # create new segment IDs
     new_segment_ids = {}
@@ -178,8 +172,12 @@ def fix_merge(
                                         node_data['center_x'])))
             if segment_array[node_zyx] == merged_segment_id:
                 if node_data["cut_id"] != parent_cut_id:
+                    # print("Node %d at %s has cut_id %d" % (node, to_pixel_coord(node_zyx), node_data["cut_id"]))
                     mask_values.append(node)
                     new_values.append(new_segment_ids[node_data["cut_id"]])
+
+        # print("mask_values:", mask_values)
+        # print("new_values:", new_values)
 
         mask_values = np.array(mask_values, dtype=fragments_array.dtype)
         new_values = np.array(new_values, dtype=segment_array.dtype)

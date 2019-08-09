@@ -8,7 +8,7 @@ import gt_tools
 neuroglancer.set_server_bind_address('0.0.0.0')
 
 config = gt_tools.load_config(sys.argv[1])
-f = config["file"]
+f = config["out_file"]
 raw_file = config["raw_file"]
 
 if f[-1] == '/':
@@ -23,8 +23,10 @@ viewer = neuroglancer.Viewer()
 with viewer.txn() as s:
 
     add_layer(s, raw, 'raw')
-    add_layer(s, daisy.open_ds(f, config['segment_ds']), 'original_seg', visible=False)
-    add_layer(s, daisy.open_ds(f, config['segmentation_skeleton_ds']), 'corrected_seg')
-    add_layer(s, daisy.open_ds(f, 'volumes/fragments'), 'fragments', visible=False)
+    add_layer(s, daisy.open_ds(f, 'volumes/labels/lsd'), 'lsd', shader='rgb')
+    add_layer(s, daisy.open_ds(f, 'volumes/labels/labels_mask2'), 'mask', shader='mask')
+    # add_layer(s, daisy.open_ds(f, 'volumes/labels/lsd_mask'), 'lsd_mask', shader='mask')
+    add_layer(s, daisy.open_ds(f, 'volumes/labels/unlabeled'), 'unlabeled', shader='mask')
+    # add_layer(s, daisy.open_ds(f, 'volumes/labels/lsd_unlabeled_mask'), 'lsd_unlabeled', shader='mask')
 
 gt_tools.print_ng_link(viewer)

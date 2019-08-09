@@ -69,6 +69,10 @@ class ExtractSegmentationFromLUTBlockwiseTask(task_helper.SlurmTask):
         read_roi = daisy.Roi((0,)*self.fragments.roi.dims(), self.block_size)
         write_roi = daisy.Roi((0,)*self.fragments.roi.dims(), self.block_size)
 
+        delete_ds = False
+        if self.overwrite:
+            delete_ds = True
+
         for threshold in self.thresholds:
             ds = self.out_dataset + "_%.3f" % threshold
             self.segment_ds = daisy.prepare_ds(
@@ -80,7 +84,9 @@ class ExtractSegmentationFromLUTBlockwiseTask(task_helper.SlurmTask):
                 self.fragments.data.dtype,
                 write_size=daisy.Coordinate(tuple(self.write_size)),
                 force_exact_write_size=True,
-                compressor={'id': 'zlib', 'level': 5})
+                compressor={'id': 'zlib', 'level': 5},
+                delete=delete_ds,
+                )
 
         last_threshold = self.thresholds[-1]
 

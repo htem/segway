@@ -16,8 +16,6 @@ logging.basicConfig(level=logging.INFO)
 # np.set_printoptions(threshold=sys.maxsize, formatter={'all':lambda x: str(x)})
 
 
-
-
 def remap_in_block(
         block,
         block_size,

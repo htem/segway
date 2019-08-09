@@ -6,6 +6,11 @@
 
     "Network":
         {
+            "name": "setup36",
+            "train_dir" : "/n/groups/htem/Segmentation/networks/cb2_setups/setup36",
+            "iteration" : 270400,
+            "net_voxel_size": [40, 4, 4],
+            "myelin_prediction": 1,
             "mem_per_core": 4.5
         },
 
@@ -55,7 +60,7 @@
         {
             "lut_dir": "luts/fragment_segment",
             "fragments_dataset": "/volumes/fragments",
-            "num_workers": 8,
+            "num_workers": 16,
             "block_size": [4000, 4096, 4096]
         },
 
@@ -63,7 +68,7 @@
         {
             "lut_dir": "luts/fragment_segment",
             "fragments_dataset": "/volumes/fragments",
-            "num_workers": 8,
+            "num_workers": 16,
             "block_size": [4000, 4096, 4096]
         },
 
@@ -79,7 +84,17 @@
         {
             "lut_dir": "luts/fragment_segment",
             "fragments_dataset": "/volumes/fragments",
-            "num_workers": 8,
+            "thresholds": [
+                           0.10, 0.15,
+                           0.20, 0.25,
+                           0.30, 0.35,
+                           0.40, 0.45,
+                           0.50, 0.55,
+                           0.60, 0.65,
+                           0.70, 0.75,
+                           0.80, 0.85,
+                           0.90],
+            "num_workers": 16,
             "block_size": [4000, 4096, 4096],
             "chunk_size": [4, 4, 4]
         },
@@ -88,8 +103,8 @@
         {
             "fragments_dataset": "/volumes/fragments",
             "out_dataset": "volumes/segmentation",
-            "thresholds": [0.6, 0.7, 0.8, 0.9],
-            "num_workers": 8,
+            "thresholds": [0.5, 0.6, 0.7, 0.8, 0.9],
+            "num_workers": 16,
             "lut_dir": "luts/fragment_segment",
             "block_size": [4000, 4096, 4096]
         },

@@ -20,8 +20,6 @@ np.set_printoptions(threshold=sys.maxsize, formatter={'all':lambda x: str(x)})
 logger = logging.getLogger(__name__)
 
 def find_segments(
-        db_host,
-        db_name,
         fragments_file,
         lut_dir,
         merge_function,
@@ -29,50 +27,7 @@ def find_segments(
         # roi_shape,
         # total_roi,
         thresholds,
-        run_type=None,
-        block_id=None,
         **kwargs):
-
-    '''
-
-    Args:
-
-        db_host (``string``):
-
-            Where to find the MongoDB server.
-
-        db_name (``string``):
-
-            The name of the MongoDB database to use.
-
-        fragments_file (``string``):
-
-            Path to the file containing the fragments.
-
-        merge_function (``string``):
-
-            The name of the MongoDB database collection to use.
-
-        thresholds_minmax (``list`` of ``int``):
-
-            The lower and upper bound to use (i.e [0,1]) when generating
-            thresholds.
-
-        thresholds_step (``float``):
-
-            The step size to use when generating thresholds between min/max.
-
-        roi_offset (array-like of ``int``):
-
-            The starting point (inclusive) of the ROI. Entries can be ``None``
-            to indicate unboundedness.
-
-        roi_shape (array-like of ``int``):
-
-            The shape of the ROI. Entries can be ``None`` to indicate
-            unboundedness.
-
-    '''
 
     lut_dir = os.path.join(
         fragments_file,
@@ -186,8 +141,6 @@ if __name__ == "__main__":
                 break
 
             find_segments(
-                db_host=db_host,
-                db_name=db_name,
                 fragments_file=fragments_file,
                 lut_dir=lut_dir,
                 merge_function=merge_function,

@@ -36,8 +36,8 @@ class SlurmTask(daisy.Task):
     db_host = daisy.Parameter()
     db_name = daisy.Parameter()
 
+    timeout = daisy.Parameter(None)
     completion_db_class_name = daisy.Parameter(None)
-
 
     def slurmSetup(
             self, config, actor_script,
@@ -394,7 +394,6 @@ def aggregateConfigs(configs):
 
     today = datetime.date.today()
     parameters = {}
-    parameters['experiment'] = input_config['experiment']
     parameters['year'] = today.year
     parameters['month'] = '%02d' % today.month
     parameters['day'] = '%02d' % today.day
@@ -403,7 +402,16 @@ def aggregateConfigs(configs):
     config_filename = input_config['config_filename']
     # proj is just the last folder in the config path
     parameters['proj'] = config_filename.split('/')[-2]
+    script_name = config_filename.split('/')[-1].split('.')
+    if len(script_name) > 2:
+        raise RuntimeError("script_name name %s cannot have more than two `.`")
+    else:
+        script_name = script_name[0]
+    parameters['script_name'] = script_name
+    parameters['script_folder'] = parameters['proj']
 
+    input_config["experiment"] = input_config["experiment"].format(**parameters)
+    parameters['experiment'] = input_config["experiment"]
     input_config["output_file"] = input_config["output_file"].format(**parameters)
 
     # add a hash based on directory path to the mongodb dataset
@@ -444,6 +452,10 @@ def aggregateConfigs(configs):
 
     merge_function = configs["AgglomerateTask"]["merge_function"]
     thresholds = configs["ExtractSegmentationFromLUTBlockwiseTask"]["thresholds"]
+    thresholds_lut = thresholds
+    try:
+        thresholds_lut = configs["FindSegmentsBlockwiseTask4"]["thresholds"]
+    except: pass
 
     for config in configs:
 
@@ -491,6 +503,7 @@ def aggregateConfigs(configs):
         copyParameter(input_config, config, 'replace_section_list')
         copyParameter(input_config, config, 'overwrite_sections')
         copyParameter(input_config, config, 'overwrite_mask_f')
+        copyParameter(input_config, config, 'center_roi_offset')
 
         if RUNNING_IN_LOCAL_CLUSTER:
         # restrict number of workers to 1 for predict task if we're running locally to avoid conflict with other daisies
@@ -502,6 +515,7 @@ def aggregateConfigs(configs):
         copyParameter(input_config, config, 'raw_dataset')
 
     if "PredictMyelinTask" in configs:
+        raise RuntimeError("Deprecated task")
         config = configs["PredictMyelinTask"]
         config['raw_file'] = input_config['raw_file']
         config['myelin_file'] = input_config['output_file']
@@ -529,7 +543,7 @@ def aggregateConfigs(configs):
         if RUNNING_IN_LOCAL_CLUSTER:
             # tmn7: in local cluster we're limited by GPU not by CPUs
             # so allocating as much as we can
-            config['num_workers'] = 8
+            config['num_workers'] = 16
         # print(config['affs_file'])
         # print(config); exit(0)
 
@@ -593,25 +607,25 @@ def aggregateConfigs(configs):
         copyParameter(input_config, config, 'output_file', 'fragments_file')
         config['merge_function'] = merge_function
         config['edges_collection'] = "edges_" + merge_function
-        config['thresholds'] = thresholds
+        config['thresholds'] = thresholds_lut
 
     if "FindSegmentsBlockwiseTask2" in configs:
         config = configs["FindSegmentsBlockwiseTask2"]
         copyParameter(input_config, config, 'output_file', 'fragments_file')
         config['merge_function'] = merge_function
-        config['thresholds'] = thresholds
+        config['thresholds'] = thresholds_lut
 
     if "FindSegmentsBlockwiseTask3" in configs:
         config = configs["FindSegmentsBlockwiseTask3"]
         copyParameter(input_config, config, 'output_file', 'fragments_file')
         config['merge_function'] = merge_function
-        config['thresholds'] = thresholds
+        config['thresholds'] = thresholds_lut
 
     if "FindSegmentsBlockwiseTask4" in configs:
         config = configs["FindSegmentsBlockwiseTask4"]
         copyParameter(input_config, config, 'output_file', 'fragments_file')
         config['merge_function'] = merge_function
-        config['thresholds'] = thresholds
+        config['thresholds'] = thresholds_lut
 
     if "ExtractSegmentationFromLUT" in configs:
         config = configs["ExtractSegmentationFromLUT"]
@@ -620,6 +634,12 @@ def aggregateConfigs(configs):
 
     if "ExtractSegmentationFromLUTBlockwiseTask" in configs:
         config = configs["ExtractSegmentationFromLUTBlockwiseTask"]
+        copyParameter(input_config, config, 'output_file', 'fragments_file')
+        copyParameter(input_config, config, 'output_file', 'out_file')
+        config['merge_function'] = merge_function
+
+    if "ExtractChunkwiseSegmentationTask" in configs:
+        config = configs["ExtractChunkwiseSegmentationTask"]
         copyParameter(input_config, config, 'output_file', 'fragments_file')
         copyParameter(input_config, config, 'output_file', 'out_file')
         config['merge_function'] = merge_function

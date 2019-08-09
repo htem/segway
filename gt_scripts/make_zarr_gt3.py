@@ -4,7 +4,7 @@ import logging
 import numpy as np
 import gt_tools
 
-from funlib.segment.arrays import replace_values
+# from funlib.segment.arrays import replace_values
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -46,9 +46,24 @@ if __name__ == "__main__":
 
     raw_file = config["raw_file"]
     raw_ds = daisy.open_ds(raw_file, "volumes/raw")
-    # total_roi = raw_ds.roi
 
+    myelin_ds = daisy.open_ds(file, config["myelin_ds"])
     out_file = config["out_file"]
+
+    if True:
+        out = daisy.prepare_ds(
+            out_file,
+            "volumes/labels/neuron_ids",
+            segment_ds.roi,
+            segment_ds.voxel_size,
+            segment_ds.dtype,
+            compressor={'id': 'zlib', 'level': 5}
+            )
+        print("Reading neuron_ids...")
+        out_array = segment_ds.to_ndarray()
+        np.place(out_array, myelin_ds.to_ndarray() == 0, 0)
+        print("Writing neuron_ids...")
+        out[out.roi] = out_array
 
     if True:
         out = daisy.prepare_ds(
@@ -86,7 +101,7 @@ if __name__ == "__main__":
     if True:
         out = daisy.prepare_ds(
             out_file,
-            config['unlabeled_ds'],
+            "volumes/labels/unlabeled",
             unlabeled_ds.roi,
             segment_ds.voxel_size,
             unlabeled_ds.dtype,
@@ -107,16 +122,3 @@ if __name__ == "__main__":
                 )
             print("Copying raw...")
             raw_out[raw_ds.roi] = raw_ds
-
-    if True:
-        out = daisy.prepare_ds(
-            out_file,
-            "volumes/labels/neuron_ids",
-            segment_ds.roi,
-            segment_ds.voxel_size,
-            segment_ds.dtype,
-            # write_size=slice_roi_entire.get_shape(),
-            compressor={'id': 'zlib', 'level': 5}
-            )
-        print("Copying labels...")
-        out[out.roi] = segment_ds

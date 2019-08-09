@@ -16,6 +16,9 @@ def get_db_names(config, file):
     db_host = config.get("db_host", None)
     db_edges_collection = config.get("db_edges_collection", None)
 
+    if "merge_function" in config:
+        db_edges_collection = 'edges_' + config["merge_function"]
+
     if db_name is None or db_host is None or db_edges_collection is None:
 
         configs = config["task_config_files"]
@@ -42,14 +45,36 @@ def get_db_names(config, file):
 
 def load_config(config_f):
 
-    with open(config_f) as f:
-        config = json.load(f)
+    config_f = config_f.rstrip('/')
+    if config_f.endswith(".zarr"):
+        config = {}
+        config["file"] = config_f
+        config["out_file"] = config_f
+        config["raw_file"] = config_f
+
+    else:
+
+        with open(config_f) as f:
+            config = json.load(f)
 
     if "file" in config:
+        if config["file"] == "":
+            raise RuntimeError('"file" is empty in config...')
         file = config["file"]
     else:
+        if config["segment_file"] == "":
+            raise RuntimeError('"segment_file" is empty in config...')
         file = config["segment_file"]
         config["file"] = file
+
+    assert os.path.exists(file), "file %s does not exist..." % file
+
+    if not config_f.endswith(".zarr"):
+
+        db_name, db_host, db_edges_collection = get_db_names(config, file)
+        config["db_name"] = db_name
+        config["db_host"] = db_host
+        config["db_edges_collection"] = db_edges_collection
 
     for f in [
             "mask_file",
@@ -61,23 +86,31 @@ def load_config(config_f):
         if f not in config:
             config[f] = file
 
-    if "out_file" not in config:
+    if "script_name" not in config:
         script_name = os.path.basename(config_f)
         script_name = script_name.split(".")[0]
+        config["script_name"] = script_name
+
+    script_name = config["script_name"]
+
+    # try to prepend the script dir if needed
+    prepend = os.path.split(config_f)[0]
+
+    if "out_file" not in config:
         out_file = config["zarr"]["dir"] + "/" + script_name + ".zarr"
+        if not os.path.exists(out_file):
+            out_file = os.path.join(prepend, out_file)
+        if not os.path.exists(out_file):
+            raise RuntimeError("out_file must exists: %s" % out_file)
         config["out_file"] = out_file
 
-    if 'raw_file' not in config:
-        script_name = os.path.basename(config_f)
-        script_name = script_name.split(".")[0]
+    if "raw_file" not in config:
         raw_file = config["zarr"]["dir"] + "/" + script_name + ".zarr"
+        if not os.path.exists(raw_file):
+            raw_file = os.path.join(prepend, raw_file)
+        if not os.path.exists(raw_file):
+            raise RuntimeError("raw_file must exists: %s" % raw_file)
         config["raw_file"] = raw_file
-
-    # mask_ds
-    # affs_ds
-    # fragments_ds
-    # # gt_ds
-    # raw_ds
 
     if "mask_ds" not in config:
         config["mask_ds"] = "volumes/labels/labels_mask_z"
@@ -93,11 +126,6 @@ def load_config(config_f):
         config["segmentation_skeleton_ds"] = "volumes/segmentation_skeleton"
     if "unlabeled_ds" not in config:
         config["unlabeled_ds"] = "volumes/labels/unlabeled_mask_skeleton"
-
-    db_name, db_host, db_edges_collection = get_db_names(config, file)
-    config["db_name"] = db_name
-    config["db_host"] = db_host
-    config["db_edges_collection"] = db_edges_collection
 
     return config
 
@@ -136,6 +164,7 @@ def print_ng_link(viewer):
         ['gandalf', 'catmaid3.hms.harvard.edu'],
         ['lee-htem-gpu0', '10.117.28.249'],
         ['lee-lab-gpu1', '10.117.28.82'],
+        ['catmaid2', 'catmaid2.hms.harvard.edu'],
         ]
     for alias, ip in ip_mapping:
         if alias in link:
