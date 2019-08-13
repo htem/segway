@@ -1,0 +1,14 @@
+{
+    "Input":
+        {
+            "voxel_size":[40, 4, 4],
+            "predictions":["volumes/pred_syn_indicator"]
+        },   
+    "Output":
+        {
+            "output_path":"./",
+            "write_TXT": true,
+            "colors":["y","k","coral","purple","navy","lime","salmon","saddlebrown","gold"],
+            "markers":["o", "", "^", "s", " ", "", "p", "", "D"]
+        }
+}
