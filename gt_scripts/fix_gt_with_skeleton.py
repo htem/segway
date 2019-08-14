@@ -4,12 +4,78 @@ import daisy
 import sys
 import math
 import collections
+
+import networkx
+
 # import numpy as np
 import gt_tools
 
 from funlib.segment.arrays import replace_values
 
-from fix_merge import get_graph, fix_merge
+from fix_merge import fix_merge
+
+
+def get_graph(
+        input, threshold, rag_weight_attribute="capacity", segment_ds=None,
+        filter_in_segments=[],
+        components=None,
+        ):
+    graph = networkx.Graph()
+    for n, n_data in input.nodes(data=True):
+
+        if 'center_z' not in n_data:
+            continue
+
+        if 'segment_id' not in n_data and segment_ds is not None:
+
+            zyx = daisy.Coordinate(tuple([n_data[c] for c in position_attributes]))
+
+            if not segment_ds.roi.contains(zyx):
+                continue
+
+            segment_id = segment_ds[zyx]
+            n_data["segment_id"] = segment_id
+
+        if len(filter_in_segments) and \
+                n_data['segment_id'] not in filter_in_segments:
+            continue
+
+        graph.add_node(n, **n_data)
+
+    component_by_id = {}
+    if components is not None:
+        for component_id, nodes in enumerate(components):
+            for n in nodes:
+                component_by_id[n] = component_id
+
+    for u, v, data in input.edges(data=True):
+
+        if u not in graph or v not in graph:
+            continue
+
+        if u in component_by_id and v in component_by_id:
+            if component_by_id[u] == component_by_id[v]:
+                merge_score = .01
+                capacity = 100
+            else:
+                merge_score = .99
+                capacity = .01
+            graph.add_edge(
+                u, v,
+                capacity=capacity,
+                merge_score=merge_score,
+                )
+
+        elif (data['merge_score'] is not None and
+                data['merge_score'] <= threshold):
+            graph.add_edge(
+                u, v,
+                capacity=1.0-data['merge_score'],
+                merge_score=data['merge_score'],
+                )
+
+    return graph
+
 
 try:
     import graph_tool
@@ -53,11 +119,13 @@ def get_one_merged_components(segments, done):
             continue
         components = segments[s]
         if len(components) > 1:
-            return [components[c] for c in components]
-    return None
+            return (s, [components[c] for c in components])
+    return (None, None)
 
 
-def get_one_splitted_component(skeletons, segment_array, nodes, done):
+def get_one_splitted_component(
+        skeletons, segment_array, nodes, done,
+        fragments_array, ignored_fragments):
     for skid in skeletons:
         segments = set()
         zyxs = []
@@ -68,6 +136,10 @@ def get_one_splitted_component(skeletons, segment_array, nodes, done):
             zyx = daisy.Coordinate(tuple(nodes[n]["zyx"]))
             if not segment_array.roi.contains(zyx):
                 continue
+
+            if fragments_array[zyx] in ignored_fragments:
+                continue
+
             seg_id = segment_array[zyx]
             if seg_id != 0:
                 # TODO: not entirely sure why this could be
@@ -183,8 +255,6 @@ if __name__ == "__main__":
 
     print("Creating corrected segment at %s" % segmentation_skeleton_ds)
 
-    max_segid = None
-
     corrected_segment_ds = daisy.prepare_ds(
         segment_file,
         segmentation_skeleton_ds,
@@ -215,7 +285,9 @@ if __name__ == "__main__":
         assert len(subrag.edges) > 0
 
         rag_weight_attribute = "capacity"
-        rag = get_graph(subrag, segment_threshold, rag_weight_attribute)
+        rag = get_graph(
+                subrag, segment_threshold, rag_weight_attribute,
+                segment_ds=segment_array)
 
         # sanity check
         assert len(rag.nodes) > 0
@@ -224,32 +296,16 @@ if __name__ == "__main__":
         print("Get max segment_id...")
         max_segid = 0
         for n, n_data in rag.nodes(data=True):
-            zyx = daisy.Coordinate(tuple([n_data[c] for c in position_attributes]))
-            max_segid = max(segment_array[zyx], max_segid)
+            # zyx = daisy.Coordinate(tuple([n_data[c] for c in position_attributes]))
+            # max_segid = max(segment_array[zyx], max_segid)
+            max_segid = max(n_data['segment_id'], max_segid)
         assert max_segid != 0
         next_segid = max_segid + 1
 
         ignored_fragments = []
         if "ignored_fragments" in config:
+            print("Processing ignored_fragments...")
             ignored_fragments = config["ignored_fragments"]
-
-            # for known fragments that have nodes of multiple skeletons, we will have to assign them unique IDs, and disable their masks at a later step
-            # print("Processing ignored_fragments...")
-            # mask_values = []
-            # new_values = []
-            # for f in ignored_fragments:
-            #     mask_values.append(f)
-            #     new_values.append(next_segid)
-            #     next_segid += 1
-
-            # segment_ndarray = segment_array.to_ndarray()
-            # replace_values(
-            #     segment_ndarray,
-            #     mask_values,
-            #     new_values,
-            #     segment_ndarray,
-            #     )
-            # segment_array[segment_array.roi] = segment_ndarray
 
         print("Correcting merges...")
         processed_segments = set()
@@ -260,12 +316,14 @@ if __name__ == "__main__":
             segment_by_skeletons = segment_from_skeleton(
                 skeletons, segment_array, nodes)
 
-            merge_components = get_one_merged_components(
+            merged_segment, merge_components = get_one_merged_components(
                     segment_by_skeletons, processed_segments)
 
             if merge_components is None:
                 print("No more merged components found")
                 break
+
+            # print(merge_components)
 
             # convert to zyx
             components_zyx = [
@@ -274,6 +332,14 @@ if __name__ == "__main__":
             print("Fix merged components...")
             for c in components_zyx:
                 print([to_pixel_coord(node_zyx) for node_zyx in c])
+
+            # merged_segment = rag.nodes[merge_components[0]].segment_id
+            subrag = get_graph(
+                rag, segment_threshold, rag_weight_attribute,
+                filter_in_segments=[merged_segment],
+                components=merge_components)
+
+            # print(subrag.nodes(data=True))
 
             n_splits, segment_id = fix_merge(
                 components_zyx,
@@ -297,12 +363,18 @@ if __name__ == "__main__":
     if correct_splits:
         processed_segments = set()
 
+        if make_fragment_cache:
+            print("Making fragment cache...")
+            fragments_array.materialize()
+
         while True:
             splitted_segments, skeleton_id, coords = get_one_splitted_component(
                     skeletons,
                     segment_array,
                     nodes,
-                    processed_segments)
+                    processed_segments,
+                    fragments_array,
+                    ignored_fragments)
             processed_segments.add(skeleton_id)
 
             if splitted_segments is None:

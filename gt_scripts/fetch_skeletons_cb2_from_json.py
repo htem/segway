@@ -74,10 +74,14 @@ if __name__ == "__main__":
 
     config = gt_tools.load_config(sys.argv[1])
 
+    force_yes = False
+    if len(sys.argv) > 2 and sys.argv[2] == "--yes":
+        force_yes = True
+
     if "skeleton_file" not in config:
         raise RuntimeError('"skeleton_file" not in config')
     skeleton_f = config["skeleton_file"]
-    if os.path.exists(skeleton_f):
+    if os.path.exists(skeleton_f) and force_yes is False:
         i = input("Overwrite %s? [y/N] " % skeleton_f)
         if i == '' or i == 'n' or i == 'N':
             print("Aborting...")

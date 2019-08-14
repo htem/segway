@@ -174,6 +174,7 @@ class PredictTask(task_helper.SlurmTask):
 
             if self.center_roi_offset:
                 output_roi = output_roi.shift(-daisy.Coordinate(tuple(self.roi_shape))/2)
+                output_roi = output_roi.snap_to_grid(voxel_size, mode="grow")
 
             input_roi = output_roi.grow(context, context)
             assert input_roi.intersect(source.roi) == input_roi, \

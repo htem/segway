@@ -25,8 +25,8 @@
         {
             "affs_dataset": "/volumes/affs",
             "fragments_dataset": "/volumes/fragments",
-            "block_size": [2240, 2048, 2048],
-            "context": [320, 256, 256],
+            "block_size": [1000, 2048, 2048],
+            "context": [120, 256, 256],
             "num_workers": 1,
             "fragments_in_xy": 1,
             "mask_fragments": 0,

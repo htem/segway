@@ -3,11 +3,16 @@ import neuroglancer
 import sys
 import numpy as np
 import os
+import json
 
 from funlib.show.neuroglancer import add_layer
 from segway import task_helper
 
 neuroglancer.set_server_bind_address('0.0.0.0')
+
+# user_configs, global_config = task_helper.parseConfigs(sys.argv[1:])
+# f = global_config["Input"]["output_file"]
+# raw_file = global_config["Input"]["raw_file"]
 
 try:
 

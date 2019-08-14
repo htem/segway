@@ -409,6 +409,7 @@ def aggregateConfigs(configs):
         script_name = script_name[0]
     parameters['script_name'] = script_name
     parameters['script_folder'] = parameters['proj']
+    parameters['script_dir'] = '/'.join(config_filename.split('/')[0:-1])
 
     input_config["experiment"] = input_config["experiment"].format(**parameters)
     parameters['experiment'] = input_config["experiment"]
