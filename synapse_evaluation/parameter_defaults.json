@@ -1,0 +1,22 @@
+{
+    "Input": {
+            "voxel_size":[40, 4, 4]
+    },   
+    "Output": {
+            "colors":["y","k","coral","purple","navy","lime","salmon","saddlebrown","gold"],
+            "markers":["o", "", "^", "s", " ", "", "p", "", "D"],
+            "metric_plots": [["area", "mean"],
+                             ["area", "max"],
+                             ["mean", "max"],
+                             "mean",
+                             "max",
+                             "area",
+                             "sum"]
+    },
+    "Extraction": {
+            "min_inference_value": 60,
+            "score_filter": {"mean": 0.75, "max": 0.75, "area": 0.75, "sum": 0.75},
+            "remove_intraneuron_synapses": true,
+            "max_distance": 1000
+    }
+}
