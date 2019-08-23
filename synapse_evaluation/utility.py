@@ -4,33 +4,52 @@ import math
 import json
 import os
 from os import path
-
+import matplotlib.pyplot as plt
 
 # This file primary contains helper methods for
 # synapse evaluation.
 
-def remove_intraneuron_synapses(pred_graph):
-    counter = 0
-    for presyn, postsyn in list(pred_graph.edges):
-        presyn_neuron = pred_graph.nodes[presyn]['seg_label']
-        postsyn_neuron = pred_graph.nodes[postsyn]['seg_label']
-        if presyn_neuron == postsyn_neuron:
-            pred_graph.remove_nodes_from((presyn, postsyn))
-            counter += 1
-    print("%s synapses between non distinct cells removed" % counter)
-    return pred_graph
+def plot_node_attr_scatter(graph, attr_1, attr_2,
+                           output_path, plot_title):
+    plt.scatter([val for node, val in graph.nodes(data=attr_1)],
+                [val for node, val in graph.nodes(data=attr_2)])
+    plt.title(plot_title)
+    plt.xlabel(attr_1)
+    plt.ylabel(attr_2)
+    plt.savefig(path.join(output_path, plot_title))
+    plt.clf()
+
+def plot_node_attr_hist(graph, attr, output_path, plot_title):
+    plt.hist([val for node, val in graph.nodes(data=attr)])
+    plt.title(plot_title)
+    plt.savefig(path.join(output_path, plot_title))
+    plt.clf()
+
+def postsyn_subgraph(syn_graph):
+    postsyn_sites = [node for node in syn_graph if syn_graph.in_degree(node)]
+    return syn_graph.subgraph(postsyn_sites)
+
+def neuron_pairs_dict(syn_graph):
+	conn_dict = {}
+	neuron_ids = syn_graph.nodes(data='seg_label')
+	for presyn, postsyn, attr in syn_graph.edges(data=True):
+		neuron_pair = (neuron_ids[presyn], neuron_ids[postsyn])
+		if neuron_pair not in conn_dict:
+			conn_dict[neuron_pair] = {}
+		conn_dict[neuron_pair][(presyn, postsyn)] = syn_graph[presyn][postsyn]
+	return conn_dict
 
 
+def print_delimiter(char='-', length=80):
+	delimeter = ""
+	for i in range(length):
+		delimeter += char
+	print(delimeter)
+
+#### Methods for working with coordinates ####
 def distance(coord_1, coord_2):
 	diff = Coordinate(coord_1) - Coordinate(coord_2)
 	return math.sqrt(sum(diff * diff))
-
-
-# This helper method returns a subgraph view of the nodes
-# corresponding to postsynaptic sites.
-def postsyn_subgraph(syn_graph):
-	postsyn_sites = [node for node in syn_graph if syn_graph.in_degree(node)]
-	return syn_graph.subgraph(postsyn_sites)
 
 # This helper method converts the daisy array coordinate of voxel
 # to the coordinate at which it can be found in neuroglancer.
@@ -46,7 +65,7 @@ def np_index_to_daisy_zyx(np_index, voxel_size, roi_offset):
     return Coordinate(voxel_size) * Coordinate(np_index) + roi_offset
 
 
-# The methods below enable the storage of graph data in jsons
+#### Methods for writing/reading json representations of nx graphs ####
 def syn_graph_to_json(graph, output_path):
     try:
         os.makedirs(output_path)
@@ -58,7 +77,6 @@ def syn_graph_to_json(graph, output_path):
     with open(syn_graph_json, "w") as f:
         json.dump(graph_to_dictionary(graph), f, indent=2)
     print("Graph saved as %s" % path.join(output_path, basename))
-    
 
 
 def graph_to_dictionary(graph):
@@ -85,9 +103,3 @@ def dictionary_to_graph(dictionary, directed=True):
         graph.add_edges_from([(int(node), int(adj), attr) for (adj, attr)
                               in data['adj'].items()])
     return graph
-
-def print_delimiter(char='-', length=70):
-	delimeter = ""
-	for i in range(length):
-		delimeter += char
-	print(delimeter)

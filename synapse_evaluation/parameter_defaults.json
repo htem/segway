@@ -15,7 +15,8 @@
     },
     "Extraction": {
             "min_inference_value": 60,
-            "score_filter": {"mean": 0.75, "max": 0.75, "area": 0.75, "sum": 0.75},
+            "percentiles": [50, 60, 70, 80, 90],
+            "score_filter": null,
             "remove_intraneuron_synapses": true,
             "max_distance": 1000
     }

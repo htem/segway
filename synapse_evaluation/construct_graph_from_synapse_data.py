@@ -49,86 +49,30 @@ def load_synapses_from_catmaid_json(json_path):
     return syn_graph
 
 
-def generate_score_plot(pred_graph, output_path, metric_1, metric_2=None):
-    metric_1_vals = [attr[metric_1] for node, attr in pred_graph.nodes(data=True)]
-    min_inference_value = pred_graph.graph['min_inference_value']
-    if metric_2:
-        metric_2_vals = [attr[metric_2] for node, attr in pred_graph.nodes(data=True)]
-        plt.scatter(metric_1_vals, metric_2_vals)
-        plot_title = '{}_{}_{}_{}'.format(metric_1, metric_2, min_inference_value, 'scatter')
-        plt.title(plot_title)
-        plt.xlabel(metric_1)
-        plt.ylabel(metric_2)
-        plt.savefig(path.join(output_path, plot_title))
-        plt.clf()
-    else:
-        max_val = int(max(metric_1_vals))
-        num_bins = 256
-        if max_val < num_bins:
-            hist_bins = range(num_bins)
-        else:
-            hist_bins = [i * max_val // num_bins for i in range(num_bins)]
-        plt.hist(metric_1_vals,
-                 bins=hist_bins,
-                 density=True)
-        plot_title = '{}_{}_{}'.format(metric_1, min_inference_value, 'hist')
-        plt.title(plot_title)
-        plt.savefig(path.join(output_path, plot_title))
-        plt.clf()
 
-
-def plot_metrics(pred_graph, output_path, metrics):
-    try:
-        os.makedirs(output_path)
-    except FileExistsError:
-        pass
-    plot_metric = partial(generate_score_plot,
-                          pred_graph=util.postsyn_subgraph(pred_graph),
-                          output_path=output_path)
-    for metric in metrics:
-        if isinstance(metric, str):
-            plot_metric(metric_1=metric)
-            print("Plotted histogram of %s values" % metric)
-        else:
-            plot_metric(metric_1=metric[0],
-                        metric_2=metric[1])
-            print("Plotted scatterplot of %s as a function of %s" % (metric[1], metric[0]))
-# inp = input parameters
-# outp = output parameters
-# extp = extraction parameters
-def construct_prediction_graph(inp, outp, extp):
-    if 'inference_graph_json' in inp:
-        pred_graph = util.json_to_syn_graph(inp['inference_graph_json'])
+def construct_prediction_graph(input_config,
+                               extraction_config):
+    if 'inference_graph_json' in input_config:
+        pred_graph = util.json_to_syn_graph(input_config['inference_graph_json'])
     else:
-        pred_graph = extract_postsynaptic_sites(inp['postsynaptic']['zarr_path'],
-                                                inp['postsynaptic']['dataset'],
-                                                inp['voxel_size'],
-                                                extp['min_inference_value'])
-        pred_graph.graph = {'segmentation': inp['segmentation'],
-                            'min_inference_value': extp['min_inference_value'],
-                            'remove_intraneuron_synapses': extp['remove_intraneuron_synapses'],
-                            'voxel_size': inp['voxel_size']}
-        util.print_delimiter()
-        plot_metrics(pred_graph,
-                     outp['output_path'],
-                     outp['metric_plots'])
+        pred_graph = extract_postsynaptic_sites(**input_config['postsynaptic'],
+                                                voxel_size=input_config['voxel_size'],
+                                                min_inference_value=extraction_config['min_inference_value'])
+        pred_graph.graph = {'segmentation': input_config['segmentation'],
+                            'min_inference_value': extraction_config['min_inference_value'],
+                            'remove_intraneuron_synapses': extraction_config['remove_intraneuron_synapses'],
+                            'voxel_size': input_config['voxel_size']}
         util.print_delimiter()
         pred_graph = extract_presynaptic_sites(pred_graph,
-                                               inp['vector']['zarr_path'],
-                                               inp['vector']['dataset'],
-                                               inp['voxel_size'])
+                                               **input_config['vector'],
+                                               voxel_size=input_config['voxel_size'])
         
         util.print_delimiter()
         pred_graph = add_segmentation_labels(pred_graph,
-                                             inp['segmentation']['zarr_path'],
-                                             inp['segmentation']['dataset'])
-        if extp['remove_intraneuron_synapses']:
+                                             **input_config['segmentation'])
+        if extraction_config['remove_intraneuron_synapses']:
             util.print_delimiter()
-            pred_graph = util.remove_intraneuron_synapses(pred_graph)
-        
-        util.print_delimiter()
-        util.syn_graph_to_json(pred_graph,
-                               outp['output_path'])
+            pred_graph = remove_intraneuron_synapses(pred_graph)
     return pred_graph
     
 
@@ -216,3 +160,13 @@ def add_segmentation_labels(graph,
     print("Segmentation labels added in %s seconds" % (time.time() - start_time))
     return graph
 
+def remove_intraneuron_synapses(pred_graph):
+    counter = 0
+    for presyn, postsyn in list(pred_graph.edges):
+        presyn_neuron = pred_graph.nodes[presyn]['seg_label']
+        postsyn_neuron = pred_graph.nodes[postsyn]['seg_label']
+        if presyn_neuron == postsyn_neuron:
+            pred_graph.remove_nodes_from((presyn, postsyn))
+            counter += 1
+    print("%s synapses between non distinct cells removed" % counter)
+    return pred_graph
