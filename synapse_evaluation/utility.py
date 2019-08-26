@@ -66,13 +66,13 @@ def np_index_to_daisy_zyx(np_index, voxel_size, roi_offset):
 
 
 #### Methods for writing/reading json representations of nx graphs ####
-def syn_graph_to_json(graph, output_path):
+def syn_graph_to_json(graph, output_path, model_name):
     try:
         os.makedirs(output_path)
     except FileExistsError:
         pass
-    basename = '{}_{}.json'.format(graph.graph['min_inference_value'],
-                                   "syn_graph")
+    basename = '{}{}_syn_graph.json'.format(model_name,
+    										graph.graph['min_inference_value'])
     syn_graph_json = path.join(output_path, basename)
     with open(syn_graph_json, "w") as f:
         json.dump(graph_to_dictionary(graph), f, indent=2)

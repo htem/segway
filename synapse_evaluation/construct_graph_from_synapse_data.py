@@ -50,29 +50,27 @@ def load_synapses_from_catmaid_json(json_path):
 
 
 
-def construct_prediction_graph(input_config,
-                               extraction_config):
-    if 'inference_graph_json' in input_config:
-        pred_graph = util.json_to_syn_graph(input_config['inference_graph_json'])
-    else:
-        pred_graph = extract_postsynaptic_sites(**input_config['postsynaptic'],
-                                                voxel_size=input_config['voxel_size'],
-                                                min_inference_value=extraction_config['min_inference_value'])
-        pred_graph.graph = {'segmentation': input_config['segmentation'],
-                            'min_inference_value': extraction_config['min_inference_value'],
-                            'remove_intraneuron_synapses': extraction_config['remove_intraneuron_synapses'],
-                            'voxel_size': input_config['voxel_size']}
+def construct_prediction_graph(synapse_data, segmentation_data,
+                               extraction_config, voxel_size):
+    pred_graph = extract_postsynaptic_sites(**synapse_data['postsynaptic'],
+                                            voxel_size=voxel_size,
+                                            min_inference_value=extraction_config['min_inference_value'])
+    pred_graph.graph = {'segmentation': segmentation_data,
+                        'min_inference_value': extraction_config['min_inference_value'],
+                        'remove_intraneuron_synapses': extraction_config['remove_intraneuron_synapses'],
+                        'voxel_size': voxel_size,
+                        'filter_metric': extraction_config['filter_metric']}
+    util.print_delimiter()
+    pred_graph = extract_presynaptic_sites(pred_graph,
+                                           **synapse_data['vector'],
+                                           voxel_size=voxel_size)
+    
+    util.print_delimiter()
+    pred_graph = add_segmentation_labels(pred_graph,
+                                         **segmentation_data)
+    if extraction_config['remove_intraneuron_synapses']:
         util.print_delimiter()
-        pred_graph = extract_presynaptic_sites(pred_graph,
-                                               **input_config['vector'],
-                                               voxel_size=input_config['voxel_size'])
-        
-        util.print_delimiter()
-        pred_graph = add_segmentation_labels(pred_graph,
-                                             **input_config['segmentation'])
-        if extraction_config['remove_intraneuron_synapses']:
-            util.print_delimiter()
-            pred_graph = remove_intraneuron_synapses(pred_graph)
+        pred_graph = remove_intraneuron_synapses(pred_graph)
     return pred_graph
     
 
@@ -81,10 +79,8 @@ def construct_prediction_graph(input_config,
 # various scores, each of which is positively correlated with its
 # probability of being an actual synapse.
 # TODO: Maybe consider using mask instead of regionprops
-def extract_postsynaptic_sites(zarr_path,
-                               dataset,
-                               voxel_size,
-                               min_inference_value):
+def extract_postsynaptic_sites(zarr_path, dataset,
+                               voxel_size, min_inference_value):
     print("Extracting postsynaptic sites from {}".format(dataset),
           "at min inference value of {}".format(min_inference_value))
     start_time = time.time()
@@ -115,10 +111,8 @@ def extract_postsynaptic_sites(zarr_path,
 
 # presynaptic site nodes are negative
 # the fact that this returns post synaptic sites is confusing
-def extract_presynaptic_sites(pred_graph,
-                              zarr_path,
-                              dataset,
-                              voxel_size):
+def extract_presynaptic_sites(pred_graph, zarr_path,
+                              dataset, voxel_size):
     print("Extracting vector predictions from {}".format(dataset))
     start_time = time.time()
     prediction_ds = daisy.open_ds(zarr_path, dataset)
@@ -137,9 +131,7 @@ def extract_presynaptic_sites(pred_graph,
     return pred_graph
 
 
-def add_segmentation_labels(graph,
-                            zarr_path,
-                            dataset):
+def add_segmentation_labels(graph, zarr_path, dataset):
     print("Adding segmentation labels from {}".format(dataset))
     print("{} nodes to label".format(graph.number_of_nodes()))
     start_time = time.time()
