@@ -1,8 +1,8 @@
 import argparse
 import json
 import os
-from task_05_graph_evaluation_print_error import compare_segmentation_to_ground_truth_skeleton
-
+from task_05_graph_evaluation_print_error import compare_segmentation_to_ground_truth_skeleton, generate_error_plot
+from operator import add
 # Consider altering task_defaults/configs to reflect actual method parameters
 
 def parse_configs(path):
@@ -38,14 +38,23 @@ def construct_name_mapping(paths, names):
 
 
 # clean this method up and/or consider reformatting the config JSONs and task_defaults
-def format_parameter_configs(config):
+def format_parameter_configs(config, volume, iteration):
+    
     skeleton_configs = config['AdditionalFeatures']
-    skeleton_configs['skeleton_path'] = config['Input']['skeleton']
+    skeleton_configs['skeleton_path'] = volume['skeleton'] 
     error_count_configs = config['AdditionalFeatures']
     output_configs = config['Output']
     output_configs['config_JSON'] = config['file_name']
     output_configs['voxel_size'] = tuple(config['Input']['voxel_size'])
-    return {'skeleton': skeleton_configs, 'error_count': error_count_configs, 'output': output_configs}
+    volume_name = get_vol_name(volume,iteration)
+
+    return {'skeleton': skeleton_configs, 'error_count': error_count_configs, 'output': output_configs, 'name': volume_name}
+
+def get_vol_name(vol, i):
+    if "volume_name" not in vol:
+        return "{}".format(i)
+    else:
+        return vol["volume_name"]
 
 
 def run_evaluation(
@@ -59,21 +68,53 @@ def run_evaluation(
     elif 'skeleton' not in config['Input']:
         print("Please provide path to skeleton or check the keyword in json \
                file")
+    
     model_name_mapping = {}
     if 'segment_names' in config['Input']:
         model_name_mapping = construct_name_mapping(
-            config['Input']['segment_volumes'],
+            volume['segment_volumes'],
             config['Input']['segment_names'])
         print(model_name_mapping, "&&&&&")
     config['file_name'] = file_name
-    parameter_configs = format_parameter_configs(config)
-    compare_segmentation_to_ground_truth_skeleton(
-        config['Input']['segment_dataset'],
-        config['Input']['segment_volumes'],
-        model_name_mapping,
-        num_processes,
-        parameter_configs)
 
+    if 'Inputs' in config:
+        splits_and_merges=[]
+        for num, volume in enumerate(config['Inputs']):
+            parameter_configs = format_parameter_configs(config, volume, num)
+            
+            splits_and_merges.append(
+                compare_segmentation_to_ground_truth_skeleton(
+                config['Input']['segment_dataset'],
+                volume['segment_volumes'],
+                model_name_mapping,
+                num_processes,
+                parameter_configs))
+
+        print(splits_and_merges)
+        splits_and_merges = [format_splits_and_merges(x) for x in zip(*splits_and_merges) ]
+        print(splits_and_merges)
+
+        generate_error_plot(config['Input']['segment_dataset'],config['file_name'],'Combined',
+            config['Output']['output_path'],config['Output']['markers'],
+            config['Output']['colors'],'number', *splits_and_merges)
+    else:
+        parameter_configs = format_parameter_configs(config,config['Input'],0)
+
+        compare_segmentation_to_ground_truth_skeleton(
+            config['Input']['segment_dataset'],
+            config['Input']['segment_volumes'],  
+            model_name_mapping,
+            num_processes,
+            parameter_configs)
+
+def format_splits_and_merges(list_of_iterables):
+    if isinstance(list_of_iterables[1], list):
+        return (list(sum(x) for x in zip(*list_of_iterables))) 
+    
+    elif isinstance(list_of_iterables[1], str):
+        if (all(x == list_of_iterables[0] for x in list_of_iterables)):
+            return(list_of_iterables[0])
+        else: return(list_of_iterables)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
