@@ -141,6 +141,7 @@ def get_nearby_matches(gt_syn, pred_graph, max_dist):
                 matches[pred_syn] = presyn_dist + postsyn_dist
     return matches
 
+
 def write_matches_to_file(conn_dict,
                           filtered_graph,
                           model_name,
@@ -148,7 +149,83 @@ def write_matches_to_file(conn_dict,
                           percentile,
                           output_path,
                           voxel_size):
-    template = 'mininf{}_maxdist{}_{}_percentile{}.txt'
+    template = 'mininf{}_maxdist{}_{}_percentile{}_matches.txt'
+    basename = template.format(extraction['min_inference_value'],
+                               extraction['max_distance'],
+                               extraction['filter_metric'],
+                               percentile)
+    if model_name:
+        basename = model_name+'_'+basename
+    output_file = path.join(output_path, basename)
+    print("Writing matches file: {}".format(output_file))
+    true_pos = {}
+    false_neg = {}
+    with open(output_file, "w") as f:
+        print("Min inference value = {}".format(extraction['min_inference_value']), file=f)
+        print("Applied filter {} {}".format(extraction['filter_metric'], percentile), file=f)
+        print("Maximum distance of {}".format(extraction['max_distance']), file=f)
+        pred_node_attr = filtered_graph.nodes(data=True)
+        for cell_pair, gt_syns in conn_dict.items():
+            print("Connections between {} and {}:".format(*cell_pair), file=f)
+            for gt_syn, syn_attr in gt_syns.items():
+                conn_id = syn_attr['conn_id']
+                conn_xyz = syn_attr['conn_zyx_coord'][::-1]
+                ng_coord = util.daisy_zyx_to_voxel_xyz(syn_attr['conn_zyx_coord'], voxel_size)
+                print("\tCATMAID connector {} {}".format(conn_id, conn_xyz), file=f)
+                print("\tNeuroglancer coordinate {}".format(ng_coord), file=f)
+                dist_sorted_matches = sorted(syn_attr['matches'].items(),
+                                             key=lambda match: match[1])
+                if len(dist_sorted_matches):
+                    true_pos[gt_syn] = dist_sorted_matches[0][0]
+                else:
+                    false_neg[gt_syn] = syn_attr
+                    print("\t\tNone", file=f)
+                for (presyn_match, postsyn_match), dist in dist_sorted_matches:
+                    pred_postsyn_zyx = pred_node_attr[postsyn_match]['zyx_coord']
+                    pred_postsyn_coord = util.daisy_zyx_to_voxel_xyz(pred_postsyn_zyx,
+                                                                     voxel_size) 
+                    print("\t\tPredicted match at {}".format(pred_postsyn_coord), file=f)
+                    
+                    pred_presyn_zyx = pred_node_attr[presyn_match]['zyx_coord']
+                    pred_presyn_coord = util.daisy_zyx_to_voxel_xyz(pred_presyn_zyx,
+                                                                    voxel_size) 
+                    print("\t\t\tPredicted presynaptic site at {}".format(pred_presyn_coord), file=f)
+                    scores = pred_node_attr[postsyn_match]
+                    for metric in ['area', 'sum', 'mean', 'max']:
+                        print("\t\t\t{} = {}".format(metric, scores[metric]), file=f)
+                print(file=f)
+        
+        print("FALSE NEGATIVES", file=f)
+        for gt_syn, syn_attr in false_neg.items():
+            conn_id = syn_attr['conn_id']
+            conn_xyz = syn_attr['conn_zyx_coord'][::-1]
+            ng_coord = util.daisy_zyx_to_voxel_xyz(syn_attr['conn_zyx_coord'], voxel_size)
+            print("\tCATMAID connector {} (neuroglancer: {}) (catmaid: {})".format(conn_id, ng_coord, conn_xyz), file=f)
+        print(file=f)
+        print("FALSE POSITIVES", file=f)
+        false_pos = [(postsyn, filtered_graph.nodes[postsyn])
+                     for (presyn, postsyn) in filtered_graph.edges
+                     if (presyn, postsyn) not in true_pos.values()]
+        for presyn, attr in false_pos:
+            ng_coord = util.daisy_zyx_to_voxel_xyz(attr['zyx_coord'], voxel_size)
+            print("\tCoordinate {} area {} sum {} mean {} max {}".format(ng_coord,
+                                                                         attr['area'],
+                                                                         attr['sum'],
+                                                                         attr['mean'],
+                                                                         attr['max']), file=f)
+
+                
+
+
+
+def write_false_negatives_file(conn_dict,
+                          filtered_graph,
+                          model_name,
+                          extraction,
+                          percentile,
+                          output_path,
+                          voxel_size):
+    template = 'mininf{}_maxdist{}_{}_percentile{}_matches_false_negatives.txt'
     basename = template.format(extraction['min_inference_value'],
                                extraction['max_distance'],
                                extraction['filter_metric'],
@@ -163,29 +240,16 @@ def write_matches_to_file(conn_dict,
         print("Maximum distance of {}".format(extraction['max_distance']), file=f)
         pred_node_attr = filtered_graph.nodes(data=True)
         for cell_pair, gt_syns in conn_dict.items():
-            print("Connections between {} and {}:".format(*cell_pair), file=f)
             for gt_syn, syn_attr in gt_syns.items():
-                conn_id = syn_attr['conn_id']
-                conn_xyz = syn_attr['conn_zyx_coord'][::-1]
-                print("\tCATMAID connector {} {}".format(conn_id, conn_xyz), file=f)
-                
                 if not len(syn_attr['matches']):
-                    print("\t\tNone", file=f)
-                dist_sorted_matches = sorted(syn_attr['matches'].items(),
-                                             key=lambda match: match[1])
-                for (presyn_match, postsyn_match), dist in dist_sorted_matches:
-                    pred_postsyn_zyx = pred_node_attr[postsyn_match]['zyx_coord']
-                    pred_postsyn_coord = util.daisy_zyx_to_voxel_xyz(pred_postsyn_zyx,
-                                                                     voxel_size) 
-                    print("\t\tPredicted match at {}".format(pred_postsyn_coord), file=f)
-                    
-                    pred_presyn_zyx = pred_node_attr[presyn_match]['zyx_coord']
-                    pred_presyn_coord = util.daisy_zyx_to_voxel_xyz(pred_presyn_zyx,
-                                                                    voxel_size) 
-                    print("\t\t\tPredicted presynaptic site at {}".format(pred_presyn_coord), file=f)
-                    scores = pred_node_attr[postsyn_match]
-                    for metric in ['area', 'sum', 'mean', 'max']:
-                        print("\t\t\t{} = {}".format(metric, scores[metric]), file=f)
+                    print("Connector {} between skeletons {} and {}".format(syn_attr['conn_id'],
+                                                                            gt_syn[0],
+                                                                            gt_syn[1]), file=f)
+                    catmaid_coord = syn_attr['conn_zyx_coord'][::-1]
+                    ng_coord = util.daisy_zyx_to_voxel_xyz(syn_attr['conn_zyx_coord'],
+                                                           voxel_size)
+                    print("\tCATMAID Coordinate {}".format(catmaid_coord), file=f)
+                    print("\tNeuroglancer Coordinate {}".format(ng_coord), file=f)
                 print(file=f)
 
 

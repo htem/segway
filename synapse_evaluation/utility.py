@@ -40,7 +40,7 @@ def neuron_pairs_dict(syn_graph):
 	return conn_dict
 
 
-def print_delimiter(char='-', length=80):
+def print_delimiter(length=80, char='-'):
 	delimeter = ""
 	for i in range(length):
 		delimeter += char
