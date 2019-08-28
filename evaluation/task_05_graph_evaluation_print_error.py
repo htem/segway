@@ -16,6 +16,7 @@ import os
 import csv
 import copy
 from itertools import product
+import datetime
 
 
 def compare_segmentation_to_ground_truth_skeleton(
@@ -25,6 +26,7 @@ def compare_segmentation_to_ground_truth_skeleton(
         num_processes,
         configs):
     split_and_merge, split_and_merge_rand, split_and_merge_voi = [], [], []
+
     for seg_path in segmentation_paths:
         numb_split, numb_merge = [], []
         (rand_split_list,
@@ -75,12 +77,16 @@ def compare_segmentation_to_ground_truth_skeleton(
     plot_errors = partial(generate_error_plot,
                           agglomeration_thresholds,
                           configs['output']['config_JSON'],
+                          configs['name'],
                           configs['output']['output_path'], 
                           configs['output']['markers'],
                           configs['output']['colors'],)
     plot_errors('number', *split_and_merge)
     plot_errors('rand', *split_and_merge_rand)
     plot_errors('voi', *split_and_merge_voi)
+
+
+    return(split_and_merge)
 
 
 
@@ -98,6 +104,7 @@ def generate_graphs_with_seg_labels(agglomeration_thresholds, segmentation_path,
                                                            segmentation_path,
                                                            'volumes/fragments',
                                                            skeleton_configs['load_segment_array_to_memory'])
+        
         parameters_list = [(fragment_graph.copy(), segmentation_path, 'volumes/'+threshold)
                             for threshold in agglomeration_thresholds]
         graph_list = p.starmap(replace_fragment_ids_with_LUT_values,
@@ -111,9 +118,11 @@ def generate_graphs_with_seg_labels(agglomeration_thresholds, segmentation_path,
     return graph_list
 
 
+
 def generate_error_plot(
         agglomeration_thresholds,
         config_file_name,
+        volume_name,
         output_path,
         markers,
         colors,
@@ -149,7 +158,9 @@ def generate_error_plot(
         ax.set_xlim(left=-0.01)
         plt.xlabel('Merge VOI')
         plt.ylabel('Split VOI')
-    output_file_name = output_path+'/'+config_file_name+'_'+error_metric 
+
+    output_file_name = output_path+'/'+config_file_name+'_'+volume_name+'_'+error_metric 
+    
     plt.savefig(output_file_name, dpi=300)
 
 
@@ -161,7 +172,7 @@ def get_model_name(volume_path, name_dictionary={}):
                           volume_path).group(0) + \
                           '_'+re.search(r'[0-9]+00',
                                         volume_path).group(0)
-    return model
+        return model
 
 
 def write_error_files(output_path, file_name,
