@@ -1,23 +1,27 @@
 {
     "Input": {
-            "voxel_size":[40, 4, 4]
+        "postsynaptic_dataset": "/volumes/pred_syn_indicator",
+        "vector_dataset": "volumes/pred_partner_vectors",
+        "voxel_size":[40, 4, 4]
     },   
     "Output": {
-            "colors":["y","k","coral","purple","navy","lime","salmon","saddlebrown","gold"],
-            "markers":["o", "", "^", "", "s", "", "p", "", "D"],
-            "metric_plots": [["area", "mean"],
-                             ["area", "max"],
-                             ["mean", "max"],
-                             "mean",
-                             "max",
-                             "area",
-                             "sum"]
+        "colors":["y","k","coral","purple","navy","lime","salmon","saddlebrown","gold"],
+        "markers":["o", "^", "s", "*", "p", "D", "<", "X", ">", "h"],
+        "metric_plots": [["area", "mean"],
+                         ["area", "max"],
+                         ["mean", "max"],
+                         "mean",
+                         "max",
+                         "area",
+                         "sum"],
+        "num_hist_bins": 256
     },
     "Extraction": {
-            "min_inference_value": 60,
-            "percentiles": [50, 60, 70, 80, 90],
-            "filter_metric": "area",
-            "remove_intraneuron_synapses": true,
-            "max_distance": 1000
+        "materialize": false,
+        "min_inference_value": 60,
+        "percentiles": [50, 60, 70, 80, 90],
+        "filter_metric": "area",
+        "remove_intraneuron_synapses": true,
+        "max_distance": 1000
     }
 }

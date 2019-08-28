@@ -50,27 +50,32 @@ def load_synapses_from_catmaid_json(json_path):
 
 
 
-def construct_prediction_graph(synapse_data, segmentation_data,
-                               extraction_config, voxel_size):
-    pred_graph = extract_postsynaptic_sites(**synapse_data['postsynaptic'],
-                                            voxel_size=voxel_size,
-                                            min_inference_value=extraction_config['min_inference_value'])
-    pred_graph.graph = {'segmentation': segmentation_data,
-                        'min_inference_value': extraction_config['min_inference_value'],
-                        'remove_intraneuron_synapses': extraction_config['remove_intraneuron_synapses'],
-                        'voxel_size': voxel_size,
-                        'filter_metric': extraction_config['filter_metric']}
-    util.print_delimiter()
-    pred_graph = extract_presynaptic_sites(pred_graph,
-                                           **synapse_data['vector'],
-                                           voxel_size=voxel_size)
-    
-    util.print_delimiter()
-    pred_graph = add_segmentation_labels(pred_graph,
-                                         **segmentation_data)
-    if extraction_config['remove_intraneuron_synapses']:
-        util.print_delimiter()
-        pred_graph = remove_intraneuron_synapses(pred_graph)
+def construct_prediction_graph(min_inference_value, model_data,
+                               segmentation_data, extraction_config,
+                               voxel_size):
+    inf_graph_json = model_data['inf_graph_json'].format(min_inference_value)
+    try:
+        pred_graph = util.json_to_syn_graph(inf_graph_json)
+    except FileNotFoundError:  
+        pred_graph = extract_postsynaptic_sites(**model_data['postsynaptic'],
+                                                voxel_size=voxel_size,
+                                                min_inference_value=min_inference_value,
+                                                materialize=extraction_config['materialize'])
+        pred_graph.graph = {'segmentation': segmentation_data,
+                            'synapse_data': {key:model_data[key] for
+                                             key in ['postsynaptic', 'vector']},
+                            'min_inference_value': min_inference_value,
+                            'voxel_size': voxel_size}
+        pred_graph = extract_presynaptic_sites(pred_graph,
+                                               **model_data['vector'],
+                                               voxel_size=voxel_size,
+                                               materialize=extraction_config['materialize'])
+        
+        pred_graph = add_segmentation_labels(pred_graph,
+                                             **segmentation_data,
+                                             materialize=extraction_config['materialize'])
+        if extraction_config['remove_intraneuron_synapses']:
+            pred_graph = remove_intraneuron_synapses(pred_graph)                                       
     return pred_graph
     
 
@@ -80,14 +85,19 @@ def construct_prediction_graph(synapse_data, segmentation_data,
 # probability of being an actual synapse.
 # TODO: Maybe consider using mask instead of regionprops
 def extract_postsynaptic_sites(zarr_path, dataset,
-                               voxel_size, min_inference_value):
+                               voxel_size, min_inference_value,
+                               materialize):
     print("Extracting postsynaptic sites from {}".format(dataset),
           "at min inference value of {}".format(min_inference_value))
     start_time = time.time()
     prediction_ds = daisy.open_ds(zarr_path, dataset)
     roi = prediction_ds.roi
-    
-    inference_array = prediction_ds.to_ndarray(roi)
+    prediction_ds = prediction_ds[roi]
+    if materialize:
+        print("Materializing")
+        prediction_ds.materialize()
+        print("Array materialized")
+    inference_array = prediction_ds.to_ndarray()
     labels, _ = ndimage.label(inference_array > min_inference_value)
     extracted_syns = measure.regionprops(labels, inference_array)
     
@@ -112,11 +122,16 @@ def extract_postsynaptic_sites(zarr_path, dataset,
 # presynaptic site nodes are negative
 # the fact that this returns post synaptic sites is confusing
 def extract_presynaptic_sites(pred_graph, zarr_path,
-                              dataset, voxel_size):
+                              dataset, voxel_size,
+                              materialize):
     print("Extracting vector predictions from {}".format(dataset))
     start_time = time.time()
     prediction_ds = daisy.open_ds(zarr_path, dataset)
     prediction_ds = prediction_ds[prediction_ds.roi]
+    if materialize:
+        print("Materializing")
+        prediction_ds.materialize()
+        print("Array materialized")
     postsyns = list(pred_graph.nodes(data='zyx_coord'))
     for i, (postsyn_id, postsyn_zyx) in enumerate(postsyns):
         presyn_id = postsyn_id * -1
@@ -131,7 +146,7 @@ def extract_presynaptic_sites(pred_graph, zarr_path,
     return pred_graph
 
 
-def add_segmentation_labels(graph, zarr_path, dataset):
+def add_segmentation_labels(graph, zarr_path, dataset, materialize):
     print("Adding segmentation labels from {}".format(dataset))
     print("{} nodes to label".format(graph.number_of_nodes()))
     start_time = time.time()
@@ -139,7 +154,11 @@ def add_segmentation_labels(graph, zarr_path, dataset):
         zarr_path,
         dataset)
     segment_array = segment_array[segment_array.roi]
-    nodes_outside_roi = []  
+    if materialize:
+        print("Materializing")
+        prediction_ds.materialize()
+        print("Array materialized")
+    nodes_outside_roi = []
     for i, (treenode_id, attr) in enumerate(graph.nodes(data=True)):
         try:    
             attr['seg_label'] = int(segment_array[daisy.Coordinate(attr['zyx_coord'])])
