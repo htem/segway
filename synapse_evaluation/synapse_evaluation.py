@@ -206,13 +206,13 @@ def write_matches_to_file(conn_dict,
                     for metric in ['area', 'sum', 'mean', 'max']:
                         print("\t\t\t{} = {}".format(metric, scores[metric]), file=f)
                 print(file=f)
-        
         print("FALSE NEGATIVES", file=f)
+        false_neg_template = "\tCATMAID connector {} (neuroglancer: {}) (catmaid: {})"
         for gt_syn, syn_attr in false_neg.items():
             conn_id = syn_attr['conn_id']
             conn_xyz = syn_attr['conn_zyx_coord'][::-1]
             ng_coord = util.daisy_zyx_to_voxel_xyz(syn_attr['conn_zyx_coord'], voxel_size)
-            print("\tCATMAID connector {} (neuroglancer: {}) (catmaid: {})".format(conn_id, ng_coord, conn_xyz), file=f)
+            print(false_neg_template.format(conn_id, ng_coord, conn_xyz), file=f)
         print(file=f)
         print("FALSE POSITIVES", file=f)
         false_pos = [(postsyn, filtered_graph.nodes[postsyn])
@@ -306,7 +306,6 @@ if __name__ == '__main__':
     pred_graph_dict = load_model_prediction_graphs(inp['models'], inp,
                                                    extp, output_path,
                                                    8)
-    error_counts = {}
     for model_name, min_inf_vals in pred_graph_dict.items():
         util.print_delimiter()
         for min_inf, pred_graph in min_inf_vals.items():
@@ -315,41 +314,48 @@ if __name__ == '__main__':
                             model_name, metric,
                             outp['plot_dir'],
                             outp['num_hist_bins'])
-            for fil_met, max_dist in product(extp['filter_metric'], extp['max_distance']):
-                submodel = '{}_inf{}_dist{}_{}'.format(model_name, min_inf, max_dist, fil_met)
-                error_counts[submodel] = {perc: {} for perc in extp['percentiles']}
-                for percentile in extp['percentiles']:
-                    util.print_delimiter()
-                    filtered_nodes = apply_score_filter(util.postsyn_subgraph(pred_graph),
-                                                        fil_met,
-                                                        percentile)
-                    filtered_graph = pred_graph.subgraph([node for node in pred_graph 
-                                                          if node not in filtered_nodes])    
-                    get_matches = partial(get_nearby_matches,
-                                          pred_graph=filtered_graph,
-                                          max_dist=max_dist)
-                    for presyn, postsyn in gt_graph.edges():
-                        gt_graph[presyn][postsyn]['matches'] = \
-                                get_matches((gt_graph.nodes[presyn],
-                                             gt_graph.nodes[postsyn]))
-                    num_true_pos = len([(pre, post) for pre, post, match in
-                                        gt_graph.edges(data='matches') if len(match)])
-                    num_predicted = filtered_graph.number_of_edges()
-                    num_actual = gt_graph.number_of_edges()
-                    error_counts[submodel][percentile]['true_pos'] = num_true_pos
-                    error_counts[submodel][percentile]['false_pos'] = num_predicted - num_true_pos
-                    error_counts[submodel][percentile]['false_neg'] = num_actual - num_true_pos
-                    util.print_delimiter()
-                    write_matches_to_file(util.neuron_pairs_dict(gt_graph),
-                                          filtered_graph, submodel,
-                                          {'min_inference_value': min_inf,
-                                           'filter_metric': fil_met,
-                                           'max_distance': max_dist},
-                                          percentile,
-                                          outp['match_dir'], inp['voxel_size'])
-    util.print_delimiter()
-    plot_title = "{}_error_plot".format(inp['config_name'])
-    plot_false_pos_false_neg(error_counts, plot_title, outp['plot_dir'],
-                             outp['markers'], outp['colors'])
+    for min_inf, fil_met, max_dist in product(extp['min_inference_value'],
+                                              extp['filter_metric'],
+                                              extp['max_distance']):
+        error_counts = {}
+        for model_name in inp['models']:
+            error_counts[model_name] = {perc: {} for perc in extp['percentiles']}
+            pred_graph = pred_graph_dict[model_name][min_inf]    
+            for percentile in extp['percentiles']:
+                util.print_delimiter()
+                filtered_nodes = apply_score_filter(util.postsyn_subgraph(pred_graph),
+                                                    fil_met,
+                                                    percentile)
+                filtered_graph = pred_graph.subgraph([node for node in pred_graph 
+                                                      if node not in filtered_nodes])    
+                get_matches = partial(get_nearby_matches,
+                                      pred_graph=filtered_graph,
+                                      max_dist=max_dist)
+                for presyn, postsyn in gt_graph.edges():
+                    gt_graph[presyn][postsyn]['matches'] = \
+                            get_matches((gt_graph.nodes[presyn],
+                                         gt_graph.nodes[postsyn]))
+                num_true_pos = len([(pre, post) for pre, post, match in
+                                    gt_graph.edges(data='matches') if len(match)])
+                num_predicted = filtered_graph.number_of_edges()
+                num_actual = gt_graph.number_of_edges()
+                error_counts[model_name][percentile]['true_pos'] = num_true_pos
+                error_counts[model_name][percentile]['false_pos'] = num_predicted - num_true_pos
+                error_counts[model_name][percentile]['false_neg'] = num_actual - num_true_pos
+                util.print_delimiter()
+                submodel = 'inf{}_dist{}_{}'.format(min_inf, max_dist, fil_met)
+                if model_name:
+                    submodel = "{}_{}".format(model_name, submodel)
+                write_matches_to_file(util.neuron_pairs_dict(gt_graph),
+                                      filtered_graph, submodel,
+                                      {'min_inference_value': min_inf,
+                                       'filter_metric': fil_met,
+                                       'max_distance': max_dist},
+                                      percentile,
+                                      outp['match_dir'], inp['voxel_size'])
+        util.print_delimiter()
+        plot_title = "inf{}_dist{}_{}_error_plot".format(min_inf, max_dist, fil_met)
+        plot_false_pos_false_neg(error_counts, plot_title, outp['plot_dir'],
+                                 outp['markers'], outp['colors'])
     print("Complete.")
 
