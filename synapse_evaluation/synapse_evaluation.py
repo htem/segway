@@ -307,17 +307,23 @@ if __name__ == '__main__':
                                                    extp, output_path,
                                                    8)
     for model_name, min_inf_vals in pred_graph_dict.items():
-        util.print_delimiter()
         for min_inf, pred_graph in min_inf_vals.items():
+            sub_dir = path.join(outp['plot_dir'], "min_inf_{}".format(min_inf))
+            try:
+                os.makedirs(sub_dir)
+            except FileExistsError:
+                pass
+            util.print_delimiter()
             for metric in outp['metric_plots']:
                 plot_metric(util.postsyn_subgraph(pred_graph),
                             model_name, metric,
-                            outp['plot_dir'],
+                            sub_dir,
                             outp['num_hist_bins'])
     for min_inf, fil_met, max_dist in product(extp['min_inference_value'],
                                               extp['filter_metric'],
                                               extp['max_distance']):
         error_counts = {}
+        param_combo = 'inf{}_dist{}_{}'.format(min_inf, max_dist, fil_met)
         for model_name in inp['models']:
             error_counts[model_name] = {perc: {} for perc in extp['percentiles']}
             pred_graph = pred_graph_dict[model_name][min_inf]    
@@ -346,15 +352,20 @@ if __name__ == '__main__':
                 submodel = 'inf{}_dist{}_{}'.format(min_inf, max_dist, fil_met)
                 if model_name:
                     submodel = "{}_{}".format(model_name, submodel)
+                sub_dir = path.join(outp['match_dir'], param_combo)
+                try:
+                    os.makedirs(sub_dir)
+                except FileExistsError:
+                    pass
                 write_matches_to_file(util.neuron_pairs_dict(gt_graph),
                                       filtered_graph, submodel,
                                       {'min_inference_value': min_inf,
                                        'filter_metric': fil_met,
                                        'max_distance': max_dist},
                                       percentile,
-                                      outp['match_dir'], inp['voxel_size'])
+                                      sub_dir, inp['voxel_size'])
         util.print_delimiter()
-        plot_title = "inf{}_dist{}_{}_error_plot".format(min_inf, max_dist, fil_met)
+        plot_title = "{}_error_plot".format(param_combo)
         plot_false_pos_false_neg(error_counts, plot_title, outp['plot_dir'],
                                  outp['markers'], outp['colors'])
     print("Complete.")
