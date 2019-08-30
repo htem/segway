@@ -47,6 +47,7 @@ def format_parameter_configs(config, volume, iteration):
     output_configs['config_JSON'] = config['file_name']
     output_configs['voxel_size'] = tuple(config['Input']['voxel_size'])
     volume_name = get_vol_name(volume,iteration)
+    
 
     return {'skeleton': skeleton_configs, 'error_count': error_count_configs, 'output': output_configs, 'name': volume_name}
 
@@ -56,9 +57,15 @@ def get_vol_name(vol, i):
     else:
         return vol["volume_name"]
 
+def get_weight(vol):
+    if "weight" not in vol:
+        return (1)
+    else:
+        return (vol["weight"])
 
 def run_evaluation(
         config_path, num_processes, file_name):
+
     config = parse_configs(config_path)
     config['Output']['output_path'] = os.path.dirname(config_path)
     if 'skeleton_csv' in config['Input']:
@@ -79,7 +86,9 @@ def run_evaluation(
 
     if 'Inputs' in config:
         splits_and_merges=[]
+        weights=[]
         for num, volume in enumerate(config['Inputs']):
+            weights.append(get_weight(volume))
             parameter_configs = format_parameter_configs(config, volume, num)
             
             splits_and_merges.append(
@@ -89,9 +98,15 @@ def run_evaluation(
                 model_name_mapping,
                 num_processes,
                 parameter_configs))
+ 
 
         print(splits_and_merges)
-        splits_and_merges = [format_splits_and_merges(x) for x in zip(*splits_and_merges) ]
+        
+        splits_and_merges = [format_splits_and_merges(x,weights) for x in zip(*splits_and_merges) ]
+        print(splits_and_merges)
+        
+        splits_and_merges= add_weights(splits_and_merges, weights)
+
         print(splits_and_merges)
 
         generate_error_plot(config['Input']['segment_dataset'],config['file_name'],'Combined',
@@ -107,9 +122,27 @@ def run_evaluation(
             num_processes,
             parameter_configs)
 
-def format_splits_and_merges(list_of_iterables):
+def add_weights(splits_and_merges,weights):
+    pos = -1
+    weighted_list=[]
+    for element in splits_and_merges:
+        if isinstance(element, str):
+            print(pos)
+            weighted_list.append(element)
+            pos += 1
+        else:
+            
+            new_list =[ i*weights[pos] for i in element]
+            weighted_list.append(new_list)
+    return weighted_list
+            
+
+
+def format_splits_and_merges(list_of_iterables, weights):
+    
     if isinstance(list_of_iterables[1], list):
-        return (list(sum(x) for x in zip(*list_of_iterables))) 
+        unweighted_list= (list(sum(x) for x in zip(*list_of_iterables))) 
+        return unweighted_list
     
     elif isinstance(list_of_iterables[1], str):
         if (all(x == list_of_iterables[0] for x in list_of_iterables)):
