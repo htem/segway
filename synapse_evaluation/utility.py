@@ -19,8 +19,16 @@ def plot_node_attr_scatter(graph, attr_1, attr_2,
     plt.savefig(path.join(output_path, plot_title))
     plt.clf()
 
-def plot_node_attr_hist(graph, attr, output_path, plot_title):
-    plt.hist([val for node, val in graph.nodes(data=attr)])
+def plot_node_attr_hist(graph, attr, output_path, plot_title, num_hist_bins):
+    values = [val for node, val in graph.nodes(data=attr)]
+    max_val = max(values)
+    if num_hist_bins > max_val:
+        plt.hist(values)
+    else:
+        increment = max_val / num_hist_bins
+        bins = [int(i * increment) for 
+                i in range(num_hist_bins + 1)]
+        plt.hist(values, bins=bins)
     plt.title(plot_title)
     plt.savefig(path.join(output_path, plot_title))
     plt.clf()
@@ -40,7 +48,7 @@ def neuron_pairs_dict(syn_graph):
 	return conn_dict
 
 
-def print_delimiter(char='-', length=80):
+def print_delimiter(length=80, char='-'):
 	delimeter = ""
 	for i in range(length):
 		delimeter += char
@@ -71,8 +79,9 @@ def syn_graph_to_json(graph, output_path, model_name):
         os.makedirs(output_path)
     except FileExistsError:
         pass
-    basename = '{}{}_syn_graph.json'.format(model_name,
-    										graph.graph['min_inference_value'])
+    basename = '{}_syn_graph.json'.format(graph.graph['min_inference_value'])
+    if model_name:
+        basename = '{}_{}'.format(model_name, basename)
     syn_graph_json = path.join(output_path, basename)
     with open(syn_graph_json, "w") as f:
         json.dump(graph_to_dictionary(graph), f, indent=2)
@@ -88,11 +97,10 @@ def graph_to_dictionary(graph):
 
 
 def json_to_syn_graph(json_path):
-    print("Loading inference graph from %s" % json_path)
     with open(json_path, "r") as f:
         graph_dict = json.load(f)
     graph =  dictionary_to_graph(graph_dict)
-    print("%s potential synapses loaded" % (len(graph) // 2))
+    print("{} potential synapses loaded from {}".format(len(graph) // 2, json_path))
     return graph
 
 
