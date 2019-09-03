@@ -161,7 +161,7 @@ def get_model_name(volume_path, name_dictionary={}):
                           volume_path).group(0) + \
                           '_'+re.search(r'[0-9]+00',
                                         volume_path).group(0)
-    return model
+        return model
 
 
 def write_error_files(output_path, file_name,
@@ -174,7 +174,7 @@ def write_error_files(output_path, file_name,
     print("output path:", output_path)
     if write_txt:    
         with open(output_path + file_name + '.txt', 'w') as f:
-            print("MERGE ERRORS (" + str(len(merge_error_rows)) + ")", file = f)
+            print("MERGE ERRORS (" + str(len(merge_error_rows)) + ")", file=f)
             for error in merge_error_rows:
                 print("Segment %s" % error[1], file = f)
                 print("\t%s and %s merged" % (error[2], error[3]), file = f)
