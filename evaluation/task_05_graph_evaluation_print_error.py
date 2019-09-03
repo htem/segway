@@ -85,6 +85,7 @@ def compare_segmentation_to_ground_truth_skeleton(
     plot_errors('rand', *split_and_merge_rand)
     plot_errors('voi', *split_and_merge_voi)
 
+    split_and_merge = {configs['name'] : split_and_merge}
 
     return(split_and_merge)
 

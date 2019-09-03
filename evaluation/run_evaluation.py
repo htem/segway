@@ -85,13 +85,13 @@ def run_evaluation(
     config['file_name'] = file_name
 
     if 'Inputs' in config:
-        splits_and_merges=[]
+        splits_and_merges={}
         weights=[]
         for num, volume in enumerate(config['Inputs']):
             weights.append(get_weight(volume))
             parameter_configs = format_parameter_configs(config, volume, num)
-            
-            splits_and_merges.append(
+            print (weights)
+            splits_and_merges.update(
                 compare_segmentation_to_ground_truth_skeleton(
                 config['Input']['segment_dataset'],
                 volume['segment_volumes'],
@@ -99,14 +99,17 @@ def run_evaluation(
                 num_processes,
                 parameter_configs))
  
-
+        print("Splits and merges for each cutout:")                
         print(splits_and_merges)
         
-        splits_and_merges = [format_splits_and_merges(x,weights) for x in zip(*splits_and_merges) ]
-        print(splits_and_merges)
-        
-        splits_and_merges= add_weights(splits_and_merges, weights)
+        splits_and_merges= add_weights(splits_and_merges,weights)
 
+        print("Splits and merges for each cutout weighted:")
+        print(splits_and_merges)
+
+        splits_and_merges = [format_splits_and_merges(x) for x in zip(*splits_and_merges) ]
+        
+        print("Summed splits and merges:")
         print(splits_and_merges)
 
         generate_error_plot(config['Input']['segment_dataset'],config['file_name'],'Combined',
@@ -122,24 +125,30 @@ def run_evaluation(
             num_processes,
             parameter_configs)
 
+#Takes in dictionary, and returns a list of splits and merges ordered by volume
 def add_weights(splits_and_merges,weights):
-    pos = -1
-    weighted_list=[]
-    for element in splits_and_merges:
-        if isinstance(element, str):
-            print(pos)
-            weighted_list.append(element)
-            pos += 1
-        else:
-            
-            new_list =[ i*weights[pos] for i in element]
-            weighted_list.append(new_list)
-    return weighted_list
+
+    weighted_list=[]    
+    for i,vol in enumerate(splits_and_merges):
+        weighted_volume=[]
+
+        for element in splits_and_merges[vol] :
+            if isinstance(element, str):
+                
+
+                weighted_volume.append(element)
+            else:
+                new_list =[ e*weights[i] for e in element]
+                weighted_volume.append(new_list)
+
+        weighted_list.append(weighted_volume)
+
+    return(weighted_list)
             
 
 
-def format_splits_and_merges(list_of_iterables, weights):
-    
+def format_splits_and_merges(list_of_iterables):
+    #print(list_of_iterables)
     if isinstance(list_of_iterables[1], list):
         unweighted_list= (list(sum(x) for x in zip(*list_of_iterables))) 
         return unweighted_list
