@@ -1,7 +1,7 @@
 import argparse
 import json
 import os
-from task_05_graph_evaluation_print_error import compare_segmentation_to_ground_truth_skeleton, generate_error_plot
+from task_05_graph_evaluation_print_error import compare_segmentation_to_ground_truth_skeleton, generate_error_plot, color_generator
 from operator import add
 # Consider altering task_defaults/configs to reflect actual method parameters
 
@@ -47,7 +47,7 @@ def format_parameter_configs(config, volume, iteration):
     output_configs['config_JSON'] = config['file_name']
     output_configs['voxel_size'] = tuple(config['Input']['voxel_size'])
     volume_name = get_vol_name(volume,iteration)
-    
+   
 
     return {'skeleton': skeleton_configs, 'error_count': error_count_configs, 'output': output_configs, 'name': volume_name}
 
@@ -87,10 +87,12 @@ def run_evaluation(
     if 'Inputs' in config:
         splits_and_merges={}
         weights=[]
+
         for num, volume in enumerate(config['Inputs']):
             weights.append(get_weight(volume))
+
             parameter_configs = format_parameter_configs(config, volume, num)
-            print (weights)
+
             splits_and_merges.update(
                 compare_segmentation_to_ground_truth_skeleton(
                 config['Input']['segment_dataset'],
@@ -114,7 +116,9 @@ def run_evaluation(
 
         generate_error_plot(config['Input']['segment_dataset'],config['file_name'],'Combined',
             config['Output']['output_path'],config['Output']['markers'],
-            config['Output']['colors'],'number', *splits_and_merges)
+            color_generator(len(volume['segment_volumes'])), config['Output']['font_size'],
+            config['Output']['line_width'],'number',
+            *splits_and_merges)
     else:
         parameter_configs = format_parameter_configs(config,config['Input'],0)
 
@@ -124,6 +128,9 @@ def run_evaluation(
             model_name_mapping,
             num_processes,
             parameter_configs)
+
+
+
 
 #Takes in dictionary, and returns a list of splits and merges ordered by volume
 def add_weights(splits_and_merges,weights):
@@ -148,7 +155,7 @@ def add_weights(splits_and_merges,weights):
 
 
 def format_splits_and_merges(list_of_iterables):
-    #print(list_of_iterables)
+  
     if isinstance(list_of_iterables[1], list):
         unweighted_list= (list(sum(x) for x in zip(*list_of_iterables))) 
         return unweighted_list
