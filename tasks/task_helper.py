@@ -338,7 +338,6 @@ def parseConfigs(args, aggregate_configs=True):
 
     for config in args:
 
-        # print(config)
         if "=" in config:
             key, val = config.split('=')
             if '.' in key:
@@ -409,6 +408,7 @@ def aggregateConfigs(configs):
         script_name = script_name[0]
     parameters['script_name'] = script_name
     parameters['script_folder'] = parameters['proj']
+    parameters['script_dir'] = '/'.join(config_filename.split('/')[0:-1])
 
     input_config["experiment"] = input_config["experiment"].format(**parameters)
     parameters['experiment'] = input_config["experiment"]
@@ -643,3 +643,8 @@ def aggregateConfigs(configs):
         copyParameter(input_config, config, 'output_file', 'fragments_file')
         copyParameter(input_config, config, 'output_file', 'out_file')
         config['merge_function'] = merge_function
+
+    if "RenderRawToZarrFromTiffTask" in configs:
+        config = configs["RenderRawToZarrFromTiffTask"]
+        copyParameter(input_config, config, 'sub_roi_begin')
+        copyParameter(input_config, config, 'sub_roi_end')

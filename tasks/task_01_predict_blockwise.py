@@ -5,7 +5,8 @@ import os
 import sys
 
 import daisy
-import task_helper
+# import task_helper
+from segway.tasks import task_helper2 as task_helper
 
 logger = logging.getLogger(__name__)
 
@@ -134,9 +135,9 @@ class PredictTask(task_helper.SlurmTask):
             config_file = 'unet.json'
             meta_file = 'unet.meta'
         elif os.path.exists(os.path.join(self.setup, 'net_io_names.json')):
-            assert False, "Unsupported, please rename network files"
+            raise RuntimeError("net_io_names.json unsupported, please rename network files")
         else:
-            assert False, "No network config found at %s" % self.setup
+            raise RuntimeError("No network config found at %s" % self.setup)
 
         out_dims = net_config['out_dims']
         out_dtype = net_config['out_dtype']
@@ -166,62 +167,19 @@ class PredictTask(task_helper.SlurmTask):
         block_output_size = chunk_size*tuple(self.block_size_in_chunks)
         block_input_size = block_output_size + context*2
 
-        # get total input and output ROIs
-        if self.roi_offset is not None and self.roi_shape is not None:
-
-            output_roi = daisy.Roi(
-                tuple(self.roi_offset), tuple(self.roi_shape))
-
-            if self.center_roi_offset:
-                output_roi = output_roi.shift(-daisy.Coordinate(tuple(self.roi_shape))/2)
-
-            input_roi = output_roi.grow(context, context)
-            assert input_roi.intersect(source.roi) == input_roi, \
-                "output_roi (%s) + context (%s) = input_roi (%s) has to be within raw ROI" \
-                % (output_roi, context, input_roi)
-
-        elif self.sub_roi_offset is not None and self.sub_roi_shape is not None:
-
-            output_roi = source.roi  # total volume ROI
-            input_roi = daisy.Roi(
-                tuple(self.sub_roi_offset), tuple(self.sub_roi_shape))
-            assert output_roi.contains(input_roi)
-
-            if self.center_roi_offset:
-                raise RuntimeError("Unimplemented")
-            # need align output_roi to prediction chunk size
-
-            output_roi_begin = [k for k in output_roi.get_begin()]
-            output_roi_begin[0] = align(output_roi.get_begin()[0], input_roi.get_begin()[0], chunk_size[0])
-            output_roi_begin[1] = align(output_roi.get_begin()[1], input_roi.get_begin()[1], chunk_size[1])
-            output_roi_begin[2] = align(output_roi.get_begin()[2], input_roi.get_begin()[2], chunk_size[2])
-
-            output_roi.set_offset(tuple(output_roi_begin))
-
-            assert (output_roi.get_begin()[0] - input_roi.get_begin()[0]) % chunk_size[0] == 0
-            assert (output_roi.get_begin()[1] - input_roi.get_begin()[1]) % chunk_size[1] == 0
-            assert (output_roi.get_begin()[2] - input_roi.get_begin()[2]) % chunk_size[2] == 0
-
-            input_roi = input_roi.grow(context, context)
-            assert output_roi.contains(input_roi)
-
-        else:
-
-            if self.center_roi_offset:
-                raise RuntimeError("Cannot center ROI if not specified")
-
-            assert self.roi_offset is None
-            assert self.roi_shape is None
-            assert self.sub_roi_offset is None
-            assert self.sub_roi_shape is None
-            # if no ROI is given, we need to shrink output ROI
-            # to account for the context
-            input_roi = source.roi
-            output_roi = source.roi.grow(-context, -context)
-
         # create read and write ROI
         block_read_roi = daisy.Roi((0, 0, 0), block_input_size) - context
         block_write_roi = daisy.Roi((0, 0, 0), block_output_size)
+
+        input_roi, output_roi = task_helper.compute_compatible_roi(
+                roi_offset=self.roi_offset,
+                roi_shape=self.roi_shape,
+                sub_roi_offset=self.sub_roi_offset,
+                sub_roi_shape=self.sub_roi_shape,
+                roi_context=context,
+                chunk_size=chunk_size,
+                source_roi=source.roi,
+            )
 
         logger.info("Following ROIs in world units:")
         logger.info("Total input ROI  = %s" % input_roi)
@@ -329,8 +287,10 @@ class PredictTask(task_helper.SlurmTask):
                         gpu='any')
 
         check_function = (
-                lambda b: self.check_block(b, precheck=True),
-                lambda b: self.check_block(b, precheck=False)
+                lambda b: task_helper.check_block(
+                    b, self.affs_ds, is_precheck=True, completion_db=self.completion_db, recording_block_done=self.recording_block_done, logger=logger, check_datastore=False),
+                lambda b: task_helper.check_block(
+                    b, self.affs_ds, is_precheck=False, completion_db=self.completion_db, recording_block_done=self.recording_block_done, logger=logger)
                 )
 
         if self.overwrite:
@@ -353,69 +313,6 @@ class PredictTask(task_helper.SlurmTask):
             # log_to_file=True
             # timeout=self.timeout
             )
-
-    def check_block(self, block, precheck):
-        logger.debug("Checking if block %s is complete..." % block.write_roi)
-
-        write_roi = self.affs_ds.roi.intersect(block.write_roi)
-        if write_roi.empty():
-            logger.debug("Block outside of output ROI")
-            return True
-
-        if precheck and self.overwrite_sections is not None:
-            read_roi_mask = self.overwrite_mask.roi.intersect(block.read_roi)
-            for roi in self.overwrite_sections:
-                if roi.intersects(read_roi_mask):
-                    logger.debug("Block overlaps overwrite_sections %s" % roi)
-                    return False
-
-        if precheck and self.overwrite_mask:
-            read_roi_mask = self.overwrite_mask.roi.intersect(block.read_roi)
-            if not read_roi_mask.empty():
-                try:
-                    sum = np.sum(self.overwrite_mask[read_roi_mask].to_ndarray())
-                    if sum != 0:
-                        logger.debug("Block inside overwrite_mask")
-                        return False
-                except:
-                    return False
-
-        if self.completion_db.count({'block_id': block.block_id}) >= 1:
-            logger.debug("Skipping block with db check")
-            return True
-
-        # For compatibility, check if affinity file is written with any values
-        s = 0
-        quarter = (write_roi.get_end() - write_roi.get_begin()) / 4
-
-        # check values of center and nearby voxels
-        s += np.sum(self.affs_ds[write_roi.get_begin() + quarter*1])
-        s += np.sum(self.affs_ds[write_roi.get_begin() + quarter*2])
-        s += np.sum(self.affs_ds[write_roi.get_begin() + quarter*3])
-        logger.info("Sum of center values in %s is %f" % (write_roi, s))
-
-        done = s != 0
-        if done:
-            self.recording_block_done(block)
-
-        # TODO: this should be filtered by post check and not pre check
-        # if (s == 0):
-        #     self.log_error_block(block)
-
-        return done
-
-
-def align(a, b, stride):
-    # align a to b such that b - a is multiples of stride
-    assert b >= a
-    print(a)
-    print(b)
-    l = b - a
-    print(l)
-    l = int(l/stride) * stride
-    print(l)
-    print(b - l)
-    return b - l
 
 
 if __name__ == "__main__":

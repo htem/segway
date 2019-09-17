@@ -42,8 +42,22 @@ except:
                 # pl = 3
                 vol = vol.split('_')[0]
                 raw_file = '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_gt/%s/cb2_gt_%s.zarr' % (vol, vol)
+            elif 'cutout1' in vol:
+                raw_file = '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_gt/synapse_gt/cutout1/cb2_synapse_cutout1.zarr'
+            elif 'cutout2' in vol:
+                raw_file = '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_gt/synapse_gt/cutout2/cb2_synapse_cutout2.zarr'
+            elif 'cutout3' in vol:
+                raw_file = '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_gt/synapse_gt/cutout3/cb2_synapse_cutout3.zarr'
             elif 'cutout4' in vol:
                 raw_file = '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_gt/synapse_gt/cutout4/cb2_synapse_cutout4.zarr'
+            elif 'cutout5' in vol:
+                raw_file = '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_gt/synapse_gt/cutout5/cb2_synapse_cutout5.zarr'
+            elif 'cutout6' in vol:
+                raw_file = '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_gt/synapse_gt/cutout6/cb2_synapse_cutout6.zarr'
+            elif 'cutout7' in vol:
+                raw_file = '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_gt/synapse_gt/cutout7/cb2_synapse_cutout7.zarr'
+            elif 'cutout8' in vol:
+                raw_file = '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_gt/synapse_gt/cutout8/cb2_synapse_cutout8.zarr'
             elif 'cutout9' in vol:
                 raw_file = '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_gt/synapse_gt/cutout9/cb2_synapse_cutout9.zarr'
             elif 'cb2_synapse_cutout' in vol:

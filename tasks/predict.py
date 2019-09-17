@@ -31,7 +31,6 @@ def predict(
         replace_section_list=[],
         ):
 
-    # setup_dir = os.path.dirname(os.path.realpath(__file__))
     setup_dir = train_dir
 
     with open(os.path.join(setup_dir, config_file), 'r') as f:
@@ -168,7 +167,6 @@ def predict(
     print("Starting prediction...")
     with build(pipeline):
         pipeline.request_batch(BatchRequest())
-
     db_client.close()
     print("Prediction finished")
 

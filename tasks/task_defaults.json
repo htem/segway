@@ -1,7 +1,18 @@
 {
+    "Input":
+        {
+            "log_dir": ".logs/{script_folder}/{experiment}_{network}_{iteration}",
+            "output_file" : "./{experiment}.zarr"
+        },
+
     "GlobalConfig":
         {
             "dry_run": 0
+        },
+
+    "SynfulNetwork":
+        {
+            "name": "dummy_synful_network"
         },
 
     "Network":
@@ -17,7 +28,16 @@
     "PredictTask":
         {
             "out_dataset" : "volumes/affs",
-            "block_size_in_chunks" : [1, 8, 8],
+            "num_workers": 1
+        },
+
+    "PredictSynapseTask":
+        {
+            "num_workers": 1
+        },
+
+    "PredictSynapseDirTask":
+        {
             "num_workers": 1
         },
         
