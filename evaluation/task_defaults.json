@@ -15,7 +15,9 @@
             "write_TXT": true,
             "write_CSV": true,
             "colors":["blue", "yellow","black","coral","purple","navy","lime","red","fuchsia","gold", "maroon", "darkgreen", "darkslategrey", "fuchsia"],
-            "markers":["o", "", "^", "", "s", "", "p", "", "D"]
+            "markers":["o", "", "^", "", "s", "", "p", "", "D"],
+            "font_size":6,
+            "line_width": 0.8
         },
     "AdditionalFeatures":
         {

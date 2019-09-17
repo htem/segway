@@ -1,6 +1,8 @@
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+import matplotlib.colors as mc
 from extract_segId_from_prediction import add_predicted_seg_labels_from_vol, \
                                           replace_fragment_ids_with_LUT_values
 from build_graph_from_catmaid import construct_skeleton_graph
@@ -16,8 +18,7 @@ import os
 import csv
 import copy
 from itertools import product
-import datetime
-
+import random
 
 def compare_segmentation_to_ground_truth_skeleton(
         agglomeration_thresholds,
@@ -25,18 +26,21 @@ def compare_segmentation_to_ground_truth_skeleton(
         model_name_mapping,
         num_processes,
         configs):
-    split_and_merge, split_and_merge_rand, split_and_merge_voi = [], [], []
+    split_and_merge, split_and_merge_rand, split_and_merge_voi = [], [], []    
+    colours = color_generator(len(segmentation_paths))
 
-    for seg_path in segmentation_paths:
+    parameters=[(agglomeration_thresholds,seg_path,num_processes,configs['skeleton']) for seg_path in segmentation_paths]
+    p= Pool(num_processes)
+    graph_lists=p.starmap(generate_graphs_with_seg_labels,parameters)
+
+    for i,seg_path in enumerate(segmentation_paths):
         numb_split, numb_merge = [], []
         (rand_split_list,
          rand_merge_list,
          voi_split_list,
          voi_merge_list) = [], [], [], []
-        graph_list = generate_graphs_with_seg_labels(agglomeration_thresholds,
-                                                     seg_path,
-                                                     num_processes,
-                                                     configs['skeleton'])
+       
+        graph_list= graph_lists[i]
         for graph in graph_list:
             if graph is None:
                 numb_split.append(np.nan)
@@ -74,20 +78,33 @@ def compare_segmentation_to_ground_truth_skeleton(
         split_and_merge.extend((model, numb_merge, numb_split))
         split_and_merge_rand.extend((model, rand_merge_list, rand_split_list))
         split_and_merge_voi.extend((model, voi_merge_list, voi_split_list))
+   
     plot_errors = partial(generate_error_plot,
                           agglomeration_thresholds,
                           configs['output']['config_JSON'],
                           configs['name'],
                           configs['output']['output_path'], 
                           configs['output']['markers'],
-                          configs['output']['colors'],)
+                          colours,
+                          configs['output']['font_size'],
+                          configs['output']['line_width'])
     plot_errors('number', *split_and_merge)
     plot_errors('rand', *split_and_merge_rand)
     plot_errors('voi', *split_and_merge_voi)
 
+    split_and_merge = {configs['name'] : split_and_merge}
 
     return(split_and_merge)
 
+def color_generator(length):
+    random.seed(3)
+    more_colour_vals= []
+    while(len(more_colour_vals)!=length):
+        r = random.random()
+        if r not in more_colour_vals: more_colour_vals.append(r)
+    more_colours=cm.jet(more_colour_vals)
+
+    return(more_colours)
 
 
 
@@ -98,7 +115,7 @@ def generate_graphs_with_seg_labels(agglomeration_thresholds, segmentation_path,
                                                    skeleton_configs['with_interpolation'],
                                                    skeleton_configs['step'],
                                                    skeleton_configs['leaf_node_removal_depth'])
-    p = Pool(num_processes)
+    
     if os.path.exists(os.path.join(segmentation_path, 'luts/fragment_segment')):
         fragment_graph = add_predicted_seg_labels_from_vol(unlabelled_skeleton.copy(),
                                                            segmentation_path,
@@ -107,16 +124,13 @@ def generate_graphs_with_seg_labels(agglomeration_thresholds, segmentation_path,
         
         parameters_list = [(fragment_graph.copy(), segmentation_path, 'volumes/'+threshold)
                             for threshold in agglomeration_thresholds]
-        graph_list = p.starmap(replace_fragment_ids_with_LUT_values,
-                               parameters_list)
+        
+        graph_list = [replace_fragment_ids_with_LUT_values(pl[0],pl[1],pl[2]) for pl in parameters_list]
     else:
         parameters_list = [(unlabelled_skeleton.copy(), segmentation_path, 'volumes/'+threshold,
                             skeleton_configs['load_segment_array_to_memory'])
                             for threshold in agglomeration_thresholds]
-        graph_list = p.starmap(add_predicted_seg_labels_from_vol,
-                               parameters_list)
-
-    p.close()
+        graph_list= [add_predicted_seg_labels_from_vol(pl[0],pl[1],pl[2],pl[3]) for pl in parameters_list]
 
     return graph_list
 
@@ -129,23 +143,27 @@ def generate_error_plot(
         output_path,
         markers,
         colors,
+        font_size,
+        line_width,
         error_metric,
         *split_and_merge):
+  
     fig, ax = plt.subplots(figsize=(8, 6))
     for j in range(int(len(split_and_merge)/3)):
+      
         ax.plot(split_and_merge[j*3+1], split_and_merge[j*3+2],
-                label=split_and_merge[j*3], color=colors[j],
-                zorder=1, alpha=0.5, linewidth=2.5)
+                label=split_and_merge[j*3], color = colors[j],
+                zorder=1, alpha=0.5, linewidth=line_width)
         for a, b, m, l in zip(split_and_merge[j*3+1], split_and_merge[j*3+2],
                               markers, agglomeration_thresholds):
             if j == 0:
-                ax.scatter(a, b, marker=m, c=colors[j],
+                ax.scatter(a, b, marker=m,  color =colors[j],
                            label=l.replace('segmentation_', ''),
-                           zorder=2, alpha=0.5, s=50)
+                           zorder=2, alpha=0.5, s=30)
             else:
-                ax.scatter(a, b, marker=m, c=colors[j], zorder=2, alpha=0.5,
-                           s=50)
-    ax.legend()
+                ax.scatter(a, b, marker=m,  color = colors[j],zorder=2, alpha=0.5,
+                           s=30)
+    ax.legend(prop={'size': font_size})
     if error_metric == 'number':
         ax.set_ylim(bottom=-0.8)
         ax.set_xlim(left=-0.8)

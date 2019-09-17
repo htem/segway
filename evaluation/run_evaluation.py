@@ -1,7 +1,7 @@
 import argparse
 import json
 import os
-from task_05_graph_evaluation_print_error import compare_segmentation_to_ground_truth_skeleton, generate_error_plot
+from task_05_graph_evaluation_print_error import compare_segmentation_to_ground_truth_skeleton, generate_error_plot, color_generator
 from operator import add
 # Consider altering task_defaults/configs to reflect actual method parameters
 
@@ -47,7 +47,7 @@ def format_parameter_configs(config, volume, iteration):
     output_configs['config_JSON'] = config['file_name']
     output_configs['voxel_size'] = tuple(config['Input']['voxel_size'])
     volume_name = get_vol_name(volume,iteration)
-    
+   
 
     return {'skeleton': skeleton_configs, 'error_count': error_count_configs, 'output': output_configs, 'name': volume_name}
 
@@ -86,13 +86,15 @@ def run_evaluation(
  
 
     if 'Inputs' in config:
-        splits_and_merges=[]
+        splits_and_merges={}
         weights=[]
+
         for num, volume in enumerate(config['Inputs']):
             weights.append(get_weight(volume))
+
             parameter_configs = format_parameter_configs(config, volume, num)
-            
-            splits_and_merges.append(
+
+            splits_and_merges.update(
                 compare_segmentation_to_ground_truth_skeleton(
                 config['Input']['segment_dataset'],
                 volume['segment_volumes'],
@@ -100,19 +102,24 @@ def run_evaluation(
                 num_processes,
                 parameter_configs))
  
-
+        print("Splits and merges for each cutout:")                
         print(splits_and_merges)
         
-        splits_and_merges = [format_splits_and_merges(x,weights) for x in zip(*splits_and_merges) ]
-        print(splits_and_merges)
-        
-        splits_and_merges= add_weights(splits_and_merges, weights)
+        splits_and_merges= add_weights(splits_and_merges,weights)
 
+        print("Splits and merges for each cutout weighted:")
+        print(splits_and_merges)
+
+        splits_and_merges = [format_splits_and_merges(x) for x in zip(*splits_and_merges) ]
+        
+        print("Summed splits and merges:")
         print(splits_and_merges)
 
         generate_error_plot(config['Input']['segment_dataset'],config['file_name'],'Combined',
             config['Output']['output_path'],config['Output']['markers'],
-            config['Output']['colors'],'number', *splits_and_merges)
+            color_generator(len(volume['segment_volumes'])), config['Output']['font_size'],
+            config['Output']['line_width'],'number',
+            *splits_and_merges)
     else:
         parameter_configs = format_parameter_configs(config,config['Input'],0)
 
@@ -123,24 +130,33 @@ def run_evaluation(
             num_processes,
             parameter_configs)
 
+
+
+
+#Takes in dictionary, and returns a list of splits and merges ordered by volume
 def add_weights(splits_and_merges,weights):
-    pos = -1
-    weighted_list=[]
-    for element in splits_and_merges:
-        if isinstance(element, str):
-            print(pos)
-            weighted_list.append(element)
-            pos += 1
-        else:
-            
-            new_list =[ i*weights[pos] for i in element]
-            weighted_list.append(new_list)
-    return weighted_list
+
+    weighted_list=[]    
+    for i,vol in enumerate(splits_and_merges):
+        weighted_volume=[]
+
+        for element in splits_and_merges[vol] :
+            if isinstance(element, str):
+                
+
+                weighted_volume.append(element)
+            else:
+                new_list =[ e*weights[i] for e in element]
+                weighted_volume.append(new_list)
+
+        weighted_list.append(weighted_volume)
+
+    return(weighted_list)
             
 
 
-def format_splits_and_merges(list_of_iterables, weights):
-    
+def format_splits_and_merges(list_of_iterables):
+  
     if isinstance(list_of_iterables[1], list):
         unweighted_list= (list(sum(x) for x in zip(*list_of_iterables))) 
         return unweighted_list
