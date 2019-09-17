@@ -83,13 +83,7 @@ def run_evaluation(
             config['Input']['segment_names'])
         print(model_name_mapping, "&&&&&")
     config['file_name'] = file_name
-    parameter_configs = format_parameter_configs(config)
-    compare_segmentation_to_ground_truth_skeleton(
-        config['Input']['segment_dataset'],
-        config['Input']['segment_volumes'],  
-        model_name_mapping,
-        num_processes,
-        parameter_configs)
+ 
 
     if 'Inputs' in config:
         splits_and_merges=[]
