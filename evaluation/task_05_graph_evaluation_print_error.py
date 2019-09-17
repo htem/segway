@@ -115,6 +115,9 @@ def generate_graphs_with_seg_labels(agglomeration_thresholds, segmentation_path,
                             for threshold in agglomeration_thresholds]
         graph_list = p.starmap(add_predicted_seg_labels_from_vol,
                                parameters_list)
+
+    p.close()
+
     return graph_list
 
 
