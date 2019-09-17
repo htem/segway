@@ -23,14 +23,20 @@ if __name__ == "__main__":
     elif "ZarrIn" in config:
 
         in_config = config["ZarrIn"]
-        assert in_config["roi_offset_encoding"] == "voxel"
+        assert in_config["roi_offset_encoding"] == "nm" or in_config["roi_offset_encoding"] == "voxel"
         roi_offset_mul = daisy.Coordinate((1, 1, 1))
 
     roi_offset = daisy.Coordinate(in_config["roi_offset"])
     roi_offset = roi_offset * roi_offset_mul
+
+    voxel_size = daisy.Coordinate(in_config["voxel_size"]) 
+
+    if in_config["roi_offset_encoding"] == "nm":
+        roi_offset = roi_offset/voxel_size
+
+    print("%d %d %d" % (roi_offset[2], roi_offset[1], roi_offset[0]))
     print("x: %d y: %d z: %d" % (roi_offset[2], roi_offset[1], roi_offset[0]))
 
-    voxel_size = daisy.Coordinate(in_config["voxel_size"])
     roi_offset_nm = roi_offset * voxel_size
     roi_shape_nm = daisy.Coordinate(in_config["roi_shape_nm"])
     roi_context_nm = daisy.Coordinate(in_config["roi_context_nm"])

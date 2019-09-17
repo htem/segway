@@ -299,7 +299,7 @@ class PredictTask(task_helper.SlurmTask):
         # exit(0)
 
         config = {
-            'iteration': self.iteration,
+            'iteration': int(self.iteration),
             'raw_file': self.raw_file,
             'raw_dataset': self.raw_dataset,
             'read_begin': 0,

@@ -15,7 +15,7 @@ import task_helper
 logging.basicConfig(level=logging.INFO)
 logging.getLogger('daisy.persistence.shared_graph_provider').setLevel(logging.DEBUG)
 logger = logging.getLogger(__name__)
-np.set_printoptions(threshold=sys.maxsize, formatter={'all':lambda x: str(x)})
+# np.set_printoptions(threshold=sys.maxsize, formatter={'all':lambda x: str(x)})
 
 
 def find_segments(
@@ -124,6 +124,13 @@ def find_segments(
     print('edges dtype: ', edges.dtype)
     print('scores dtype: ', scores.dtype)
 
+    # each block should have at least one node, edge, and score
+    assert len(nodes)
+    assert len(edges)
+    assert len(scores)
+
+    # print("edge_attrs: ", edge_attrs)
+
     print("Complete RAG contains %d nodes, %d edges" % (len(nodes), len(edges)))
 
     out_dir = os.path.join(
@@ -174,8 +181,12 @@ def get_connected_components(
     edges_tmp = edges[scores <= threshold]
     scores_tmp = scores[scores <= threshold]
 
-    # components = connected_components(nodes, edges, scores, threshold,
-    #                                   use_node_id_as_component_id=1)
+    if len(edges_tmp) == 0:
+        print("edges_tmp: ", edges_tmp)
+        print("scores_tmp: ", scores_tmp)
+        print("edges: ", edges)
+        print("scores: ", scores)
+
     components = connected_components(nodes, edges_tmp, scores_tmp, threshold,
                                       use_node_id_as_component_id=1)
     print("%.3fs" % (time.time() - start))

@@ -3,16 +3,11 @@ import neuroglancer
 import sys
 import numpy as np
 import os
-import json
 
 from funlib.show.neuroglancer import add_layer
 from segway import task_helper
 
 neuroglancer.set_server_bind_address('0.0.0.0')
-
-# user_configs, global_config = task_helper.parseConfigs(sys.argv[1:])
-# f = global_config["Input"]["output_file"]
-# raw_file = global_config["Input"]["raw_file"]
 
 try:
 
@@ -49,8 +44,22 @@ except Exception as e:
                 # pl = 3
                 vol = vol.split('_')[0]
                 raw_file = '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_gt/%s/cb2_gt_%s.zarr' % (vol, vol)
+            elif 'cutout1' in vol:
+                raw_file = '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_gt/synapse_gt/cutout1/cb2_synapse_cutout1.zarr'
+            elif 'cutout2' in vol:
+                raw_file = '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_gt/synapse_gt/cutout2/cb2_synapse_cutout2.zarr'
+            elif 'cutout3' in vol:
+                raw_file = '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_gt/synapse_gt/cutout3/cb2_synapse_cutout3.zarr'
             elif 'cutout4' in vol:
                 raw_file = '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_gt/synapse_gt/cutout4/cb2_synapse_cutout4.zarr'
+            elif 'cutout5' in vol:
+                raw_file = '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_gt/synapse_gt/cutout5/cb2_synapse_cutout5.zarr'
+            elif 'cutout6' in vol:
+                raw_file = '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_gt/synapse_gt/cutout6/cb2_synapse_cutout6.zarr'
+            elif 'cutout7' in vol:
+                raw_file = '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_gt/synapse_gt/cutout7/cb2_synapse_cutout7.zarr'
+            elif 'cutout8' in vol:
+                raw_file = '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_gt/synapse_gt/cutout8/cb2_synapse_cutout8.zarr'
             elif 'cutout9' in vol:
                 raw_file = '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_gt/synapse_gt/cutout9/cb2_synapse_cutout9.zarr'
             elif 'cb2_synapse_cutout' in vol:
@@ -141,6 +150,8 @@ ip_mapping = [
     ['gandalf', 'catmaid3.hms.harvard.edu'],
     ['lee-htem-gpu0', '10.117.28.249'],
     ['lee-lab-gpu1', '10.117.28.82'],
+    ['catmaid2', 'catmaid2.hms.harvard.edu'],
+    ['balin', '10.117.28.121'],
     ]
 for alias, ip in ip_mapping:
     if alias in link:

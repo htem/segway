@@ -3,9 +3,9 @@ import h5py
 import sys
 
 f = sys.argv[1]
-zf = zarr.open(f,'r')
+zf = zarr.open(f, 'r')
 fo = sys.argv[2]
-hf = h5py.File(fo,'a')
+hf = h5py.File(fo, 'a')
 
 dsets = ['volumes/raw','volumes/segmentation_0.700']
 
