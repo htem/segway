@@ -5,8 +5,7 @@
                 "segmentation_0.500",
                 "segmentation_0.600",
                 "segmentation_0.700",
-                "segmentation_0.800",
-                "segmentation_0.900"
+                "segmentation_0.800"
             ],
             "voxel_size":[40, 4, 4]
         },   
