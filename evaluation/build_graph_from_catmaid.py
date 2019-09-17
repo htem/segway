@@ -86,7 +86,7 @@ def add_nodes_from_catmaidJson(JSONdata):
 
 
 def add_nodes_from_catmaidJson_with_interpolation(JSONdata, step):
-    graph = nx.Graph()
+    skeleton_graph = nx.Graph()
     glia_cells_sk = glia_cells_sk_id_Json(JSONdata)
     id_to_start = int(max(max(list(i['treenodes'].keys()))
                           for i in JSONdata['skeletons'].values()))+1
@@ -94,8 +94,8 @@ def add_nodes_from_catmaidJson_with_interpolation(JSONdata, step):
         if len(sk_dict['treenodes']) < 2:
             continue
         for tr_id, tr_dict in sk_dict['treenodes'].items():
-            (graph,
-             id_to_start) = interpolation_sections_JSON(graph,
+            (skeleton_graph,
+             id_to_start) = interpolation_sections_JSON(skeleton_graph,
                                                         sk_id,
                                                         tr_id,
                                                         sk_dict['treenodes'],
@@ -107,7 +107,7 @@ def add_nodes_from_catmaidJson_with_interpolation(JSONdata, step):
             skeleton_graph.nodes[node]['cell_type'] = 'glia'
         else:
             skeleton_graph.nodes[node]['cell_type'] = 'neuron'
-    return graph
+    return skeleton_graph
 
 
 def interpolation_sections_JSON(graph, sk_id, tr_id, sk_dict, current_dict,

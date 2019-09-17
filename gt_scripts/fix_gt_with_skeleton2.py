@@ -15,11 +15,7 @@ from funlib.segment.arrays import replace_values
 from fix_merge import fix_merge
 
 
-def get_graph(
-        input, threshold, rag_weight_attribute="capacity", segment_ds=None,
-        filter_in_segments=[],
-        components=None,
-        ):
+def get_graph(input, threshold, rag_weight_attribute="capacity", segment_ds=None, filter_in_segments=[]):
     graph = networkx.Graph()
     for n, n_data in input.nodes(data=True):
 
@@ -35,38 +31,17 @@ def get_graph(
 
             segment_id = segment_ds[zyx]
             n_data["segment_id"] = segment_id
-
+        
         if len(filter_in_segments) and \
                 n_data['segment_id'] not in filter_in_segments:
             continue
 
         graph.add_node(n, **n_data)
 
-    component_by_id = {}
-    if components is not None:
-        for component_id, nodes in enumerate(components):
-            for n in nodes:
-                component_by_id[n] = component_id
-
     for u, v, data in input.edges(data=True):
-
         if u not in graph or v not in graph:
             continue
-
-        if u in component_by_id and v in component_by_id:
-            if component_by_id[u] == component_by_id[v]:
-                merge_score = .01
-                capacity = 100
-            else:
-                merge_score = .99
-                capacity = .01
-            graph.add_edge(
-                u, v,
-                capacity=capacity,
-                merge_score=merge_score,
-                )
-
-        elif (data['merge_score'] is not None and
+        if (data['merge_score'] is not None and
                 data['merge_score'] <= threshold):
             graph.add_edge(
                 u, v,
@@ -123,9 +98,7 @@ def get_one_merged_components(segments, done):
     return (None, None)
 
 
-def get_one_splitted_component(
-        skeletons, segment_array, nodes, done,
-        fragments_array, ignored_fragments):
+def get_one_splitted_component(skeletons, segment_array, nodes, done):
     for skid in skeletons:
         segments = set()
         zyxs = []
@@ -136,10 +109,6 @@ def get_one_splitted_component(
             zyx = daisy.Coordinate(tuple(nodes[n]["zyx"]))
             if not segment_array.roi.contains(zyx):
                 continue
-
-            if fragments_array[zyx] in ignored_fragments:
-                continue
-
             seg_id = segment_array[zyx]
             if seg_id != 0:
                 # TODO: not entirely sure why this could be
@@ -336,8 +305,7 @@ if __name__ == "__main__":
             # merged_segment = rag.nodes[merge_components[0]].segment_id
             subrag = get_graph(
                 rag, segment_threshold, rag_weight_attribute,
-                filter_in_segments=[merged_segment],
-                components=merge_components)
+                filter_in_segments=[merged_segment])
 
             # print(subrag.nodes(data=True))
 
@@ -363,18 +331,12 @@ if __name__ == "__main__":
     if correct_splits:
         processed_segments = set()
 
-        if make_fragment_cache:
-            print("Making fragment cache...")
-            fragments_array.materialize()
-
         while True:
             splitted_segments, skeleton_id, coords = get_one_splitted_component(
                     skeletons,
                     segment_array,
                     nodes,
-                    processed_segments,
-                    fragments_array,
-                    ignored_fragments)
+                    processed_segments)
             processed_segments.add(skeleton_id)
 
             if splitted_segments is None:

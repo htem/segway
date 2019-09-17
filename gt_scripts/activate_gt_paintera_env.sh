@@ -21,8 +21,11 @@ alias 03_run_slicewise_segmentation="python ${segway_dir}/gt_scripts/extract_sli
 alias 03_check_slicewise_segmentation="python -i ${segway_dir}/gt_scripts/ng_check_slicewise_segmentation_z.py ${gt_json}"
 
 alias 04_fetch_skeleton="python ${segway_dir}/gt_scripts/fetch_skeletons_cb2_from_json.py ${gt_json}"
-alias 04_run_skeleton_correction="python ${segway_dir}/gt_scripts/fix_gt_with_skeleton.py ${gt_json}"
-alias 04_check_skeleton_correction="python -i ${segway_dir}/gt_scripts/ng_check_skeleton_correction.py ${gt_json}"
+# alias 04_run_skeleton_correction="python ${segway_dir}/gt_scripts/fix_gt_with_skeleton.py ${gt_json}"
+# alias 04_check_skeleton_correction="python -i ${segway_dir}/gt_scripts/ng_check_skeleton_correction.py ${gt_json}"
+alias 04_zarr2hdf="python ${segway_dir}/gt_scripts/cp_zarr_2_hdf.py ${gt_json}"
+alias 04_hdf2zarr="python ${segway_dir}/gt_scripts/cp_hdf_2_zarr.py ${gt_json}"
+alias 04_check_paintera_gt="python -i ${segway_dir}/gt_scripts/ng_check_paintera_gt.py ${gt_json}"
 
 alias 05a_add_labels_mask="python ${segway_dir}/gt_scripts/add_labels_mask_z.py ${gt_json}"
 alias 05b_add_ignored_fragments_mask="python ${segway_dir}/gt_scripts/add_labels_mask_ignore_fragments.py ${gt_json}"

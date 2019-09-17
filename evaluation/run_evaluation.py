@@ -83,6 +83,7 @@ def run_evaluation(
             config['Input']['segment_names'])
         print(model_name_mapping, "&&&&&")
     config['file_name'] = file_name
+ 
 
     if 'Inputs' in config:
         splits_and_merges={}

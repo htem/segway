@@ -10,7 +10,7 @@ neuroglancer.set_server_bind_address('0.0.0.0')
 if '.zarr' in sys.argv[1]:
     raw_file = sys.argv[1]
 else:
-    config = gt_tools.load_config(sys.argv[1])
+    config = gt_tools.load_config(sys.argv[1], no_db=True, no_zarr=True)
     raw_file = config["raw_file"]
 
 if raw_file[-1] == '/':

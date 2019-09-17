@@ -29,17 +29,18 @@ def compare_segmentation_to_ground_truth_skeleton(
     split_and_merge, split_and_merge_rand, split_and_merge_voi = [], [], []    
     colours = color_generator(len(segmentation_paths))
 
+    parameters=[(agglomeration_thresholds,seg_path,num_processes,configs['skeleton']) for seg_path in segmentation_paths]
+    p= Pool(num_processes)
+    graph_lists=p.starmap(generate_graphs_with_seg_labels,parameters)
 
-    for seg_path in segmentation_paths:
+    for i,seg_path in enumerate(segmentation_paths):
         numb_split, numb_merge = [], []
         (rand_split_list,
          rand_merge_list,
          voi_split_list,
          voi_merge_list) = [], [], [], []
-        graph_list = generate_graphs_with_seg_labels(agglomeration_thresholds,
-                                                     seg_path,
-                                                     num_processes,
-                                                     configs['skeleton'])
+       
+        graph_list= graph_lists[i]
         for graph in graph_list:
             if graph is None:
                 numb_split.append(np.nan)
@@ -114,7 +115,7 @@ def generate_graphs_with_seg_labels(agglomeration_thresholds, segmentation_path,
                                                    skeleton_configs['with_interpolation'],
                                                    skeleton_configs['step'],
                                                    skeleton_configs['leaf_node_removal_depth'])
-    p = Pool(num_processes)
+    
     if os.path.exists(os.path.join(segmentation_path, 'luts/fragment_segment')):
         fragment_graph = add_predicted_seg_labels_from_vol(unlabelled_skeleton.copy(),
                                                            segmentation_path,
@@ -123,14 +124,14 @@ def generate_graphs_with_seg_labels(agglomeration_thresholds, segmentation_path,
         
         parameters_list = [(fragment_graph.copy(), segmentation_path, 'volumes/'+threshold)
                             for threshold in agglomeration_thresholds]
-        graph_list = p.starmap(replace_fragment_ids_with_LUT_values,
-                               parameters_list)
+        
+        graph_list = [replace_fragment_ids_with_LUT_values(pl[0],pl[1],pl[2]) for pl in parameters_list]
     else:
         parameters_list = [(unlabelled_skeleton.copy(), segmentation_path, 'volumes/'+threshold,
                             skeleton_configs['load_segment_array_to_memory'])
                             for threshold in agglomeration_thresholds]
-        graph_list = p.starmap(add_predicted_seg_labels_from_vol,
-                               parameters_list)
+        graph_list= [add_predicted_seg_labels_from_vol(pl[0],pl[1],pl[2],pl[3]) for pl in parameters_list]
+
     return graph_list
 
 
@@ -205,7 +206,7 @@ def write_error_files(output_path, file_name,
     print("output path:", output_path)
     if write_txt:    
         with open(output_path + file_name + '.txt', 'w') as f:
-            print("MERGE ERRORS (" + str(len(merge_error_rows)) + ")", file = f)
+            print("MERGE ERRORS (" + str(len(merge_error_rows)) + ")", file=f)
             for error in merge_error_rows:
                 print("Segment %s" % error[1], file = f)
                 print("\t%s and %s merged" % (error[2], error[3]), file = f)

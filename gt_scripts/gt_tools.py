@@ -1,13 +1,12 @@
 
 import json
 import pymongo
-import sys
+# import sys
 import os
 
 import neuroglancer
 
-sys.path.insert(0, "/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_segmentation/segway/tasks")
-import task_helper
+from segway import task_helper
 
 
 def get_db_names(config, file):
@@ -21,9 +20,15 @@ def get_db_names(config, file):
 
     if db_name is None or db_host is None or db_edges_collection is None:
 
-        configs = config["task_config_files"]
-        configs.append("Input.output_file=%s" % file)
-        user_configs, global_config = task_helper.parseConfigs(config["task_config_files"])
+        if "task_config_files" in config:
+            configs = config["task_config_files"]
+            configs.append("Input.output_file=%s" % file)
+            user_configs, global_config = task_helper.parseConfigs(config["task_config_files"])
+        else:
+            assert "Input" in config
+            # print(file); exit(0)
+            # print(config["config_f"]); exit(0)
+            user_configs, global_config = task_helper.parseConfigs([config["config_f"]])
 
         if not db_host:
             db_host = global_config["Input"]["db_host"]
@@ -43,7 +48,7 @@ def get_db_names(config, file):
     return (db_name, db_host, db_edges_collection)
 
 
-def load_config(config_f):
+def load_config(config_f, no_db=False, no_zarr=False):
 
     config_f = config_f.rstrip('/')
     if config_f.endswith(".zarr"):
@@ -56,20 +61,37 @@ def load_config(config_f):
 
         with open(config_f) as f:
             config = json.load(f)
+            config["config_f"] = config_f
+
+    if "script_name" not in config:
+        script_name = os.path.basename(config_f)
+        script_name = script_name.split(".")[0]
+        config["script_name"] = script_name
+    script_name = config["script_name"]
+
+    # try to script_dir the script dir if needed
+    script_dir = os.path.split(config_f)[0]
 
     if "file" in config:
         if config["file"] == "":
             raise RuntimeError('"file" is empty in config...')
-        file = config["file"]
+    elif "file" in config and config["segment_file"] != "":
+        # if config["segment_file"] == "":
+        #     raise RuntimeError('"segment_file" is empty in config...')
+        config["file"] = config["segment_file"]
     else:
-        if config["segment_file"] == "":
-            raise RuntimeError('"segment_file" is empty in config...')
-        file = config["segment_file"]
+        # assume the following pattern
+        file = script_name + '_segmentation_output.zarr'
+        if not os.path.exists(file):
+            file = script_dir + '/' + file
         config["file"] = file
 
-    assert os.path.exists(file), "file %s does not exist..." % file
+    file = config["file"]
 
-    if not config_f.endswith(".zarr"):
+    if not no_zarr:
+        assert os.path.exists(file), "file %s does not exist..." % file
+
+    if not config_f.endswith(".zarr") and not no_db:
 
         db_name, db_host, db_edges_collection = get_db_names(config, file)
         config["db_name"] = db_name
@@ -86,31 +108,25 @@ def load_config(config_f):
         if f not in config:
             config[f] = file
 
-    if "script_name" not in config:
-        script_name = os.path.basename(config_f)
-        script_name = script_name.split(".")[0]
-        config["script_name"] = script_name
-
     script_name = config["script_name"]
-
-    # try to prepend the script dir if needed
-    prepend = os.path.split(config_f)[0]
 
     if "out_file" not in config:
         out_file = config["zarr"]["dir"] + "/" + script_name + ".zarr"
-        if not os.path.exists(out_file):
-            out_file = os.path.join(prepend, out_file)
-        if not os.path.exists(out_file):
-            raise RuntimeError("out_file must exists: %s" % out_file)
         config["out_file"] = out_file
+    if not os.path.exists(config["out_file"]):
+        config["out_file"] = os.path.join(script_dir, config["out_file"])
 
     if "raw_file" not in config:
         raw_file = config["zarr"]["dir"] + "/" + script_name + ".zarr"
-        if not os.path.exists(raw_file):
-            raw_file = os.path.join(prepend, raw_file)
-        if not os.path.exists(raw_file):
-            raise RuntimeError("raw_file must exists: %s" % raw_file)
         config["raw_file"] = raw_file
+    if not os.path.exists(config["raw_file"]):
+        config["raw_file"] = os.path.join(script_dir, config["raw_file"])
+
+    if "skeleton_file" not in config:
+        skeleton_file = config["zarr"]["dir"] + "/" + script_name + "_skeleton.json"
+        config["skeleton_file"] = skeleton_file
+    if not os.path.exists(config["skeleton_file"]):
+        config["skeleton_file"] = os.path.join(script_dir, config["skeleton_file"])
 
     if "mask_ds" not in config:
         config["mask_ds"] = "volumes/labels/labels_mask_z"
@@ -126,6 +142,8 @@ def load_config(config_f):
         config["segmentation_skeleton_ds"] = "volumes/segmentation_skeleton"
     if "unlabeled_ds" not in config:
         config["unlabeled_ds"] = "volumes/labels/unlabeled_mask_skeleton"
+    if "segment_ds_paintera_out" not in config:
+        config["segment_ds_paintera_out"] = "volumes/segmentation_paintera"
 
     return config
 
@@ -163,6 +181,7 @@ def print_ng_link(viewer):
     ip_mapping = [
         ['gandalf', 'catmaid3.hms.harvard.edu'],
         ['lee-htem-gpu0', '10.117.28.249'],
+        ['leelab-gpu-0.med.harvard.edu', '10.11.144.145'],
         ['lee-lab-gpu1', '10.117.28.82'],
         ['catmaid2', 'catmaid2.hms.harvard.edu'],
         ]

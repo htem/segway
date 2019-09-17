@@ -472,6 +472,9 @@ def aggregateConfigs(configs):
         copyParameter(input_config, config, 'sub_roi_shape')
         # config['edges_collection'] = "edges_" + merge_function
 
+        if 'num_workers' in config:
+            config['num_workers'] = int(config['num_workers'])
+
 
     if "PredictTask" in configs:
         config = configs["PredictTask"]
@@ -515,7 +518,7 @@ def aggregateConfigs(configs):
         copyParameter(input_config, config, 'raw_dataset')
 
     if "PredictMyelinTask" in configs:
-        raise RuntimeError("Deprecated task")
+        # raise RuntimeError("Deprecated task")
         config = configs["PredictMyelinTask"]
         config['raw_file'] = input_config['raw_file']
         config['myelin_file'] = input_config['output_file']
@@ -540,12 +543,6 @@ def aggregateConfigs(configs):
         copyParameter(input_config, config, 'raw_dataset')
         copyParameter(input_config, config, 'overwrite_sections')
         copyParameter(input_config, config, 'overwrite_mask_f')
-        if RUNNING_IN_LOCAL_CLUSTER:
-            # tmn7: in local cluster we're limited by GPU not by CPUs
-            # so allocating as much as we can
-            config['num_workers'] = 16
-        # print(config['affs_file'])
-        # print(config); exit(0)
 
     if "AgglomerateTask" in configs:
         config = configs["AgglomerateTask"]
@@ -558,11 +555,6 @@ def aggregateConfigs(configs):
         copyParameter(input_config, config, 'overwrite_sections')
         copyParameter(input_config, config, 'overwrite_mask_f')
         config['edges_collection'] = "edges_" + merge_function
-        if RUNNING_IN_LOCAL_CLUSTER:
-            # tmn7: in local cluster we're limited by GPU not by CPUs
-            # so allocating as much as we can
-            config['num_workers'] = 4
-            # config['num_workers'] = 1
 
     if "SegmentationTask" in configs:
         config = configs["SegmentationTask"]

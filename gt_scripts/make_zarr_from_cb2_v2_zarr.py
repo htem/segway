@@ -5,6 +5,7 @@ import sys
 import json
 import os
 import logging
+import gt_tools
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("make_zarr_from_cb2_v2_zarr")
@@ -28,7 +29,7 @@ def write_in_block(
     roi_shape = zarr_roi.get_shape()
 
     section_roi_ref = daisy.Roi((0, zarr_offset[1], zarr_offset[2]), (voxel_size[0], roi_shape[1], roi_shape[2]))
-    print(section_roi_ref)
+    # print(section_roi_ref)
     for s, r in replace_section_list:
 
         section_roi = section_roi_ref.shift((s*voxel_size[0], 0, 0))
@@ -43,11 +44,7 @@ def write_in_block(
 
 if __name__ == "__main__":
 
-    config_f = sys.argv[1]
-    with open(config_f) as f:
-        config = json.load(f)
-    script_name = os.path.basename(config_f)
-    script_name = script_name.split(".")[0]
+    config = gt_tools.load_config(sys.argv[1], no_db=True, no_zarr=True)
 
     in_config = config["ZarrIn"]
     raw_f = in_config["file"]
@@ -75,8 +72,9 @@ if __name__ == "__main__":
     roi_shape = roi_shape + roi_context*2
     roi_offset = roi_offset - roi_context
 
-    out_config = config["zarr"]
-    cutout_f = out_config["dir"] + "/" + script_name + ".zarr"
+    # out_config = config["zarr"]
+    # cutout_f = out_config["dir"] + "/" + script_name + ".zarr"
+    cutout_f = config["out_file"]
 
     write_size = daisy.Coordinate([1000, 1024, 1024])
 
@@ -97,7 +95,8 @@ if __name__ == "__main__":
         np.uint8,
         write_size=write_size,
         force_exact_write_size=True,
-        compressor=None
+        compressor=None,
+        delete=True
     )
 
     write_roi = daisy.Roi((0, 0, 0), write_size)
