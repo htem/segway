@@ -112,27 +112,21 @@ def load_config(config_f, no_db=False, no_zarr=False):
 
     if "out_file" not in config:
         out_file = config["zarr"]["dir"] + "/" + script_name + ".zarr"
-        if not os.path.exists(out_file):
-            out_file = os.path.join(script_dir, out_file)
-        # if not os.path.exists(out_file):
-        #     raise RuntimeError("out_file must exists: %s" % out_file)
         config["out_file"] = out_file
+    if not os.path.exists(config["out_file"]):
+        config["out_file"] = os.path.join(script_dir, config["out_file"])
 
     if "raw_file" not in config:
         raw_file = config["zarr"]["dir"] + "/" + script_name + ".zarr"
-        if not os.path.exists(raw_file):
-            raw_file = os.path.join(script_dir, raw_file)
-        # if not os.path.exists(raw_file):
-        #     raise RuntimeError("raw_file must exists: %s" % raw_file)
         config["raw_file"] = raw_file
+    if not os.path.exists(config["raw_file"]):
+        config["raw_file"] = os.path.join(script_dir, config["raw_file"])
 
     if "skeleton_file" not in config:
         skeleton_file = config["zarr"]["dir"] + "/" + script_name + "_skeleton.json"
-        if not os.path.exists(skeleton_file):
-            skeleton_file = os.path.join(script_dir, skeleton_file)
-        # if not os.path.exists(skeleton_file):
-        #     raise RuntimeError("skeleton_file must exists: %s" % skeleton_file)
         config["skeleton_file"] = skeleton_file
+    if not os.path.exists(config["skeleton_file"]):
+        config["skeleton_file"] = os.path.join(script_dir, config["skeleton_file"])
 
     if "mask_ds" not in config:
         config["mask_ds"] = "volumes/labels/labels_mask_z"
@@ -148,6 +142,8 @@ def load_config(config_f, no_db=False, no_zarr=False):
         config["segmentation_skeleton_ds"] = "volumes/segmentation_skeleton"
     if "unlabeled_ds" not in config:
         config["unlabeled_ds"] = "volumes/labels/unlabeled_mask_skeleton"
+    if "segment_ds_paintera_out" not in config:
+        config["segment_ds_paintera_out"] = "volumes/segmentation_paintera"
 
     return config
 
