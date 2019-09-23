@@ -153,13 +153,13 @@ def generate_error_plot(
       
         ax.plot(split_and_merge[j*3+1], split_and_merge[j*3+2],
                 label=split_and_merge[j*3], color = colors[j],
-                zorder=1, alpha=0.5, linewidth=line_width)
+                zorder=1, alpha=0.8, linewidth=line_width)
         for a, b, m, l in zip(split_and_merge[j*3+1], split_and_merge[j*3+2],
                               markers, agglomeration_thresholds):
             if j == 0:
                 ax.scatter(a, b, marker=m,  color =colors[j],
                            label=l.replace('segmentation_', ''),
-                           zorder=2, alpha=0.5, s=30)
+                           zorder=2, alpha=.9, s=45)
             else:
                 ax.scatter(a, b, marker=m,  color = colors[j],zorder=2, alpha=0.5,
                            s=30)
