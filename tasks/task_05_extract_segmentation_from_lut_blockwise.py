@@ -1,16 +1,16 @@
 import logging
-import lsd
+# import lsd
 # import numpy as np
 import daisy
-from daisy import Coordinate, Roi
+# from daisy import Coordinate, Roi
 import sys
 import numpy as np
 
-import os
+# import os
 
 # from funlib.segment.arrays import replace_values
 
-import task_helper
+import task_helper2 as task_helper
 from task_04d_find_segment_blockwise import FindSegmentsBlockwiseTask4
 
 # logging.getLogger('lsd.parallel_fragments').setLevel(logging.DEBUG)
