@@ -108,19 +108,12 @@ def color_generator(length):
 
 
 
-def generate_graphs_with_seg_labels(agglomeration_thresholds, segmentation_path,
-                                    num_processes, skeleton_configs):
+def generate_graphs_with_seg_labels(agglomeration_thresholds, segmentation_path,num_processes, skeleton_configs):
     graph_list = []
-    unlabelled_skeleton = construct_skeleton_graph(skeleton_configs['skeleton_path'],
-                                                   skeleton_configs['with_interpolation'],
-                                                   skeleton_configs['step'],
-                                                   skeleton_configs['leaf_node_removal_depth'])
+    unlabelled_skeleton = construct_skeleton_graph(skeleton_configs['skeleton_path'],skeleton_configs['with_interpolation'],skeleton_configs['step'],skeleton_configs['leaf_node_removal_depth'])
     
     if os.path.exists(os.path.join(segmentation_path, 'luts/fragment_segment')):
-        fragment_graph = add_predicted_seg_labels_from_vol(unlabelled_skeleton.copy(),
-                                                           segmentation_path,
-                                                           'volumes/fragments',
-                                                           skeleton_configs['load_segment_array_to_memory'])
+        fragment_graph = add_predicted_seg_labels_from_vol(unlabelled_skeleton.copy(),segmentation_path,'volumes/fragments',skeleton_configs['load_segment_array_to_memory'])
         
         parameters_list = [(fragment_graph.copy(), segmentation_path, 'volumes/'+threshold)
                             for threshold in agglomeration_thresholds]
