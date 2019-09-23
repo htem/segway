@@ -52,7 +52,6 @@ class SlurmTask(daisy.Task):
 
         if not python_module:
             logname = (actor_script.split('.'))[-2].split('/')[-1]
-<<<<<<< HEAD
         else:
             logname = (actor_script.split('.'))[-1]
 
@@ -64,21 +63,10 @@ class SlurmTask(daisy.Task):
             if os.path.exists(os.path.join(prepend, actor_script)):
                 actor_script = os.path.realpath(os.path.join(prepend, actor_script))
                 actor_script = actor_script.replace('/mnt/orchestra_nfs', '/n/groups/htem')
-
-                # if output_path.startswith("/mnt/orchestra_nfs/"):
-                #     output_path = output_path[len("/mnt/orchestra_nfs/"):]
-                #     output_path = "/n/groups/htem/" + output_path
-                # print(actor_script); exit(0)
-                # actor_script = actor_script.replace()
                 break
-
-=======
-            actor_script = (os.path.dirname(os.path.realpath(__file__)) +
-                            '/' + actor_script)
         else:
             logname = (actor_script.split('.'))[-1]
 
->>>>>>> fbe4e347f2adeda65a857d1d631389543f705db4
         f = "%s/%s.error_blocks.%s" % (self.log_dir, logname, str(datetime.datetime.now()).replace(' ', '_'))
         self.error_log = open(f, "w")
         self.precheck_log = None
@@ -380,7 +368,7 @@ def parseConfigs(args, aggregate_configs=True):
                         global_configs[k] = new_configs[k]
                 # print(list(global_configs.keys()))
 
-                if 'Input' in new_configs:
+                if 'Input' in new_configs and 'config_filename' not in global_configs['Input']:
                     global_configs['Input']['config_filename'] = config
 
     print("\nhelper: final config")
@@ -412,10 +400,7 @@ def aggregateConfigs(configs):
 
     input_config = configs["Input"]
     network_config = configs["Network"]
-<<<<<<< HEAD
     synapse_network_config = configs["SynfulNetwork"]
-=======
->>>>>>> fbe4e347f2adeda65a857d1d631389543f705db4
 
     today = datetime.date.today()
     parameters = {}
@@ -423,10 +408,7 @@ def aggregateConfigs(configs):
     parameters['month'] = '%02d' % today.month
     parameters['day'] = '%02d' % today.day
     parameters['network'] = network_config['name']
-<<<<<<< HEAD
     parameters['synapse_network'] = synapse_network_config['name']
-=======
->>>>>>> fbe4e347f2adeda65a857d1d631389543f705db4
     parameters['iteration'] = network_config['iteration']
     config_filename = input_config['config_filename']
     # proj is just the last folder in the config path
@@ -439,7 +421,6 @@ def aggregateConfigs(configs):
     parameters['script_name'] = script_name
     parameters['script_folder'] = parameters['proj']
     parameters['script_dir'] = '/'.join(config_filename.split('/')[0:-1])
-<<<<<<< HEAD
     script_dir = parameters['script_dir']
 
     input_config["experiment"] = input_config["experiment"].format(**parameters)
@@ -455,24 +436,6 @@ def aggregateConfigs(configs):
     if output_path.startswith("/mnt/orchestra_nfs/"):
         output_path = output_path[len("/mnt/orchestra_nfs/"):]
         output_path = "/n/groups/htem/" + output_path
-=======
-
-    input_config["experiment"] = input_config["experiment"].format(**parameters)
-    parameters['experiment'] = input_config["experiment"]
-    input_config["output_file"] = input_config["output_file"].format(**parameters)
-
-    # add a hash based on directory path to the mongodb dataset
-    # so that other users can run the same config without name conflicts
-    # though if the db already exists, don't change it to avoid confusion
-    output_path = os.path.abspath(input_config["output_file"])
-    if output_path.startswith("/mnt/orchestra_nfs/"):
-        output_path = output_path[len("/mnt/orchestra_nfs/"):]
-        output_path = "/n/groups/htem/" + output_path
-    # print("Hashing output path %s" % output_path)
-    # path_hash = hashlib.blake2b(
-    #     output_path.encode(), digest_size=4).hexdigest()
-    # parameters['path_hash'] = path_hash
->>>>>>> fbe4e347f2adeda65a857d1d631389543f705db4
 
     for config in input_config:
         if isinstance(input_config[config], str):
@@ -493,11 +456,8 @@ def aggregateConfigs(configs):
             print("Skipping %s" % config)
             continue
 
-<<<<<<< HEAD
-        print("Copying defaults for ", config)
+        # print("Copying defaults for ", config)
 
-=======
->>>>>>> fbe4e347f2adeda65a857d1d631389543f705db4
         config = configs[config]
         copyParameter(input_config, config, 'db_name')
         copyParameter(input_config, config, 'db_host')
@@ -505,12 +465,9 @@ def aggregateConfigs(configs):
         copyParameter(input_config, config, 'sub_roi_offset')
         copyParameter(input_config, config, 'sub_roi_shape')
 
-<<<<<<< HEAD
-=======
         if 'num_workers' in config:
             config['num_workers'] = int(config['num_workers'])
 
->>>>>>> fbe4e347f2adeda65a857d1d631389543f705db4
     if "PredictTask" in configs:
         config = configs["PredictTask"]
         config['raw_file'] = input_config['raw_file']
@@ -519,21 +476,14 @@ def aggregateConfigs(configs):
             config['out_file'] = input_config['output_file']
         config['train_dir'] = network_config['train_dir']
         config['iteration'] = network_config['iteration']
-<<<<<<< HEAD
         # config['log_dir'] = input_config['log_dir']
         # config['net_voxel_size'] = network_config['net_voxel_size']
         copyParameter(network_config, config, 'net_voxel_size')
-        config['predict_file'] = 'predict.py'
         copyParameter(network_config, config, 'predict_file')
-=======
-        config['log_dir'] = input_config['log_dir']
-        config['net_voxel_size'] = network_config['net_voxel_size']
         if 'predict_file' in network_config:
             config['predict_file'] = network_config['predict_file']
         else:
-            # config['predict_file'] = "predict_daisyreq.py"
             config['predict_file'] = "predict.py"
->>>>>>> fbe4e347f2adeda65a857d1d631389543f705db4
         if 'xy_downsample' in network_config:
             config['xy_downsample'] = network_config['xy_downsample']
         if 'roi_offset' in input_config:
@@ -552,11 +502,7 @@ def aggregateConfigs(configs):
         copyParameter(input_config, config, 'center_roi_offset')
 
         if RUNNING_IN_LOCAL_CLUSTER:
-<<<<<<< HEAD
             # restrict number of workers to 1 for predict task if we're running locally to avoid conflict with other daisies
-=======
-        # restrict number of workers to 1 for predict task if we're running locally to avoid conflict with other daisies
->>>>>>> fbe4e347f2adeda65a857d1d631389543f705db4
             config['num_workers'] = 1
 
     if "FixRawFromCatmaidTask" in configs:
@@ -582,6 +528,10 @@ def aggregateConfigs(configs):
         config['merged_affs_file'] = input_config['output_file']
         config['log_dir'] = input_config['log_dir']
 
+    if "DownsampleTask" in configs:
+        config = configs["DownsampleTask"]
+        copyParameter(input_config, config, 'output_file', 'affs_file')
+
     if "ExtractFragmentTask" in configs:
         config = configs["ExtractFragmentTask"]
         copyParameter(input_config, config, 'output_file', 'affs_file')
@@ -590,15 +540,6 @@ def aggregateConfigs(configs):
         copyParameter(input_config, config, 'raw_dataset')
         copyParameter(input_config, config, 'overwrite_sections')
         copyParameter(input_config, config, 'overwrite_mask_f')
-<<<<<<< HEAD
-        if RUNNING_IN_LOCAL_CLUSTER:
-            # tmn7: in local cluster we're limited by GPU not by CPUs
-            # so allocating as much as we can
-            config['num_workers'] = 16
-=======
->>>>>>> fbe4e347f2adeda65a857d1d631389543f705db4
-        # print(config['affs_file'])
-        # print(config); exit(0)
 
     if "AgglomerateTask" in configs:
         config = configs["AgglomerateTask"]
@@ -611,14 +552,6 @@ def aggregateConfigs(configs):
         copyParameter(input_config, config, 'overwrite_sections')
         copyParameter(input_config, config, 'overwrite_mask_f')
         config['edges_collection'] = "edges_" + merge_function
-<<<<<<< HEAD
-        if RUNNING_IN_LOCAL_CLUSTER:
-            # tmn7: in local cluster we're limited by GPU not by CPUs
-            # so allocating as much as we can
-            config['num_workers'] = 4
-            # config['num_workers'] = 1
-=======
->>>>>>> fbe4e347f2adeda65a857d1d631389543f705db4
 
     if "SegmentationTask" in configs:
         config = configs["SegmentationTask"]
@@ -700,7 +633,6 @@ def aggregateConfigs(configs):
         copyParameter(input_config, config, 'output_file', 'out_file')
         config['merge_function'] = merge_function
 
-<<<<<<< HEAD
     network_config = configs["SynfulNetwork"]
 
     if "PredictSynapseTask" in configs:
@@ -755,20 +687,14 @@ def aggregateConfigs(configs):
         if RUNNING_IN_LOCAL_CLUSTER:
             config['num_workers'] = 1
 
-=======
->>>>>>> fbe4e347f2adeda65a857d1d631389543f705db4
 
 def compute_compatible_roi(
         roi_offset, roi_shape,
         sub_roi_offset, sub_roi_shape,
         roi_context,
-<<<<<<< HEAD
         source_roi,
         chunk_size,
         center_roi_offset=False
-=======
-        source_roi
->>>>>>> fbe4e347f2adeda65a857d1d631389543f705db4
         ):
 
     # get total input and output ROIs
@@ -777,7 +703,6 @@ def compute_compatible_roi(
         output_roi = daisy.Roi(
             tuple(roi_offset), tuple(roi_shape))
 
-<<<<<<< HEAD
         if center_roi_offset:
             output_roi = output_roi.shift(-daisy.Coordinate(tuple(roi_shape))/2)
             output_roi = output_roi.snap_to_grid(voxel_size, mode="grow")
@@ -790,29 +715,11 @@ def compute_compatible_roi(
     elif sub_roi_offset is not None and sub_roi_shape is not None:
 
         output_roi = source_roi  # total volume ROI
-=======
-        if self.center_roi_offset:
-            output_roi = output_roi.shift(-daisy.Coordinate(tuple(roi_shape))/2)
-            output_roi = output_roi.snap_to_grid(voxel_size, mode="grow")
-
-        input_roi = output_roi.grow(context, context)
-        assert input_roi.intersect(source.roi) == input_roi, \
-            "output_roi (%s) + context (%s) = input_roi (%s) has to be within raw ROI" \
-            % (output_roi, context, input_roi)
-
-    elif sub_roi_offset is not None and sub_roi_shape is not None:
-
-        output_roi = source.roi  # total volume ROI
->>>>>>> fbe4e347f2adeda65a857d1d631389543f705db4
         input_roi = daisy.Roi(
             tuple(sub_roi_offset), tuple(sub_roi_shape))
         assert output_roi.contains(input_roi)
 
-<<<<<<< HEAD
         if center_roi_offset:
-=======
-        if self.center_roi_offset:
->>>>>>> fbe4e347f2adeda65a857d1d631389543f705db4
             raise RuntimeError("Unimplemented")
         # need align output_roi to prediction chunk size
 
@@ -827,20 +734,12 @@ def compute_compatible_roi(
         assert (output_roi.get_begin()[1] - input_roi.get_begin()[1]) % chunk_size[1] == 0
         assert (output_roi.get_begin()[2] - input_roi.get_begin()[2]) % chunk_size[2] == 0
 
-<<<<<<< HEAD
         input_roi = input_roi.grow(roi_context, roi_context)
-=======
-        input_roi = input_roi.grow(context, context)
->>>>>>> fbe4e347f2adeda65a857d1d631389543f705db4
         assert output_roi.contains(input_roi)
 
     else:
 
-<<<<<<< HEAD
         if center_roi_offset:
-=======
-        if self.center_roi_offset:
->>>>>>> fbe4e347f2adeda65a857d1d631389543f705db4
             raise RuntimeError("Cannot center ROI if not specified")
 
         assert roi_offset is None
@@ -848,18 +747,12 @@ def compute_compatible_roi(
         assert sub_roi_offset is None
         assert sub_roi_shape is None
         # if no ROI is given, we need to shrink output ROI
-<<<<<<< HEAD
         # to account for the roi_context
         input_roi = source_roi
         output_roi = source_roi.grow(-roi_context, -roi_context)
 
     return input_roi, output_roi
 
-=======
-        # to account for the context
-        input_roi = source.roi
-        output_roi = source.roi.grow(-context, -context)
->>>>>>> fbe4e347f2adeda65a857d1d631389543f705db4
 
 def align(a, b, stride):
     # align a to b such that b - a is multiples of stride
@@ -873,7 +766,6 @@ def align(a, b, stride):
     print(b - l)
     return b - l
 
-<<<<<<< HEAD
 
 def check_block(
         block,
@@ -936,6 +828,3 @@ def check_block(
     # TODO: this should be filtered by post check and not pre check
     # if (s == 0):
     #     self.log_error_block(block)
-
-=======
->>>>>>> fbe4e347f2adeda65a857d1d631389543f705db4
