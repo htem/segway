@@ -241,3 +241,74 @@ def segment(
             )
         logging.info("Writing segmentation for threshold %f..." % threshold)
         segmentation[total_roi] = segmentation_data
+
+
+def pooling(mat, ksize, method, pad=False):
+    '''Non-overlapping pooling on 2D or 3D data.
+
+    <mat>: ndarray, input array to pool.
+    <ksize>: tuple of 2, kernel size in (ky, kx).
+    <method>: str, 'max for max-pooling, 
+                   'mean' for mean-pooling.
+    <pad>: bool, pad <mat> or not. If no pad, output has size
+           n//f, n being <mat> size, f being kernel size.
+           if pad, output has size ceil(n/f).
+
+    Return <result>: pooled matrix.
+
+    Adapted from https://stackoverflow.com/questions/42463172/how-to-perform-max-mean-pooling-on-a-2d-array-using-numpy
+    '''
+
+    # m, n = mat.shape[:2]
+    # assume that yx is the last two indices in the array
+    shape_len = len(mat.shape)
+    # assert len(mat.shape) == 4
+    m, n = mat.shape[shape_len-2], mat.shape[shape_len-1]
+    ky, kx = ksize
+
+    # ceil = lambda x, y: int(np.ceil(x/float(y)))
+
+    # if pad:
+    #     assert False, "Untested"
+    #     ny = ceil(m, ky)
+    #     nx = ceil(n, kx)
+    #     size = (ny*ky, nx*kx)+mat.shape[2:]
+    #     mat_pad = np.full(size,np.nan)
+    #     mat_pad[:m, :n, ...] = mat
+    # else:
+    #     ny = m//ky
+    #     nx = n//kx
+    #     mat_pad = mat[..., :ny*ky, :nx*kx]
+
+    ny = m//ky
+    nx = n//kx
+    # new_shape = (mat.shape[0], mat.shape[1]) + (ny, ky, nx, kx)
+    new_shape = tuple([mat.shape[k] for k in range(shape_len-2)]) + (ny, ky, nx, kx)
+
+    if method == 'max':
+        result = np.nanmax(mat.reshape(new_shape), axis=(shape_len-1, shape_len+1))
+    elif method == 'min':
+        result = np.nanmin(mat.reshape(new_shape), axis=(shape_len-1, shape_len+1))
+    elif method == 'mean':
+        result = np.nanmean(mat.reshape(new_shape), axis=(shape_len-1, shape_len+1))
+    else:
+        raise RuntimeError("Unsupported method %s" % method)
+
+    return result
+
+
+def downsample_with_pooling(fullres_ds, downsample_xy, mode='min'):
+
+    ds_array = fullres_ds
+    if fullres_ds is not None:
+        if downsample_xy > 1:
+            voxel_ds_factors = (1, downsample_xy, downsample_xy)
+            fullres_ndarray = fullres_ds.to_ndarray()
+            ds_ndarray = pooling(fullres_ndarray, (downsample_xy, downsample_xy), mode)
+            ds_array = daisy.Array(
+                ds_ndarray,
+                roi=fullres_ds.roi,
+                voxel_size=fullres_ds.voxel_size*voxel_ds_factors
+                )
+
+    return ds_array

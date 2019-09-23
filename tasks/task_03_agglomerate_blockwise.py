@@ -77,20 +77,6 @@ class AgglomerateTask(task_helper.SlurmTask):
         '''Daisy calls `prepare` for each task prior to scheduling
         any block.'''
 
-        # waterz_merge_function = {
-        #     'hist_quant_10': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 10, ScoreValue, 256, false>>',
-        #     'hist_quant_10_initmax': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 10, ScoreValue, 256, true>>',
-        #     'hist_quant_25': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 25, ScoreValue, 256, false>>',
-        #     'hist_quant_25_initmax': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 25, ScoreValue, 256, true>>',
-        #     'hist_quant_50': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 50, ScoreValue, 256, false>>',
-        #     'hist_quant_50_initmax': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 50, ScoreValue, 256, true>>',
-        #     'hist_quant_75': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 75, ScoreValue, 256, false>>',
-        #     'hist_quant_75_initmax': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 75, ScoreValue, 256, true>>',
-        #     'hist_quant_90': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 90, ScoreValue, 256, false>>',
-        #     'hist_quant_90_initmax': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 90, ScoreValue, 256, true>>',
-        #     'mean': 'OneMinus<MeanAffinity<RegionGraphType, ScoreValue>>',
-        # }[self.merge_function]
-
         logging.info("Reading affs from %s", self.affs_file)
         affs = daisy.open_ds(self.affs_file, self.affs_dataset, mode='r')
 
@@ -99,11 +85,6 @@ class AgglomerateTask(task_helper.SlurmTask):
 
         # open RAG DB
         logging.info("Opening RAG DB...")
-        # self.rag_provider = lsd.persistence.MongoDbRagProvider(
-        #     self.db_name,
-        #     host=self.db_host,
-        #     mode='r+',
-        #     edges_collection='edges_' + self.merge_function)
         self.rag_provider = daisy.persistence.MongoDbGraphProvider(
             self.db_name,
             host=self.db_host,
