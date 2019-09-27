@@ -93,6 +93,8 @@ class ExtractFragmentTask(task_helper.SlurmTask):
     overwrite_mask_f = daisy.Parameter(None)
     overwrite_sections = daisy.Parameter(None)
 
+    seed_size = daisy.Parameter(10)  # default seed size from Jan
+
     def prepare(self):
         '''Daisy calls `prepare` for each task prior to scheduling
         any block.'''
@@ -216,7 +218,8 @@ class ExtractFragmentTask(task_helper.SlurmTask):
             'fragments_file': self.fragments_file,
             'fragments_dataset': self.fragments_dataset,
             'epsilon_agglomerate': self.epsilon_agglomerate,
-            'use_mahotas': self.use_mahotas
+            'use_mahotas': self.use_mahotas,
+            'seed_size': self.seed_size
         }
 
         self.slurmSetup(config, 'actor_fragment_extract.py')

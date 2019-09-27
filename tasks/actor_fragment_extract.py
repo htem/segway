@@ -23,6 +23,7 @@ if __name__ == "__main__":
     mask_dataset = None
     epsilon_agglomerate = 0
     use_mahotas = False
+    seed_size = 10  # default seed size from Jan
 
     for key in run_config:
         globals()['%s' % key] = run_config[key]
@@ -82,7 +83,8 @@ if __name__ == "__main__":
                            fragments_in_xy,
                            epsilon_agglomerate,
                            mask,
-                           myelin_ds=myelin_ds
+                           myelin_ds=myelin_ds,
+                           seed_size=seed_size
                            # use_mahotas=use_mahotas,
                            )
 
