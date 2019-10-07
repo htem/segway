@@ -607,6 +607,18 @@ def aggregateConfigs(configs):
         config['merge_function'] = merge_function
         config['thresholds'] = thresholds_lut
 
+    if "FindSegmentsBlockwiseTask2a" in configs:
+        config = configs["FindSegmentsBlockwiseTask2a"]
+        copyParameter(input_config, config, 'output_file', 'fragments_file')
+        config['merge_function'] = merge_function
+        config['thresholds'] = thresholds_lut
+
+    if "FindSegmentsBlockwiseTask2b" in configs:
+        config = configs["FindSegmentsBlockwiseTask2b"]
+        copyParameter(input_config, config, 'output_file', 'fragments_file')
+        config['merge_function'] = merge_function
+        config['thresholds'] = thresholds_lut
+
     if "FindSegmentsBlockwiseTask3" in configs:
         config = configs["FindSegmentsBlockwiseTask3"]
         copyParameter(input_config, config, 'output_file', 'fragments_file')

@@ -596,25 +596,43 @@ def aggregateConfigs(configs):
         copyParameter(input_config, config, 'output_file', 'fragments_file')
         config['merge_function'] = merge_function
         config['edges_collection'] = "edges_" + merge_function
-        config['thresholds'] = thresholds_lut
+        if 'thresholds' not in config:
+            config['thresholds'] = thresholds_lut
 
     if "FindSegmentsBlockwiseTask2" in configs:
         config = configs["FindSegmentsBlockwiseTask2"]
         copyParameter(input_config, config, 'output_file', 'fragments_file')
         config['merge_function'] = merge_function
-        config['thresholds'] = thresholds_lut
+        if 'thresholds' not in config:
+            config['thresholds'] = thresholds_lut
+
+    if "FindSegmentsBlockwiseTask2a" in configs:
+        config = configs["FindSegmentsBlockwiseTask2a"]
+        copyParameter(input_config, config, 'output_file', 'fragments_file')
+        config['merge_function'] = merge_function
+        if 'thresholds' not in config:
+            config['thresholds'] = thresholds_lut
+
+    if "FindSegmentsBlockwiseTask2b" in configs:
+        config = configs["FindSegmentsBlockwiseTask2b"]
+        copyParameter(input_config, config, 'output_file', 'fragments_file')
+        config['merge_function'] = merge_function
+        if 'thresholds' not in config:
+            config['thresholds'] = thresholds_lut
 
     if "FindSegmentsBlockwiseTask3" in configs:
         config = configs["FindSegmentsBlockwiseTask3"]
         copyParameter(input_config, config, 'output_file', 'fragments_file')
         config['merge_function'] = merge_function
-        config['thresholds'] = thresholds_lut
+        if 'thresholds' not in config:
+            config['thresholds'] = thresholds_lut
 
     if "FindSegmentsBlockwiseTask4" in configs:
         config = configs["FindSegmentsBlockwiseTask4"]
         copyParameter(input_config, config, 'output_file', 'fragments_file')
         config['merge_function'] = merge_function
-        config['thresholds'] = thresholds_lut
+        if 'thresholds' not in config:
+            config['thresholds'] = thresholds_lut
 
     if "ExtractSegmentationFromLUT" in configs:
         config = configs["ExtractSegmentationFromLUT"]
@@ -627,8 +645,8 @@ def aggregateConfigs(configs):
         copyParameter(input_config, config, 'output_file', 'out_file')
         config['merge_function'] = merge_function
 
-    if "ExtractChunkwiseSegmentationTask" in configs:
-        config = configs["ExtractChunkwiseSegmentationTask"]
+    if "ExtractSuperFragmentSegmentationTask" in configs:
+        config = configs["ExtractSuperFragmentSegmentationTask"]
         copyParameter(input_config, config, 'output_file', 'fragments_file')
         copyParameter(input_config, config, 'output_file', 'out_file')
         config['merge_function'] = merge_function

@@ -93,7 +93,9 @@ class ExtractFragmentTask(task_helper.SlurmTask):
     overwrite_mask_f = daisy.Parameter(None)
     overwrite_sections = daisy.Parameter(None)
 
-    seed_size = daisy.Parameter(10)  # default seed size from Jan
+    min_seed_distance = daisy.Parameter(10)  # default seed size from Jan
+
+    force_exact_write_size = daisy.Parameter(False)
 
     def prepare(self):
         '''Daisy calls `prepare` for each task prior to scheduling
@@ -138,18 +140,7 @@ class ExtractFragmentTask(task_helper.SlurmTask):
             # get ROI of source
             assert self.raw_file is not None and self.raw_dataset is not None
             source = daisy.open_ds(self.raw_file, self.raw_dataset)
-
-            # prepare fragments dataset
-            self.fragments_out = daisy.prepare_ds(
-                self.fragments_file,
-                self.fragments_dataset,
-                source.roi,
-                source.voxel_size,
-                np.uint64,
-                daisy.Roi((0, 0, 0), self.block_size),
-                compressor={'id': 'zlib', 'level': 5},
-                delete=delete_ds,
-                )
+            ds_roi = source.roi
 
             total_roi = daisy.Roi(
                 tuple(self.sub_roi_offset), tuple(self.sub_roi_shape))
@@ -160,24 +151,27 @@ class ExtractFragmentTask(task_helper.SlurmTask):
 
         else:
 
-            # prepare fragments dataset
-            self.fragments_out = daisy.prepare_ds(
-                self.fragments_file,
-                self.fragments_dataset,
-                self.affs.roi,
-                self.affs.voxel_size,
-                np.uint64,
-                daisy.Roi((0, 0, 0), self.block_size),
-                compressor={'id': 'zlib', 'level': 5},
-                delete=delete_ds,
-                )
+            ds_roi = self.affs.roi
 
             total_roi = self.affs.roi.grow(self.context, self.context)
             read_roi = daisy.Roi((0,)*self.affs.roi.dims(),
                                  self.block_size).grow(self.context, self.context)
             write_roi = daisy.Roi((0,)*self.affs.roi.dims(), self.block_size)
 
-        assert self.fragments_out.data.dtype == np.uint64
+        # prepare fragments dataset
+        voxel_size = self.affs.voxel_size
+        self.fragments_out = daisy.prepare_ds(
+            self.fragments_file,
+            self.fragments_dataset,
+            ds_roi,
+            voxel_size,
+            np.uint64,
+            # daisy.Roi((0, 0, 0), self.block_size),
+            write_size=tuple(self.block_size),
+            force_exact_write_size=self.force_exact_write_size,
+            compressor={'id': 'zlib', 'level': 5},
+            delete=delete_ds,
+            )
 
         self.overwrite_mask = None
         if self.overwrite_mask_f:
@@ -219,7 +213,7 @@ class ExtractFragmentTask(task_helper.SlurmTask):
             'fragments_dataset': self.fragments_dataset,
             'epsilon_agglomerate': self.epsilon_agglomerate,
             'use_mahotas': self.use_mahotas,
-            'seed_size': self.seed_size
+            'min_seed_distance': self.min_seed_distance
         }
 
         self.slurmSetup(config, 'actor_fragment_extract.py')
