@@ -92,6 +92,22 @@
             "block_size": [4000, 4096, 4096]
         },
 
+    "FindSegmentsBlockwiseTask2a":
+        {
+            "lut_dir": "luts/fragment_segment",
+            "fragments_dataset": "/volumes/fragments",
+            "num_workers": 4,
+            "block_size": [4000, 4096, 4096]
+        },
+
+    "FindSegmentsBlockwiseTask2b":
+        {
+            "lut_dir": "luts/fragment_segment",
+            "fragments_dataset": "/volumes/fragments",
+            "num_workers": 4,
+            "block_size": [4000, 4096, 4096]
+        },
+
     "FindSegmentsBlockwiseTask3":
         {
             "lut_dir": "luts/fragment_segment",
