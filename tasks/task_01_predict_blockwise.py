@@ -58,7 +58,8 @@ class PredictTask(task_helper.SlurmTask):
     roi_shape = daisy.Parameter(None)
     out_file = daisy.Parameter()
     out_dataset = daisy.Parameter()
-    block_size_in_chunks = daisy.Parameter(None)
+    block_size_in_chunks = daisy.Parameter([1, 1, 1])
+    block_size_in_chunks_div = daisy.Parameter([2, 2, 2])
     num_workers = daisy.Parameter()
     predict_file = daisy.Parameter(None)
 
@@ -116,10 +117,6 @@ class PredictTask(task_helper.SlurmTask):
 
         # from here on, all values are in world units (unless explicitly mentioned)
 
-        if self.block_size_in_chunks is not None:
-            print("block_size_in_chunks is deprecated when using DaisyRequestBlocks")
-        self.block_size_in_chunks = [1, 1, 1]
-
         # get ROI of source
         source = daisy.open_ds(self.raw_file, self.raw_dataset)
         logger.info("Source dataset has shape %s, ROI %s, voxel size %s"%(
@@ -157,15 +154,19 @@ class PredictTask(task_helper.SlurmTask):
         chunk_size = net_output_size
         context = (net_input_size - net_output_size)/2
 
+        # compute sizes of blocks
+        # logger.info("block_size_in_chunks: %s" % self.block_size_in_chunks)
+        if self.block_size_in_chunks is not None:
+            logger.warn("block_size_in_chunks is deprecated")
+        self.block_size_in_chunks = [1, 1, 1]
+        block_output_size = chunk_size*tuple(self.block_size_in_chunks)
+        block_input_size = block_output_size + context*2
+
         logger.info("Following sizes in world units:")
         logger.info("net input size  = %s" % (net_input_size,))
         logger.info("net output size = %s" % (net_output_size,))
         logger.info("context         = %s" % (context,))
         logger.info("chunk size      = %s" % (chunk_size,))
-
-        # compute sizes of blocks
-        block_output_size = chunk_size*tuple(self.block_size_in_chunks)
-        block_input_size = block_output_size + context*2
 
         # create read and write ROI
         block_read_roi = daisy.Roi((0, 0, 0), block_input_size) - context
@@ -190,7 +191,7 @@ class PredictTask(task_helper.SlurmTask):
         logging.info('Preparing output dataset')
 
         write_size = chunk_size
-        write_size = write_size / (2, 2, 2)
+        write_size = write_size / tuple(self.block_size_in_chunks_div)
         logger.info("ZARR write size:")
         logger.info(write_size)
 

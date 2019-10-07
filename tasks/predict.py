@@ -147,12 +147,14 @@ def predict(
     if "myelin_embedding" in net_config:
         pipeline += IntensityScaleShift(myelin_embedding, 255, 0)
 
+    pipeline += PrintProfilingStats(every=10)
+
+    # pipeline += Scan(chunk_request, num_workers=4)
+
     pipeline += ZarrWrite(
             dataset_names=dataset_names,
             output_filename=out_file
         )
-
-    pipeline += PrintProfilingStats(every=10)
 
     pipeline += DaisyRequestBlocks(
         chunk_request,
@@ -199,6 +201,8 @@ if __name__ == "__main__":
     config_file = sys.argv[1]
     with open(config_file, 'r') as f:
         run_config = json.load(f)
+
+    # run_config['predict_num_core'] = 12
 
     predict(
         run_config['iteration'],
