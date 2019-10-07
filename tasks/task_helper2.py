@@ -350,6 +350,8 @@ def parseConfigs(args, aggregate_configs=True):
 
         if "=" in config:
             key, val = config.split('=')
+            try: val = int(val)
+            except: pass
             if '.' in key:
                 task, param = key.split('.')
                 hierarchy_configs[task][param] = val
