@@ -52,6 +52,14 @@
             "mask_fragments": 0,
             "use_mahotas": 0
         },
+    "ExtractSynapsesTask":
+        {
+            "syn_indicator_dataset": "/volumes/pred_syn_indicator",
+            "syn_dir_dataset": "/volumes/pred_partner_vectors",
+            "block_size": [2000, 2048, 2048],
+            "context": [256, 256, 256],
+            "num_workers": 1
+        },
 
     "AgglomerateTask":
         {

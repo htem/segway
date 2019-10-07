@@ -661,6 +661,16 @@ def aggregateConfigs(configs):
         if RUNNING_IN_LOCAL_CLUSTER:
             config['num_workers'] = 1
 
+    if "ExtractSynapsesTask" in configs:
+        config = configs["ExtractSynapsesTask"]
+        # config['raw_file'] = input_config['raw_file']
+        # config['raw_dataset'] = input_config['raw_dataset']
+        copyParameter(input_config, config, 'sub_roi_offset')
+        copyParameter(input_config, config, 'sub_roi_shape')
+        copyParameter(input_config, config, 'output_file', 'super_fragments_file')
+        copyParameter(input_config, config, 'output_file', 'syn_indicator_file')
+        copyParameter(input_config, config, 'output_file', 'syn_dir_file')
+
     if "PredictSynapseDirTask" in configs:
         config = configs["PredictSynapseDirTask"]
         config['raw_file'] = input_config['raw_file']
