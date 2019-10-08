@@ -15,9 +15,10 @@
             "write_TXT": true,
             "write_CSV": true,
             "colors":["blue", "yellow","black","coral","purple","navy","lime","red","fuchsia","gold", "maroon", "darkgreen", "darkslategrey", "fuchsia"],
+            "colormaps":["Greys","Blues","Greens","Purples","Oranges","pink"],
             "markers":["o", "", "^", "", "s", "", "p", "", "D"],
             "font_size":6,
-            "line_width": 0.8
+            "line_width": 1.2
         },
     "AdditionalFeatures":
         {
