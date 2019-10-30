@@ -28,7 +28,7 @@ class PredictSynapseTask(task_helper.SlurmTask):
     out_file = daisy.Parameter()
     # out_dataset = daisy.Parameter()
     out_properties = daisy.Parameter()
-    block_size_in_chunks = daisy.Parameter(None)
+    block_size_in_chunks = daisy.Parameter([1, 1, 1])
     num_workers = daisy.Parameter()
     predict_file = daisy.Parameter(None)
 
@@ -108,7 +108,10 @@ class PredictSynapseTask(task_helper.SlurmTask):
 
         net_input_size = daisy.Coordinate(net_config["input_shape"])*voxel_size
         net_output_size = daisy.Coordinate(net_config["output_shape"])*voxel_size
+
         chunk_size = net_output_size
+        logger.info("block_size_in_chunks: %s" % self.block_size_in_chunks)
+        chunk_size = chunk_size * daisy.Coordinate(self.block_size_in_chunks)
         context = (net_input_size - net_output_size)/2
 
         logger.info("Following sizes in world units:")
