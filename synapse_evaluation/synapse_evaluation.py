@@ -1,12 +1,13 @@
 from construct_graph_from_synapse_data import \
     load_synapses_from_catmaid_json, \
     add_segmentation_labels, \
-    construct_prediction_graph
+    construct_prediction_graph, remove_intraneuron_synapses, \
+    remove_out_of_roi_synapses
 import utility as util
 from multiprocessing import Pool
 import numpy as np
 import networkx as nx
-from daisy import Coordinate
+from daisy import Coordinate, Roi
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 import json
@@ -17,7 +18,7 @@ from itertools import combinations, product
 from functools import partial
 from multiprocessing import Pool
 import math
-
+import copy
 
 
 # This method extracts the parameter values specified in the json
@@ -27,10 +28,10 @@ def parse_configs():
     parser = argparse.ArgumentParser()
     parser.add_argument('user_path')
     args = parser.parse_args()
-    
+
     with open(args.user_path, 'r') as f:
         user_configs = json.load(f)
-    
+
     try:
         param_defaults_path = user_configs['Input']['parameter_defaults']
     except KeyError:
@@ -61,7 +62,10 @@ def format_params(params, user_path):
         output_dir = path.dirname(user_path)
         outp['output_path'] = path.join(output_dir,
                                         config_name+'_outputs')
-    outp['plot_dir'] = path.join(outp['output_path'], 'plots')
+    outp['config_name'] = config_name
+    # outp['plot_dir'] = path.join(outp['output_path'], 'plots')
+    # outp['plot_dir'] = path.join(outp['output_path'])
+    outp['plot_dir'] = output_dir
     outp['match_dir'] = path.join(outp['output_path'], 'matches')
     if 'segmentation' not in inp:
         inp['segmentation'] = {'zarr_path': inp['zarr_path'],
@@ -130,9 +134,10 @@ def plot_metric(graph, model_name, metric, output_path, num_hist_bins):
 # the minimum score thresholds specified by the filter
 def apply_score_filter(postsyn_graph, filter_metric, percentile):
     print("Applying {}th percentile {} score filter".format(percentile, filter_metric))
-    threshold = np.percentile([score for node, score in 
-                               postsyn_graph.nodes(data=filter_metric)],
-                               percentile)
+    # threshold = np.percentile([score for node, score in 
+    #                            postsyn_graph.nodes(data=filter_metric)],
+    #                            percentile)
+    threshold = percentile
     filtered_nodes = {node for node, score in
                       postsyn_graph.nodes(data=filter_metric)
                       if score <= threshold}
@@ -140,10 +145,13 @@ def apply_score_filter(postsyn_graph, filter_metric, percentile):
     filtered_nodes.update({(-1 * node) for node in filtered_nodes})
     return filtered_nodes
 
+
 def get_nearby_matches(gt_syn, pred_graph, max_dist):
     (gt_presyn, gt_postsyn) = gt_syn
     attr = pred_graph.nodes(data=True)
     matches = {}
+    near_matches = []
+    far_matches = []
     for pred_syn in pred_graph.edges:
         pred_presyn = attr[pred_syn[0]]
         pred_postsyn = attr[pred_syn[1]]
@@ -155,6 +163,28 @@ def get_nearby_matches(gt_syn, pred_graph, max_dist):
                                          gt_postsyn['zyx_coord'])
             if presyn_dist <= max_dist and postsyn_dist <= max_dist:
                 matches[pred_syn] = presyn_dist + postsyn_dist
+        elif pred_postsyn['seg_label'] == gt_postsyn['seg_label']:
+            # debug
+            postsyn_dist = util.distance(pred_postsyn['zyx_coord'],
+                                         gt_postsyn['zyx_coord'])
+            if postsyn_dist <= max_dist:
+                # matches[pred_syn] = presyn_dist + postsyn_dist
+                # print("Near postsyn match:", pred_syn)
+                near_matches.append(pred_syn)
+            far_matches.append(pred_syn)
+
+    if len(matches) == 0:
+        print(gt_syn)
+        (gt_presyn, gt_postsyn) = gt_syn
+        print("GT postsyn xyz:", util.np_index_to_pixel_xyz(gt_postsyn['zyx_coord']))
+        if len(near_matches):
+            print("Near postsyn match:")
+            for n in near_matches:
+                print(n)
+            print("Far postsyn match:")
+            for n in far_matches:
+                print(n)
+                # exit(0)
     return matches
 
 
@@ -303,22 +333,29 @@ if __name__ == '__main__':
                                        **inp['segmentation'],
                                        materialize=extp['materialize'])
 
+    if extp['remove_intraneuron_synapses']:
+        gt_graph = remove_intraneuron_synapses(gt_graph)
+
     pred_graph_dict = load_model_prediction_graphs(inp['models'], inp,
                                                    extp, output_path,
                                                    8)
-    for model_name, min_inf_vals in pred_graph_dict.items():
-        for min_inf, pred_graph in min_inf_vals.items():
-            sub_dir = path.join(outp['plot_dir'], "min_inf_{}".format(min_inf))
-            try:
-                os.makedirs(sub_dir)
-            except FileExistsError:
-                pass
-            util.print_delimiter()
-            for metric in outp['metric_plots']:
-                plot_metric(util.postsyn_subgraph(pred_graph),
-                            model_name, metric,
-                            sub_dir,
-                            outp['num_hist_bins'])
+
+    output_percentile_metrics = False
+    if output_percentile_metrics:
+        for model_name, min_inf_vals in pred_graph_dict.items():
+            for min_inf, pred_graph in min_inf_vals.items():
+                sub_dir = path.join(outp['plot_dir'], "min_inf_{}".format(min_inf))
+                try:
+                    os.makedirs(sub_dir)
+                except FileExistsError:
+                    pass
+                util.print_delimiter()
+                for metric in outp['metric_plots']:
+                    plot_metric(util.postsyn_subgraph(pred_graph),
+                                model_name, metric,
+                                sub_dir,
+                                outp['num_hist_bins'])
+
     for min_inf, fil_met, max_dist in product(extp['min_inference_value'],
                                               extp['filter_metric'],
                                               extp['max_distance']):
@@ -326,7 +363,12 @@ if __name__ == '__main__':
         param_combo = 'inf{}_dist{}_{}'.format(min_inf, max_dist, fil_met)
         for model_name in inp['models']:
             error_counts[model_name] = {perc: {} for perc in extp['percentiles']}
-            pred_graph = pred_graph_dict[model_name][min_inf]    
+            pred_graph = pred_graph_dict[model_name][min_inf]
+            # print(pred_graph.graph)
+            roi = Roi(pred_graph.graph['roi_offset'],
+                            pred_graph.graph['roi_shape'])
+            gt_graph_loc = copy.deepcopy(gt_graph)
+            gt_graph_loc = remove_out_of_roi_synapses(gt_graph_loc, roi)
             for percentile in extp['percentiles']:
                 util.print_delimiter()
                 filtered_nodes = apply_score_filter(util.postsyn_subgraph(pred_graph),
@@ -337,14 +379,14 @@ if __name__ == '__main__':
                 get_matches = partial(get_nearby_matches,
                                       pred_graph=filtered_graph,
                                       max_dist=max_dist)
-                for presyn, postsyn in gt_graph.edges():
-                    gt_graph[presyn][postsyn]['matches'] = \
-                            get_matches((gt_graph.nodes[presyn],
-                                         gt_graph.nodes[postsyn]))
+                for presyn, postsyn in gt_graph_loc.edges():
+                    gt_graph_loc[presyn][postsyn]['matches'] = \
+                            get_matches((gt_graph_loc.nodes[presyn],
+                                         gt_graph_loc.nodes[postsyn]))
                 num_true_pos = len([(pre, post) for pre, post, match in
-                                    gt_graph.edges(data='matches') if len(match)])
+                                    gt_graph_loc.edges(data='matches') if len(match)])
                 num_predicted = filtered_graph.number_of_edges()
-                num_actual = gt_graph.number_of_edges()
+                num_actual = gt_graph_loc.number_of_edges()
                 error_counts[model_name][percentile]['true_pos'] = num_true_pos
                 error_counts[model_name][percentile]['false_pos'] = num_predicted - num_true_pos
                 error_counts[model_name][percentile]['false_neg'] = num_actual - num_true_pos
@@ -357,7 +399,7 @@ if __name__ == '__main__':
                     os.makedirs(sub_dir)
                 except FileExistsError:
                     pass
-                write_matches_to_file(util.neuron_pairs_dict(gt_graph),
+                write_matches_to_file(util.neuron_pairs_dict(gt_graph_loc),
                                       filtered_graph, submodel,
                                       {'min_inference_value': min_inf,
                                        'filter_metric': fil_met,
@@ -366,6 +408,7 @@ if __name__ == '__main__':
                                       sub_dir, inp['voxel_size'])
         util.print_delimiter()
         plot_title = "{}_error_plot".format(param_combo)
+        plot_title = outp['config_name'] + '_' + plot_title
         plot_false_pos_false_neg(error_counts, plot_title, outp['plot_dir'],
                                  outp['markers'], outp['colors'])
     print("Complete.")

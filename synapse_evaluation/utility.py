@@ -5,6 +5,7 @@ import json
 import os
 from os import path
 import matplotlib.pyplot as plt
+import numpy as np
 
 # This file primary contains helper methods for
 # synapse evaluation.
@@ -71,6 +72,15 @@ def daisy_zyx_to_voxel_xyz(daisy_zyx, voxel_size):
 # daisy array
 def np_index_to_daisy_zyx(np_index, voxel_size, roi_offset):
     return Coordinate(voxel_size) * Coordinate(np_index) + roi_offset
+
+# def np_index_to_pixel_xyz(np_index, voxel_size, roi_offset):
+#     voxel_size = (40, 4, 4) # always full res in neuroglancer
+#     coord = Coordinate(np_index) + Coordinate(roi_offset)/Coordinate(voxel_size)
+#     return [coord[2], coord[1], coord[0]]
+
+def np_index_to_pixel_xyz(zyx_offset, voxel_size=(40, 4, 4)):
+    zyx_offset = Coordinate(zyx_offset)/Coordinate(voxel_size)
+    return [zyx_offset[2], zyx_offset[1], zyx_offset[0]]
 
 
 #### Methods for writing/reading json representations of nx graphs ####
