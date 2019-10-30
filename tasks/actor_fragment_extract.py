@@ -84,7 +84,8 @@ if __name__ == "__main__":
                            epsilon_agglomerate,
                            mask,
                            myelin_ds=myelin_ds,
-                           min_seed_distance=min_seed_distance
+                           min_seed_distance=min_seed_distance,
+                           filter_fragments=fragment_affs_filter_threshold,
                            # use_mahotas=use_mahotas,
                            )
 

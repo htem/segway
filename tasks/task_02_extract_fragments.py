@@ -94,6 +94,7 @@ class ExtractFragmentTask(task_helper.SlurmTask):
     overwrite_sections = daisy.Parameter(None)
 
     min_seed_distance = daisy.Parameter(10)  # default seed size from Jan
+    fragment_affs_filter_threshold = daisy.Parameter(0.3)
 
     force_exact_write_size = daisy.Parameter(False)
 
@@ -213,7 +214,8 @@ class ExtractFragmentTask(task_helper.SlurmTask):
             'fragments_dataset': self.fragments_dataset,
             'epsilon_agglomerate': self.epsilon_agglomerate,
             'use_mahotas': self.use_mahotas,
-            'min_seed_distance': self.min_seed_distance
+            'min_seed_distance': self.min_seed_distance,
+            'fragment_affs_filter_threshold': self.fragment_affs_filter_threshold,
         }
 
         self.slurmSetup(config, 'actor_fragment_extract.py')
