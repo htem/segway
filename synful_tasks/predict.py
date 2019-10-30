@@ -69,7 +69,7 @@ def predict(
         **kwargs):
 
     if xy_downsample is not None:
-        assert xy_downsample == 2
+        assert xy_downsample == 2 or xy_downsample == 4
 
     print("db_host: ", db_host)
     print("db_name: ", db_name)
