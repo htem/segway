@@ -1,13 +1,283 @@
 import json
 import os
 import logging
-# import numpy as np
+import numpy as np
 import sys
 import daisy
 import pymongo
 import time
+import math
+import synapse, detection
+from database_synapses import SynapseDatabase
+from database_superfragments import SuperFragmentDatabase, SuperFragment
+from daisy import Coordinate
+
 
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+# def __create_syn_ids(zyx):
+#     """Create unique IDs"""
+#     '''21b per x, y, z, 63 bits total'''
+
+#     # 101, 101, 101 => "101101101"
+#     # 10, 1101, 101 => "101101101"
+
+#     ids = []
+#     for i in range(len(zyx)):
+#         #np.insert(zyx[i],0, block.block_id*block.write_roi.size())
+#         ids.append(int(''.join(map(str,zyx[i].astype(int)))))
+#     return ids
+
+
+def __create_unique_syn_id(zyx):
+
+    id = 0
+    binary_str = []
+    for i in zyx:
+        print(i)
+        binary_str.append("{0:021b}".format(int(i)))
+    print(binary_str)
+    id = int(''.join(binary_str), 2)
+    print(id)
+    return id
+
+
+def __create_syn_ids(zyx_list):
+
+    ret = []
+    for zyx in zyx_list:
+        ret.append(__create_unique_syn_id(zyx))
+    return ret
+
+
+def __create_syn_locations(predicted_syns, target_sites):
+
+    if len(predicted_syns) != len(target_sites):
+        print("ERROR: pre and post synaptic site do not have same length!")
+        print("Synapses location was not created!")
+
+    else:
+        loc_zyx =[]
+        for i in range(len(predicted_syns)):
+            loc_zyx.append((predicted_syns[i]+target_sites[i])/2)
+
+        return loc_zyx
+           
+def extract_synapses(ind_pred_ds,
+                     dir_pred_ds,
+                     sup_ds,
+                     # db_name,
+                     # db_host,
+                     parameters,
+                     block):
+    """Extract synapses from the block and write in the DB"""
+    ##### EXTRACT SYNAPSES
+    start_time = time.time()
+
+    pred_roi = ind_pred_ds.intersect(block.read_roi).roi
+    logger.debug('reading roi %s' % pred_roi)
+    zchannel = ind_pred_ds.to_ndarray(roi=pred_roi)
+
+    if len(zchannel.shape) == 4:
+        zchannel = np.squeeze(zchannel[3, :])
+    if zchannel.dtype == np.uint8:
+        zchannel = zchannel.astype(np.float32)
+        zchannel /= 255.  # Convert to float
+        logger.debug('Rescaling z channel with 255')
+
+    voxel_size = np.array(ind_pred_ds.voxel_size)
+    predicted_syns, scores = detection.find_locations(zchannel, parameters,
+                                                      voxel_size)  # In world units.
+    # Filter synapses for scores.
+    new_scorelist = []
+    if parameters.score_thr is not None:
+        filtered_list = []
+        for ii, loc in enumerate(predicted_syns):
+            score = scores[ii]
+            if score > parameters.score_thr:
+                filtered_list.append(loc)
+                new_scorelist.append(score)
+
+        logger.info(
+            'filtered out %i out of %d' % (len(predicted_syns) - len(filtered_list), len(predicted_syns)))
+        predicted_syns = filtered_list
+        scores = new_scorelist
+
+    # Load direction vectors and find target location
+    dirmap = dir_pred_ds.to_ndarray(roi=pred_roi)
+
+    # Before rescaling, convert back to float
+    dirmap = dirmap.astype(np.float32)
+    if 'scale' in dir_pred_ds.data.attrs:
+        scale = dir_pred_ds.data.attrs['scale']
+        dirmap = dirmap * 1. / scale
+    else:
+        logger.warning(
+            'Scale attribute of dir vectors not set. Assuming dir vectors unit: nm, max value {}'.format(
+                np.max(dirmap)))
+
+    target_sites = detection.find_targets(predicted_syns, dirmap,
+                                      voxel_size=voxel_size)
+    # Synapses need to be shifted to the global ROI
+    # (currently aligned with block.roi)
+    for loc in predicted_syns:
+        loc += np.array(pred_roi.get_begin())
+    for loc in target_sites:
+        loc += np.array(pred_roi.get_begin())
+
+    # Filter post synaptic location not incuded in the block: do not compute syynapses
+    post_syns = []
+    filt_ind = []
+    for i, loc in enumerate(target_sites):
+        if block.write_roi.contains(loc):
+            post_syns.append(loc)
+            filt_ind.append(i)
+
+    pre_syns = np.array(predicted_syns)[filt_ind]
+    pre_syns = list(pre_syns)        
+    
+    sup_ds = sup_ds[pred_roi]
+    sup_ds.materialize()
+    print("sup_ds.roi:", sup_ds.roi)
+    
+    # Superfragments IDs
+    ids_sf_pre = []
+    for pre_syn in pre_syns:
+        pre_syn = Coordinate(pre_syn)
+        pre_super_fragment_id = sup_ds[pre_syn]
+        assert pre_super_fragment_id is not None
+        ids_sf_pre.append(pre_super_fragment_id)
+    print("Pre super fragment ID: ", ids_sf_pre)
+
+    ids_sf_post = []
+    for post_syn in post_syns:
+        post_syn = Coordinate(post_syn)
+        post_super_fragment_id = sup_ds[post_syn]
+        assert post_super_fragment_id is not None
+        ids_sf_post.append(post_super_fragment_id)
+    print("Post super fragment ID: ", ids_sf_post)
+
+    # filter false positives
+    pre_syns_f = []
+    post_syns_f = []
+    scores_f = []
+    i_f = [] # indices to consider
+    for i in range(len(ids_sf_pre)):
+        if ids_sf_pre[i] != ids_sf_post[i]:
+            pre_syns_f.append(pre_syns[i])
+            post_syns_f.append(post_syns[i])
+            scores_f.append(scores[i])
+            i_f.append(i)
+
+    ids_sf_pre = list(np.array(ids_sf_pre)[i_f])
+    ids_sf_post = list(np.array(ids_sf_post)[i_f])
+    # Create xyz locations
+    zyx = __create_syn_locations(pre_syns_f,post_syns_f)
+    # Create IDs for synpses from volume coordinates
+    ids = __create_syn_ids(zyx)
+    print("Synapses IDs: ", ids)
+
+    synapses = synapse.create_synapses(pre_syns_f, post_syns_f,
+                                   scores=scores_f, ID=ids, zyx=zyx,
+                                   ids_sf_pre=ids_sf_pre,
+                                   ids_sf_post=ids_sf_post)
+    
+    # Check if the synapse is in the roi according to the postsyn location
+    """
+    filtered_syn = []
+    for syn in synapses:
+        if not block.write_roi.contains(syn.location_post):
+            print("Block %d does NOT contain synapse %d" % (block.block_id, syn.id))
+        else:
+            filtered_syn.append(syn) 
+    """
+
+    print("Extraction synapses execution time = %f s" % (time.time() - start_time))
+    
+    return synapses 
+
+def extract_superfragments(synapses, write_roi):
+
+    # read Pre and Post IDS from synapses
+
+    all_syn_ids = []
+    for syn in synapses:
+        all_syn_ids.append(syn.id)
+    all_syn_ids = np.array(all_syn_ids)
+
+    # ids_sf_pre = np.zeros(len(synapses))
+    # ids_sf_post = np.zeros(len(synapses))
+    # i = 0
+
+    superfragments = {}
+    for syn in synapses:
+
+        pre_partner_id = int(syn.id_superfrag_pre)
+        post_partner_id = int(syn.id_superfrag_post)
+
+        # if Coordinate(syn.location_pre) in write_roi:
+        if write_roi.contains(Coordinate(syn.location_pre)):
+
+            if pre_partner_id in superfragments:
+                sf = superfragments[pre_partner_id]
+            else:
+                sf = SuperFragment(id=pre_partner_id)
+                superfragments[pre_partner_id] = sf
+
+            sf.syn_ids.append(syn.id)
+            sf.post_partners.append(post_partner_id)
+
+        # if Coordinate(syn.location_post) in write_roi:
+        if write_roi.contains(Coordinate(syn.location_post)):
+
+            if post_partner_id in superfragments:
+                sf = superfragments[post_partner_id]
+            else:
+                sf = SuperFragment(id=post_partner_id)
+                superfragments[post_partner_id] = sf
+
+            sf.syn_ids.append(syn.id)
+            sf.pre_partners.append(post_partner_id)
+
+    superfragments_list = [superfragments[item] for item in superfragments]
+    for sf in superfragments_list:
+        sf.finalize()
+
+    return superfragments_list
+        
+
+
+    # # write IDs
+    # # sf_ids = np.array([ids_sf_pre, ids_sf_post]).reshape(
+    # #                     len(ids_sf_pre)+len(ids_sf_post),).astype(int)
+    # sf_ids = list(np.unique(np.array(sf_ids)))
+    # print("Superfragments IDs:", sf_ids)
+    # synapses_ids = [[] for i in range(len(sf_ids))]
+    # # # these must not be confused with the ones above
+    # # # these will be the output
+    # # pre_sf_ids = [[] for i in range(len(sf_ids))]
+    # # post_sf_ids = [[] for i in range(len(sf_ids))]
+ 
+    # i = 0
+    # for sfid in sf_ids:
+    #     # find where the sf id is pre/post and alloc the corresponding post/pre
+    #     ipre = np.where(sfid==ids_sf_pre)[0]
+    #     ipost = np.where(sfid==ids_sf_post)[0]
+    #     assert len(ipre) != 0 or len(ipost) != 0 
+    #     post_sf_ids[i] = list(ids_sf_post[ipre].astype(int))
+    #     pre_sf_ids[i] = list(ids_sf_pre[ipost].astype(int))
+    #     synapses_ids[i].extend(list(all_syn_ids[ipre]))
+    #     synapses_ids[i].extend(list(all_syn_ids[ipost]))
+
+    #     i+=1
+
+    # superfragments = synapse.create_superfragments(sf_ids, syn_ids=synapses_ids, pre_partners=pre_sf_ids,
+    #                                                post_partners=post_sf_ids, segment_ids=None)
+
+
+    # return superfragments
 
 
 if __name__ == "__main__":
@@ -26,16 +296,6 @@ if __name__ == "__main__":
     for key in run_config:
         globals()['%s' % key] = run_config[key]
 
-    # open RAG DB
-    logging.info("Opening RAG DB...")
-    rag_provider = daisy.persistence.MongoDbGraphProvider(
-        db_name,
-        host=db_host,
-        mode='r+',
-        directed=False,
-        position_attribute=['center_z', 'center_y', 'center_x'])
-    logging.info("RAG DB opened")
-
     '''Illaria TODO
         1. Check for different thresholds
             make them daisy.Parameters
@@ -44,17 +304,41 @@ if __name__ == "__main__":
 
     db_client = pymongo.MongoClient(db_host)
     db = db_client[db_name]
-    completion_db = db[completion_db_name]
 
+    #completion_db = db[completion_db_name]
+    print("db_name: ", db_name)
+    print("db_host: ", db_host)
+    print("db collection names: ", db_col_name_syn, db_col_name_sf)
+    
     print("super_fragments_file: ", super_fragments_file)
     print("super_fragments_dataset: ", super_fragments_dataset)
     print("syn_indicator_file: ", syn_indicator_file)
     print("syn_indicator_dataset: ", syn_indicator_dataset)
     print("syn_dir_file: ", syn_dir_file)
     print("syn_dir_dataset: ", syn_dir_dataset)
+    print("score_threshold: ", score_threshold)
+
+
+    parameters = detection.SynapseExtractionParameters(
+        extract_type=extract_type,
+        cc_threshold=cc_threshold,
+        loc_type=loc_type,
+        score_thr=score_threshold,
+        score_type=score_type,
+        nms_radius=None
+    )
 
     print("WORKER: Running with context %s"%os.environ['DAISY_CONTEXT'])
     client_scheduler = daisy.Client()
+
+    syn_db = SynapseDatabase(db_name, db_host, db_col_name_syn,
+                 mode='r+')
+    # print(syn_db.read_synapses())
+    for syn in syn_db.read_synapses():
+        print(syn)
+
+    superfrag_db = SuperFragmentDatabase(db_name, db_host, db_col_name_sf,
+                 mode='r+')
 
     while True:
         block = client_scheduler.acquire_block()
@@ -64,23 +348,41 @@ if __name__ == "__main__":
         logging.info("Running synapse extraction for block %s" % block)
 
         # TODO: run function to extract synapse for this block
+        '''
+            1. get segment/synapse prediction data within the ROI
+            2. run extraction for this ROI
+            3. write to database
+        '''
 
-        testing = True
+        ind_pred_ds = daisy.open_ds(syn_indicator_file, syn_indicator_dataset, 'r') 
+        dir_pred_ds = daisy.open_ds(syn_dir_file, syn_dir_dataset, 'r')
+
+        sup_ds = daisy.open_ds(super_fragments_file, super_fragments_dataset, 'r')
+        
+        synapses = extract_synapses(ind_pred_ds,
+                                    dir_pred_ds,
+                                    sup_ds,
+                                    # db_name,
+                                    # db_host,
+                                    parameters,
+                                    block)  
+        ### WRITE SYNAPSES IN DB
+        syn_db.write_synapses(synapses)
+        
+        superfragments = extract_superfragments(synapses, block.write_roi)
+        superfrag_db.write_superfragments(superfragments)
+
+        testing = False
         if testing:
             # FOR TESTING PURPOSES, DON'T RETURN THE BLOCK
             # AND JUST QUIT
+
             time.sleep(1)
             sys.exit(1)
-
-        # recording block done in the database
-        document = dict()
-        document.update({
-            'block_id': block.block_id,
-            'read_roi': (block.read_roi.get_begin(), block.read_roi.get_shape()),
-            'write_roi': (block.write_roi.get_begin(), block.write_roi.get_shape()),
-            'start': 0,
-            'duration': 0
-        })
-        completion_db.insert(document)
+        
+        
 
         client_scheduler.release_block(block, ret=0)
+
+    print("NUM SYNAPSES: ", syn_db.synapses.count())
+    print("NUM SUPERFRAGMENTS: ", superfrag_db.superfragments.count())
