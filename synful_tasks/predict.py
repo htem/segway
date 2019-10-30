@@ -68,8 +68,8 @@ def predict(
         out_properties,
         **kwargs):
 
-    if xy_downsample is not None:
-        assert xy_downsample == 2
+    # if xy_downsample is not None:
+    #     assert xy_downsample == 2
 
     print("db_host: ", db_host)
     print("db_name: ", db_name)

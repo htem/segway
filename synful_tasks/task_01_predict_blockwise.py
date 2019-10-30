@@ -61,6 +61,8 @@ class PredictSynapseTask(task_helper.SlurmTask):
 
     no_check = daisy.Parameter(False)
 
+    sched_roi_outside_roi_ok = daisy.Parameter(False)
+
     def prepare(self):
 
         self.setup = os.path.abspath(self.train_dir)
@@ -134,6 +136,7 @@ class PredictSynapseTask(task_helper.SlurmTask):
                 source_roi=source.roi,
                 center_roi_offset=self.center_roi_offset,
                 chunk_size=chunk_size,
+                sched_roi_outside_roi_ok=self.sched_roi_outside_roi_ok
             )
 
         write_size = chunk_size
