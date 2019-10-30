@@ -75,21 +75,29 @@ def run_evaluation(
     elif 'skeleton' not in config['Input']:
         print("Please provide path to skeleton or check the keyword in json \
                file")
-    
+
     model_name_mapping = {}
     if 'segment_names' in config['Input']:
         model_name_mapping = construct_name_mapping(
-            volume['segment_volumes'],
+            config['Input']['segment_volumes'],
             config['Input']['segment_names'])
         print(model_name_mapping, "&&&&&")
     config['file_name'] = file_name
- 
 
     if 'Inputs' in config:
         splits_and_merges={}
         weights=[]
 
         for num, volume in enumerate(config['Inputs']):
+            
+            model_name_mapping = {}
+            if 'segment_names' in volume:
+                model_name_mapping = construct_name_mapping(
+                    volume['segment_volumes'],
+                    volume['segment_names'])
+                # print(model_name_mapping, "&&&&&")
+            config['file_name'] = file_name
+
             weights.append(get_weight(volume))
 
             parameter_configs = format_parameter_configs(config, volume, num)
@@ -120,7 +128,9 @@ def run_evaluation(
             color_generator(len(volume['segment_volumes'])), config['Output']['font_size'],
             config['Output']['line_width'],'number',
             *splits_and_merges)
+
     else:
+        # single input
         parameter_configs = format_parameter_configs(config,config['Input'],0)
 
         compare_segmentation_to_ground_truth_skeleton(
