@@ -97,10 +97,8 @@ if __name__ == "__main__":
                            epsilon_agglomerate,
                            mask,
                            filter_fragments=filter_fragments,
-                           # myelin_ds=myelin_ds,
                            min_seed_distance=min_seed_distance,
                            filter_masks=filter_masks,
-                           # use_mahotas=use_mahotas,
                            )
 
         # recording block done in the database

@@ -7,7 +7,6 @@ import subprocess
 import os
 import collections
 import pymongo
-import numpy as np
 
 import daisy
 import ast
@@ -33,7 +32,6 @@ class SlurmTask(daisy.Task):
     debug_print_command_only = daisy.Parameter(False)
     overwrite = daisy.Parameter(False)
     no_check_dependency = daisy.Parameter(False)
-    no_precheck = daisy.Parameter(False)
 
     db_host = daisy.Parameter()
     db_name = daisy.Parameter()
@@ -53,18 +51,8 @@ class SlurmTask(daisy.Task):
 
         if not python_module:
             logname = (actor_script.split('.'))[-2].split('/')[-1]
-        else:
-            logname = (actor_script.split('.'))[-1]
-
-        for prepend in [
-                '.',
-                '/n/groups/htem/Segmentation/shared-nondev',
-                os.path.dirname(os.path.realpath(__file__))
-                ]:
-            if os.path.exists(os.path.join(prepend, actor_script)):
-                actor_script = os.path.realpath(os.path.join(prepend, actor_script))
-                actor_script = actor_script.replace('/mnt/orchestra_nfs', '/n/groups/htem')
-                break
+            actor_script = (os.path.dirname(os.path.realpath(__file__)) +
+                            '/' + actor_script)
         else:
             logname = (actor_script.split('.'))[-1]
 
@@ -251,6 +239,8 @@ def generateActorSbatch(
         pass
     config_file = os.path.join(
         '.run_configs', '%s_%d.config' % (logname, config_hash))
+    # log_out = os.path.join('.run_configs', '%d.out'%config_hash)
+    # log_err = os.path.join('.run_configs', '%d.err'%config_hash)
     with open(config_file, 'w') as f:
         json.dump(config, f)
 
@@ -327,6 +317,7 @@ def generateSbatchScript(
         f.write('\n'.join(text))
 
 
+
 def parseConfigs(args, aggregate_configs=True):
     global_configs = {}
     user_configs = {}
@@ -349,12 +340,6 @@ def parseConfigs(args, aggregate_configs=True):
 
         if "=" in config:
             key, val = config.split('=')
-            if "." in val:
-                try: val = float(val)
-                except: pass
-            else:
-                try: val = int(val)
-                except: pass
             if '.' in key:
                 task, param = key.split('.')
                 hierarchy_configs[task][param] = val
@@ -373,7 +358,7 @@ def parseConfigs(args, aggregate_configs=True):
                         global_configs[k] = new_configs[k]
                 # print(list(global_configs.keys()))
 
-                if 'Input' in new_configs and 'config_filename' not in global_configs['Input']:
+                if 'Input' in new_configs:
                     global_configs['Input']['config_filename'] = config
 
     print("\nhelper: final config")
@@ -405,7 +390,6 @@ def aggregateConfigs(configs):
 
     input_config = configs["Input"]
     network_config = configs["Network"]
-    synapse_network_config = configs["SynfulNetwork"]
 
     today = datetime.date.today()
     parameters = {}
@@ -413,7 +397,6 @@ def aggregateConfigs(configs):
     parameters['month'] = '%02d' % today.month
     parameters['day'] = '%02d' % today.day
     parameters['network'] = network_config['name']
-    parameters['synapse_network'] = synapse_network_config['name']
     parameters['iteration'] = network_config['iteration']
     config_filename = input_config['config_filename']
     # proj is just the last folder in the config path
@@ -426,25 +409,44 @@ def aggregateConfigs(configs):
     parameters['script_name'] = script_name
     parameters['script_folder'] = parameters['proj']
     parameters['script_dir'] = '/'.join(config_filename.split('/')[0:-1])
-    script_dir = parameters['script_dir']
 
     input_config["experiment"] = input_config["experiment"].format(**parameters)
     parameters['experiment'] = input_config["experiment"]
-
     input_config["output_file"] = input_config["output_file"].format(**parameters)
 
-    output_path = input_config["output_file"]
-    if not os.path.exists(output_path):
-        output_path = os.path.join(script_dir, output_path)
-    output_path = os.path.abspath(output_path)
-    # print(output_path); exit(0)
+    # add a hash based on directory path to the mongodb dataset
+    # so that other users can run the same config without name conflicts
+    # though if the db already exists, don't change it to avoid confusion
+    output_path = os.path.abspath(input_config["output_file"])
     if output_path.startswith("/mnt/orchestra_nfs/"):
         output_path = output_path[len("/mnt/orchestra_nfs/"):]
         output_path = "/n/groups/htem/" + output_path
+    print("Hashing output path %s" % output_path)
+    path_hash = hashlib.blake2b(
+        output_path.encode(), digest_size=4).hexdigest()
+    parameters['path_hash'] = path_hash
 
     for config in input_config:
         if isinstance(input_config[config], str):
             input_config[config] = input_config[config].format(**parameters)
+
+    # for compatibility with configs run with path hash added by default, check
+    # if db already exist
+    db_host, db_name = (input_config['db_host'], input_config['db_name'])
+    myclient = pymongo.MongoClient(db_host)
+    db_name_hashed = "%s_%s" % (db_name, path_hash)
+    # print("hashed db: ", db_name_hashed)
+    if db_name_hashed in myclient.database_names():
+        # assert False
+        # db_name = db_name_hashed
+        input_config['db_name'] = db_name_hashed
+
+    assert len(input_config['db_name']) < 64, "db_name has to be 63 or less characters"
+    # if len(input_config['db_name']) >= 64:
+    #     # we will just truncate the name and prepend the date
+    #     truncated_name = "%d%02d_%s" % (today.year, today.month, input_config['db_name'][8:])
+    #     assert(len(truncated_name) <= 63)
+    #     input_config['db_name'] = truncated_name
 
     os.makedirs(input_config['log_dir'], exist_ok=True)
 
@@ -460,8 +462,7 @@ def aggregateConfigs(configs):
         if "Task" not in config:
             print("Skipping %s" % config)
             continue
-
-        # print("Copying defaults for ", config)
+        # print("Skipping %s" % config)
 
         config = configs[config]
         copyParameter(input_config, config, 'db_name')
@@ -469,9 +470,8 @@ def aggregateConfigs(configs):
         copyParameter(input_config, config, 'log_dir')
         copyParameter(input_config, config, 'sub_roi_offset')
         copyParameter(input_config, config, 'sub_roi_shape')
+        # config['edges_collection'] = "edges_" + merge_function
 
-        if 'num_workers' in config:
-            config['num_workers'] = int(config['num_workers'])
 
     if "PredictTask" in configs:
         config = configs["PredictTask"]
@@ -481,13 +481,12 @@ def aggregateConfigs(configs):
             config['out_file'] = input_config['output_file']
         config['train_dir'] = network_config['train_dir']
         config['iteration'] = network_config['iteration']
-        # config['log_dir'] = input_config['log_dir']
-        # config['net_voxel_size'] = network_config['net_voxel_size']
-        copyParameter(network_config, config, 'net_voxel_size')
-        copyParameter(network_config, config, 'predict_file')
+        config['log_dir'] = input_config['log_dir']
+        config['net_voxel_size'] = network_config['net_voxel_size']
         if 'predict_file' in network_config:
             config['predict_file'] = network_config['predict_file']
         else:
+            # config['predict_file'] = "predict_daisyreq.py"
             config['predict_file'] = "predict.py"
         if 'xy_downsample' in network_config:
             config['xy_downsample'] = network_config['xy_downsample']
@@ -507,7 +506,7 @@ def aggregateConfigs(configs):
         copyParameter(input_config, config, 'center_roi_offset')
 
         if RUNNING_IN_LOCAL_CLUSTER:
-            # restrict number of workers to 1 for predict task if we're running locally to avoid conflict with other daisies
+        # restrict number of workers to 1 for predict task if we're running locally to avoid conflict with other daisies
             config['num_workers'] = 1
 
     if "FixRawFromCatmaidTask" in configs:
@@ -525,17 +524,6 @@ def aggregateConfigs(configs):
         if 'roi_shape' in input_config:
             config['roi_shape'] = input_config['roi_shape']
 
-    if "PredictCapillaryTask" in configs:
-        config = configs["PredictCapillaryTask"]
-        config['raw_file'] = input_config['raw_file']
-        copyParameter(input_config, config, 'raw_dataset')
-        config['out_file'] = input_config['output_file']
-        if 'roi_offset' in input_config:
-            config['roi_offset'] = input_config['roi_offset']
-        if 'roi_shape' in input_config:
-            config['roi_shape'] = input_config['roi_shape']
-        copyParameter(input_config, config, 'replace_section_list')
-
     if "MergeMyelinTask" in configs:
         config = configs["MergeMyelinTask"]
         if 'affs_file' not in config:
@@ -544,15 +532,10 @@ def aggregateConfigs(configs):
         config['merged_affs_file'] = input_config['output_file']
         config['log_dir'] = input_config['log_dir']
 
-    if "DownsampleTask" in configs:
-        config = configs["DownsampleTask"]
-        copyParameter(input_config, config, 'output_file', 'affs_file')
-
     if "ExtractFragmentTask" in configs:
         config = configs["ExtractFragmentTask"]
         copyParameter(input_config, config, 'output_file', 'affs_file')
         copyParameter(input_config, config, 'output_file', 'fragments_file')
-        copyParameter(input_config, config, 'output_file', 'capillary_pred_file')
         copyParameter(input_config, config, 'raw_file')
         copyParameter(input_config, config, 'raw_dataset')
         copyParameter(input_config, config, 'overwrite_sections')
@@ -613,43 +596,25 @@ def aggregateConfigs(configs):
         copyParameter(input_config, config, 'output_file', 'fragments_file')
         config['merge_function'] = merge_function
         config['edges_collection'] = "edges_" + merge_function
-        if 'thresholds' not in config:
-            config['thresholds'] = thresholds_lut
+        config['thresholds'] = thresholds_lut
 
     if "FindSegmentsBlockwiseTask2" in configs:
         config = configs["FindSegmentsBlockwiseTask2"]
         copyParameter(input_config, config, 'output_file', 'fragments_file')
         config['merge_function'] = merge_function
-        if 'thresholds' not in config:
-            config['thresholds'] = thresholds_lut
-
-    if "FindSegmentsBlockwiseTask2a" in configs:
-        config = configs["FindSegmentsBlockwiseTask2a"]
-        copyParameter(input_config, config, 'output_file', 'fragments_file')
-        config['merge_function'] = merge_function
-        if 'thresholds' not in config:
-            config['thresholds'] = thresholds_lut
-
-    if "FindSegmentsBlockwiseTask2b" in configs:
-        config = configs["FindSegmentsBlockwiseTask2b"]
-        copyParameter(input_config, config, 'output_file', 'fragments_file')
-        config['merge_function'] = merge_function
-        if 'thresholds' not in config:
-            config['thresholds'] = thresholds_lut
+        config['thresholds'] = thresholds_lut
 
     if "FindSegmentsBlockwiseTask3" in configs:
         config = configs["FindSegmentsBlockwiseTask3"]
         copyParameter(input_config, config, 'output_file', 'fragments_file')
         config['merge_function'] = merge_function
-        if 'thresholds' not in config:
-            config['thresholds'] = thresholds_lut
+        config['thresholds'] = thresholds_lut
 
     if "FindSegmentsBlockwiseTask4" in configs:
         config = configs["FindSegmentsBlockwiseTask4"]
         copyParameter(input_config, config, 'output_file', 'fragments_file')
         config['merge_function'] = merge_function
-        if 'thresholds' not in config:
-            config['thresholds'] = thresholds_lut
+        config['thresholds'] = thresholds_lut
 
     if "ExtractSegmentationFromLUT" in configs:
         config = configs["ExtractSegmentationFromLUT"]
@@ -662,257 +627,8 @@ def aggregateConfigs(configs):
         copyParameter(input_config, config, 'output_file', 'out_file')
         config['merge_function'] = merge_function
 
-    if "ExtractSuperFragmentSegmentationTask" in configs:
-        config = configs["ExtractSuperFragmentSegmentationTask"]
+    if "ExtractChunkwiseSegmentationTask" in configs:
+        config = configs["ExtractChunkwiseSegmentationTask"]
         copyParameter(input_config, config, 'output_file', 'fragments_file')
         copyParameter(input_config, config, 'output_file', 'out_file')
         config['merge_function'] = merge_function
-
-    network_config = configs["SynfulNetwork"]
-
-    if "PredictSynapseTask" in configs:
-        config = configs["PredictSynapseTask"]
-        config['raw_file'] = input_config['raw_file']
-        config['raw_dataset'] = input_config['raw_dataset']
-        if 'out_file' not in config:
-            config['out_file'] = input_config['output_file']
-        copyParameter(network_config, config, 'train_dir')
-        copyParameter(network_config, config, 'iteration')
-        config['log_dir'] = input_config['log_dir']
-        copyParameter(network_config, config, 'net_voxel_size')
-        config['predict_file'] = 'segway/synful_tasks/predict.py'
-        copyParameter(network_config, config, 'predict_file')
-        copyParameter(network_config, config, 'xy_downsample')
-        copyParameter(input_config, config, 'roi_offset')
-        copyParameter(input_config, config, 'roi_shape')
-        copyParameter(input_config, config, 'sub_roi_offset')
-        copyParameter(input_config, config, 'sub_roi_shape')
-        copyParameter(input_config, config, 'delete_section_list')
-        copyParameter(input_config, config, 'replace_section_list')
-        copyParameter(input_config, config, 'overwrite_sections')
-        copyParameter(input_config, config, 'overwrite_mask_f')
-        copyParameter(input_config, config, 'center_roi_offset')
-        copyParameter(network_config, config, 'out_properties')
-        if RUNNING_IN_LOCAL_CLUSTER:
-            config['num_workers'] = 1
-
-    if "ExtractSynapsesTask" in configs:
-        config = configs["ExtractSynapsesTask"]
-        # config['raw_file'] = input_config['raw_file']
-        # config['raw_dataset'] = input_config['raw_dataset']
-        copyParameter(input_config, config, 'sub_roi_offset')
-        copyParameter(input_config, config, 'sub_roi_shape')
-        copyParameter(input_config, config, 'output_file', 'super_fragments_file')
-        copyParameter(input_config, config, 'output_file', 'syn_indicator_file')
-        copyParameter(input_config, config, 'output_file', 'syn_dir_file')
-
-    if "PredictSynapseDirTask" in configs:
-        config = configs["PredictSynapseDirTask"]
-        config['raw_file'] = input_config['raw_file']
-        config['raw_dataset'] = input_config['raw_dataset']
-        if 'out_file' not in config:
-            config['out_file'] = input_config['output_file']
-        copyParameter(network_config, config, 'train_dir1', 'train_dir')
-        copyParameter(network_config, config, 'iteration1', 'iteration')
-        copyParameter(network_config, config, 'out_properties1', 'out_properties')
-        config['log_dir'] = input_config['log_dir']
-        copyParameter(network_config, config, 'net_voxel_size')
-        config['predict_file'] = 'segway/synful_tasks/predict.py'
-        copyParameter(network_config, config, 'predict_file')
-        copyParameter(network_config, config, 'xy_downsample')
-        copyParameter(input_config, config, 'roi_offset')
-        copyParameter(input_config, config, 'roi_shape')
-        copyParameter(input_config, config, 'sub_roi_offset')
-        copyParameter(input_config, config, 'sub_roi_shape')
-        copyParameter(input_config, config, 'delete_section_list')
-        copyParameter(input_config, config, 'replace_section_list')
-        copyParameter(input_config, config, 'overwrite_sections')
-        copyParameter(input_config, config, 'overwrite_mask_f')
-        copyParameter(input_config, config, 'center_roi_offset')
-        if RUNNING_IN_LOCAL_CLUSTER:
-            config['num_workers'] = 1
-
-
-def compute_compatible_roi(
-        roi_offset, roi_shape,
-        sub_roi_offset, sub_roi_shape,
-        roi_context,
-        source_roi,
-        chunk_size,
-        center_roi_offset=False,
-        shrink_context=True,
-        sched_roi_outside_roi_ok=False,
-        ):
-    '''Compute compatible input (schedule) ROI and output (dataset ROI)'''
-
-    roi_context = daisy.Coordinate(roi_context)
-
-    if roi_offset is not None and roi_shape is not None:
-
-        dataset_roi = daisy.Roi(
-            tuple(roi_offset), tuple(roi_shape))
-
-        if center_roi_offset:
-            dataset_roi = dataset_roi.shift(-daisy.Coordinate(tuple(roi_shape))/2)
-            dataset_roi = dataset_roi.snap_to_grid(voxel_size, mode="grow")
-
-        sched_roi = dataset_roi.grow(roi_context, roi_context)
-        assert sched_roi.intersect(source_roi) == sched_roi, \
-            "input_roi (%s) + roi_context (%s) = output_roi (%s) has to be within raw ROI %s" \
-            % (dataset_roi, roi_context, sched_roi, source_roi)
-
-    elif sub_roi_offset is not None and sub_roi_shape is not None:
-
-        dataset_roi = source_roi  # total volume ROI
-        sched_roi = daisy.Roi(
-            tuple(sub_roi_offset), tuple(sub_roi_shape))
-        assert dataset_roi.contains(sched_roi)
-
-        if center_roi_offset:
-            raise RuntimeError("Unimplemented")
-        # need align dataset_roi to prediction chunk size
-
-        output_roi_begin = [k for k in dataset_roi.get_begin()]
-        output_roi_begin[0] = align(dataset_roi.get_begin()[0], sched_roi.get_begin()[0], chunk_size[0])
-        output_roi_begin[1] = align(dataset_roi.get_begin()[1], sched_roi.get_begin()[1], chunk_size[1])
-        output_roi_begin[2] = align(dataset_roi.get_begin()[2], sched_roi.get_begin()[2], chunk_size[2])
-
-        dataset_roi.set_offset(tuple(output_roi_begin))
-
-        assert (dataset_roi.get_begin()[0] - sched_roi.get_begin()[0]) % chunk_size[0] == 0
-        assert (dataset_roi.get_begin()[1] - sched_roi.get_begin()[1]) % chunk_size[1] == 0
-        assert (dataset_roi.get_begin()[2] - sched_roi.get_begin()[2]) % chunk_size[2] == 0
-
-        sched_roi = sched_roi.grow(roi_context, roi_context)
-        if not sched_roi_outside_roi_ok:
-            assert dataset_roi.contains(sched_roi), "dataset_roi %s does not contain sched_roi %s" % (dataset_roi, sched_roi)
-
-    else:
-
-        if center_roi_offset:
-            raise RuntimeError("Cannot center ROI if not specified")
-
-        assert roi_offset is None
-        assert roi_shape is None
-        assert sub_roi_offset is None
-        assert sub_roi_shape is None
-        # if no ROI is given, we need to shrink output ROI
-        # to account for the roi_context
-        sched_roi = source_roi
-        dataset_roi = source_roi
-
-        if shrink_context:
-            dataset_roi = dataset_roi.grow(-roi_context, -roi_context)
-
-    return sched_roi, dataset_roi
-
-
-def align(a, b, stride):
-    # align a to b such that b - a is multiples of stride
-    assert b >= a
-    print(a)
-    print(b)
-    l = b - a
-    print(l)
-    l = int(l/stride) * stride
-    print(l)
-    print(b - l)
-    return b - l
-
-
-def check_block(
-        block,
-        vol_ds,
-        is_precheck,
-        completion_db,
-        recording_block_done,
-        logger,
-        overwrite_sections=None,
-        overwrite_mask=None,
-        check_datastore=True,
-        ):
-
-    logger.debug("Checking if block %s is complete..." % block.write_roi)
-
-    write_roi = vol_ds.roi.intersect(block.write_roi)
-    if write_roi.empty():
-        logger.debug("Block outside of output ROI")
-        return True
-
-    if is_precheck and overwrite_sections is not None:
-        # read_roi_mask = overwrite_mask.roi.intersect(block.read_roi)
-        for roi in overwrite_sections:
-            # if roi.intersects(block.read_roi):
-            if roi.intersects(block.write_roi):
-                logger.debug("Block overlaps overwrite_sections %s" % roi)
-                return False
-
-    if is_precheck and overwrite_mask:
-        read_roi_mask = overwrite_mask.roi.intersect(block.read_roi)
-        if not read_roi_mask.empty():
-            try:
-                sum = np.sum(overwrite_mask[read_roi_mask].to_ndarray())
-                if sum != 0:
-                    logger.debug("Block inside overwrite_mask")
-                    return False
-            except:
-                return False
-
-    if completion_db.count({'block_id': block.block_id}) >= 1:
-        logger.debug("Skipping block with db check")
-        return True
-
-    if check_datastore:
-        s = 0
-        quarter = (write_roi.get_end() - write_roi.get_begin()) / 4
-
-        # check values of center and nearby voxels
-        s += np.sum(vol_ds[write_roi.get_begin() + quarter*1])
-        s += np.sum(vol_ds[write_roi.get_begin() + quarter*2])
-        s += np.sum(vol_ds[write_roi.get_begin() + quarter*3])
-        logger.info("Sum of center values in %s is %f" % (write_roi, s))
-
-        done = s != 0
-        if done:
-            recording_block_done(block)
-        return done
-    else:
-        return False
-
-    # TODO: this should be filtered by post check and not pre check
-    # if (s == 0):
-    #     self.log_error_block(block)
-
-
-# def get_rois(
-#         sub_roi_offset,
-#         sub_roi_shape,
-#         block_size,
-#         context,
-#         source_ds=None,
-#         prev_ds=None,
-#         ):
-
-#     if (sub_roi_offset is not None and sub_roi_shape is not None and
-#             source_ds is not None):
-#         # use source ROI and trim to sub_roi
-#         ds_roi = source_ds.roi
-
-#         total_roi = daisy.Roi(tuple(sub_roi_offset), tuple(sub_roi_shape))
-#         total_roi = total_roi.grow(context, context)
-#         read_roi = daisy.Roi((0,)*total_roi.dims(),
-#                              block_size).grow(context, context)
-#         write_roi = daisy.Roi((0,)*total_roi.dims(), block_size)
-
-#     else:
-#         # use prev dataset ROIs
-#         assert sub_roi_offset is None and sub_roi_shape is None
-#         assert prev_ds is not None
-
-#         ds_roi = prev_ds.roi
-#         total_roi = prev_ds.roi.grow(context, context)
-#         read_roi = daisy.Roi((0,)*prev_ds.roi.dims(),
-#                              block_size).grow(context, context)
-#         write_roi = daisy.Roi((0,)*prev_ds.roi.dims(), block_size)
-
-#     return (total_roi, read_roi, write_roi)

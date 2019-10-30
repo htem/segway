@@ -20,18 +20,23 @@ import copy
 from itertools import product
 import random
 
+
 def compare_segmentation_to_ground_truth_skeleton(
         agglomeration_thresholds,
         segmentation_paths,
         model_name_mapping,
         num_processes,
         configs):
-    split_and_merge, split_and_merge_rand, split_and_merge_voi = [], [], []    
+    split_and_merge, split_and_merge_rand, split_and_merge_voi = [], [], []
     colours = color_generator(len(segmentation_paths))
 
-    parameters=[(agglomeration_thresholds,seg_path,num_processes,configs['skeleton']) for seg_path in segmentation_paths]
-    p= Pool(num_processes)
-    graph_lists=p.starmap(generate_graphs_with_seg_labels,parameters)
+    parameters = [
+        (agglomeration_thresholds, seg_path, num_processes, configs['skeleton'])
+            for seg_path in segmentation_paths
+        ]
+
+    p = Pool(num_processes)
+    graph_lists = p.starmap(generate_graphs_with_seg_labels,parameters)
 
     for i,seg_path in enumerate(segmentation_paths):
         numb_split, numb_merge = [], []
@@ -103,6 +108,8 @@ def color_generator(length):
         r = random.random()
         if r not in more_colour_vals: more_colour_vals.append(r)
     more_colours=cm.jet(more_colour_vals)
+
+    more_colours = ["blue", "yellow","black","coral","purple","navy","lime","red","fuchsia","gold", "maroon", "darkgreen", "darkslategrey", "fuchsia"]
 
     return(more_colours)
 

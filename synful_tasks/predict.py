@@ -13,28 +13,12 @@ import pymongo
 
 from synful.gunpowder import IntensityScaleShiftClip
 
-# parameterfile = os.path.join(setup_dir, 'parameter.json')
-# if os.path.exists(parameterfile):
-#     with open(parameterfile, 'r') as f:
-#         parameters = json.load(f)
-# else:
-#     parameters = {}
-
 
 def block_done_callback(
         completion_db,
-        # db_name,
-        # worker_config,
         block,
         start,
         duration):
-    # print("Recording block-done for %s" % (block,))
-
-    # client = pymongo.MongoClient(db_host)
-    # db = client[db_name]
-    # collection = db['blocks_predicted']
-
-    # document = dict(worker_config)
     document = dict()
     document.update({
         'block_id': block.block_id,
@@ -43,11 +27,7 @@ def block_done_callback(
         'start': start,
         'duration': duration
     })
-
-    # collection.insert(document)
     completion_db.insert(document)
-
-    # print("Recorded block-done for %s" % (block,))
 
 
 def predict(
@@ -67,9 +47,6 @@ def predict(
         # worker_config,
         out_properties,
         **kwargs):
-
-    # if xy_downsample is not None:
-    #     assert xy_downsample == 2
 
     print("db_host: ", db_host)
     print("db_name: ", db_name)
