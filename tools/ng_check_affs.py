@@ -1,12 +1,18 @@
 import daisy
 import neuroglancer
 import sys
-# import numpy as np
+import numpy as np
 import os
+# import json
 
+from funlib.show.neuroglancer import add_layer
 from segway import task_helper
 
 neuroglancer.set_server_bind_address('0.0.0.0')
+
+# user_configs, global_config = task_helper.parseConfigs(sys.argv[1:])
+# f = global_config["Input"]["output_file"]
+# raw_file = global_config["Input"]["raw_file"]
 
 try:
 
@@ -14,7 +20,9 @@ try:
     f = global_config["Input"]["output_file"]
     raw_file = global_config["Input"]["raw_file"]
 
-except:
+except Exception as e:
+
+    print(e)
 
     f = sys.argv[1]
     try:
@@ -41,22 +49,8 @@ except:
                 # pl = 3
                 vol = vol.split('_')[0]
                 raw_file = '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_gt/%s/cb2_gt_%s.zarr' % (vol, vol)
-            elif 'cutout1' in vol:
-                raw_file = '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_gt/synapse_gt/cutout1/cb2_synapse_cutout1.zarr'
-            elif 'cutout2' in vol:
-                raw_file = '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_gt/synapse_gt/cutout2/cb2_synapse_cutout2.zarr'
-            elif 'cutout3' in vol:
-                raw_file = '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_gt/synapse_gt/cutout3/cb2_synapse_cutout3.zarr'
             elif 'cutout4' in vol:
                 raw_file = '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_gt/synapse_gt/cutout4/cb2_synapse_cutout4.zarr'
-            elif 'cutout5' in vol:
-                raw_file = '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_gt/synapse_gt/cutout5/cb2_synapse_cutout5.zarr'
-            elif 'cutout6' in vol:
-                raw_file = '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_gt/synapse_gt/cutout6/cb2_synapse_cutout6.zarr'
-            elif 'cutout7' in vol:
-                raw_file = '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_gt/synapse_gt/cutout7/cb2_synapse_cutout7.zarr'
-            elif 'cutout8' in vol:
-                raw_file = '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_gt/synapse_gt/cutout8/cb2_synapse_cutout8.zarr'
             elif 'cutout9' in vol:
                 raw_file = '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_gt/synapse_gt/cutout9/cb2_synapse_cutout9.zarr'
             elif 'cb2_synapse_cutout' in vol:
@@ -82,7 +76,10 @@ if raw_file[-1] == '/':
     raw_file = raw_file[:-1]
 
 print("Opening %s..." % raw_file)
-raw = daisy.open_ds(raw_file, 'volumes/raw')
+try:
+    raw = daisy.open_ds(raw_file, 'volumes/raw')
+except:
+    raw = daisy.open_ds(raw_file, 'raw')
 
 
 def add(s, a, name, shader=None):
@@ -113,9 +110,15 @@ viewer = neuroglancer.Viewer()
 
 with viewer.txn() as s:
 
-    add(s, raw, 'raw')
+    add_layer(s, raw, 'raw')
 
-    add(s, daisy.open_ds(f, 'volumes/affs'), 'affs', shader='rgb')
+    add_layer(s, daisy.open_ds(f, 'volumes/affs'), 'affs', shader='rgb')
+    segment = daisy.open_ds(f, 'volumes/affs')
+    # s.navigation.position.voxelCoordinates = np.flip(
+    #     ((segment.roi.get_begin() + segment.roi.get_end()) / 2 / segment.voxel_size))
+    s.navigation.position.voxelCoordinates = np.flip(
+        ((segment.roi.get_begin() + segment.roi.get_end()) / 2 / raw.voxel_size))
+
 
 link = str(viewer)
 print(link)
