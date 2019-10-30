@@ -4,6 +4,7 @@ import logging
 import sys
 import time
 import os
+# import queue
 
 import pymongo
 import numpy as np
@@ -18,6 +19,77 @@ logger = logging.getLogger(__name__)
 # np.set_printoptions(threshold=sys.maxsize, formatter={'all':lambda x: str(x)})
 
 
+def read_block(graph_provider, block):
+
+    start = time.time()
+    logger.debug("Reading graph in block %s", block)
+    graph = graph_provider[block.read_roi]
+    logger.debug(
+        "Read graph from graph provider in %.3fs",
+        time.time() - start)
+
+    nodes = {
+        'id': []
+    }
+    edges = {
+        'u': [],
+        'v': []
+    }
+
+    start = time.time()
+    for node, data in graph.nodes(data=True):
+
+        # skip over nodes that are not part of this block (they have been
+        # pulled in by edges leaving this block and don't have a position
+        # attribute)
+
+        if type(graph_provider.position_attribute) == list:
+            probe = graph_provider.position_attribute[0]
+        else:
+            probe = graph_provider.position_attribute
+        if probe not in data:
+            continue
+
+        nodes['id'].append(np.uint64(node))
+        for k, v in data.items():
+            if k not in nodes:
+                nodes[k] = []
+            nodes[k].append(v)
+
+    for u, v, data in graph.edges(data=True):
+
+        edges['u'].append(np.uint64(u))
+        edges['v'].append(np.uint64(v))
+        for k, v in data.items():
+            if k not in edges:
+                edges[k] = []
+            edges[k].append(v)
+
+    if len(nodes['id']) == 0:
+        logger.debug("Graph is empty")
+        return
+
+    if len(edges['u']) == 0:
+        # no edges in graph, make sure empty np array has correct dtype
+        edges['u'] = np.array(edges['u'], dtype=np.uint64)
+        edges['v'] = np.array(edges['v'], dtype=np.uint64)
+
+    nodes = {
+        k: np.array(v)
+        for k, v in nodes.items()
+    }
+    edges = {
+        k: np.array(v)
+        for k, v in edges.items()
+    }
+    logger.debug("Parsed graph in %.3fs", time.time() - start)
+
+    start = time.time()
+    # block_queue.put((nodes, edges))
+    return (nodes, edges)
+    logger.debug("Queued graph data in %.3fs", time.time() - start)
+
+
 def find_segments(
         db_host,
         db_name,
@@ -25,8 +97,9 @@ def find_segments(
         lut_dir,
         edges_collection,
         merge_function,
-        roi_offset,
-        roi_shape,
+        block,
+        # roi_offset,
+        # roi_shape,
         thresholds,
         run_type=None,
         block_id=None,
@@ -64,9 +137,6 @@ def find_segments(
 
     '''
 
-    print("Reading graph from DB ", db_name, edges_collection)
-    start = time.time()
-
     graph_provider = daisy.persistence.MongoDbGraphProvider(
         db_name,
         db_host,
@@ -76,28 +146,11 @@ def find_segments(
             'center_y',
             'center_x'])
 
-    roi = daisy.Roi(
-        roi_offset,
-        roi_shape)
-
-    node_attrs, edge_attrs = graph_provider.read_blockwise(
-        roi,
-        block_size=daisy.Coordinate((8000, 8192, 8192)),
-        num_workers=1)
-    # node_attrs, edge_attrs = graph_provider.read_block(
-    #     roi,
-    #     block_size=daisy.Coordinate((8000, 8192, 8192)),
-    #     num_workers=4)
-
-    print("Read graph in %.3fs" % (time.time() - start))
+    node_attrs, edge_attrs = read_block(graph_provider, block)
 
     if 'id' not in node_attrs:
-        print('No nodes found in roi %s' % roi)
+        print('No nodes found in', block)
         return
-
-    print('id dtype: ', node_attrs['id'].dtype)
-    print('edge u  dtype: ', edge_attrs['u'].dtype)
-    print('edge v  dtype: ', edge_attrs['v'].dtype)
 
     nodes = node_attrs['id']
     u_array = edge_attrs['u'].astype(np.uint64)
@@ -120,10 +173,6 @@ def find_segments(
     # for i in range(len(scores)):
     #     print("%d to %d: %f" % (u_array[i], v_array[i], scores[i]))
 
-    print('Nodes dtype: ', nodes.dtype)
-    print('edges dtype: ', edges.dtype)
-    print('scores dtype: ', scores.dtype)
-
     # each block should have at least one node, edge, and score
     assert len(nodes)
     assert len(edges)
@@ -140,16 +189,12 @@ def find_segments(
     if run_type:
         out_dir = os.path.join(out_dir, run_type)
 
-    os.makedirs(out_dir, exist_ok=True)
-
-    start = time.time()
+    # os.makedirs(out_dir, exist_ok=True)
 
     for threshold in thresholds:
 
         get_connected_components(
                 nodes,
-                # u_array,
-                # v_array,
                 edges,
                 scores,
                 threshold,
@@ -157,12 +202,9 @@ def find_segments(
                 out_dir,
                 block_id)
 
-        print("Created and stored lookup tables in %.3fs" % (time.time() - start))
 
 def get_connected_components(
         nodes,
-        # u_array,
-        # v_array,
         edges,
         scores,
         threshold,
@@ -175,8 +217,7 @@ def get_connected_components(
     if block_id is None:
         block_id = 0
 
-    print("Getting CCs for threshold %.3f..." % threshold)
-    start = time.time()
+    logger.debug("Getting CCs for threshold %.3f..." % threshold)
 
     edges_tmp = edges[scores <= threshold]
     scores_tmp = scores[scores <= threshold]
@@ -186,26 +227,18 @@ def get_connected_components(
         print("scores_tmp: ", scores_tmp)
         print("edges: ", edges)
         print("scores: ", scores)
+        raise RuntimeError("Empty edges in graph! Likely unfinished agglomeration.")
 
     components = connected_components(nodes, edges_tmp, scores_tmp, threshold,
                                       use_node_id_as_component_id=1)
-    print("%.3fs" % (time.time() - start))
 
-    print("Creating fragment-segment LUT for threshold %.3f..." % threshold)
-    start = time.time()
     lut = np.array([nodes, components])
 
-    print("%.3fs" % (time.time() - start))
-
-    print("Storing fragment-segment LUT for threshold %.3f..." % threshold)
     start = time.time()
-
-    logger.info("Block: %s" % block)
 
     # print("******Local LUT: ")
     # for i in range(len(lut[0])):
     #     print("%d: %d" % (lut[0][i], lut[1][i]))
-
 
     lookup = 'seg_frags2local_%s_%d/%d' % (merge_function, int(threshold*100), block_id)
     out_file = os.path.join(out_dir, lookup)
@@ -216,20 +249,14 @@ def get_connected_components(
     out_file = os.path.join(out_dir, lookup)
     np.savez_compressed(out_file, nodes=unique_components)
 
-    # print("Num components: ", len(unique_components))
-    # # print(nodes_in_vol)
-    # print("Num nodes in vol: ", len(nodes_in_vol))
-
     nodes_in_vol = set(nodes)
 
     def not_in_graph(u, v):
         return u not in nodes_in_vol or v not in nodes_in_vol
 
-    print("Num edges original: ", len(edges))
+    logger.debug("Num edges original: ", len(edges))
     outward_edges = np.array([not_in_graph(n[0], n[1]) for n in edges])
     edges = edges[np.logical_and(scores <= threshold, outward_edges)]
-
-    # print("Local-frag edges: ", edges)
 
     # replace IDs in edges with agglomerated IDs
     frags2seg = {n: k for n, k in np.dstack((lut[0], lut[1]))[0]}
@@ -245,24 +272,7 @@ def get_connected_components(
         # np.unique doesn't work on empty arrays
         edges = np.unique(edges, axis=0)
 
-    print("Num edges pruned: ", len(edges))
-
-    # edges = edges[np.logical_or(scores >= threshold, outward_edges)]
-    # scores = scores[np.logical_or(scores >= threshold, outward_edges)]
-    # # edges = edges[np.logical_or(scores >= threshold, outward_edges)]
-    # # print(np.stack([u_array, v_array, scores, outward_edges], axis=1))
-    # # print("Num out edges left: ", len(outward_edges))
-    # # print(edges)
-    # # print(scores)
-    # # print()
-
-    # edges = edges[np.logical_or(scores >= threshold, outward_edges)]
-    # scores = scores[np.logical_or(scores >= threshold, outward_edges)]
-    # print("Num edges: ", len(edges))
-
-    # # prune _all_ edges with scores higher than hi_threshold
-    # edges = edges[scores < hi_threshold]
-    # print("Num edges: ", len(edges))
+    logger.debug("Num edges pruned: ", len(edges))
 
     lookup = 'edges_local2frags_%s_%d/%d' % (merge_function, int(threshold*100), block_id)
     out_file = os.path.join(out_dir, lookup)
@@ -303,8 +313,7 @@ if __name__ == "__main__":
             if block is None:
                 break
 
-            roi_offset = block.write_roi.get_offset()
-            roi_shape = block.write_roi.get_shape()
+            logger.info("Block: %s" % block)
 
             find_segments(
                 db_host=db_host,
@@ -313,8 +322,7 @@ if __name__ == "__main__":
                 lut_dir=lut_dir,
                 edges_collection=edges_collection,
                 merge_function=merge_function,
-                roi_offset=roi_offset,
-                roi_shape=roi_shape,
+                block=block,
                 thresholds=thresholds,
                 block_id=block.block_id,
                 )

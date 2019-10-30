@@ -2,7 +2,7 @@ import daisy
 import json
 import logging
 import sys
-import time
+# import time
 import os
 
 import pymongo
@@ -10,11 +10,9 @@ import numpy as np
 
 import task_helper
 
-logging.basicConfig(level=logging.INFO)
-logging.getLogger('daisy.persistence.shared_graph_provider').setLevel(logging.DEBUG)
+logger = logging.getLogger(__name__)
 # np.set_printoptions(threshold=sys.maxsize, formatter={'all':lambda x: str(x)})
 
-logger = logging.getLogger(__name__)
 
 def replace_fragment_ids(
         db_host,
@@ -30,39 +28,7 @@ def replace_fragment_ids(
         block_id=None,
         **kwargs):
 
-    '''
-
-    Args:
-
-        db_host (``string``):
-
-            Where to find the MongoDB server.
-
-        db_name (``string``):
-
-            The name of the MongoDB database to use.
-
-        fragments_file (``string``):
-
-            Path to the file containing the fragments.
-
-        merge_function (``string``):
-
-            The name of the MongoDB database collection to use.
-
-        roi_offset (array-like of ``int``):
-
-            The starting point (inclusive) of the ROI. Entries can be ``None``
-            to indicate unboundedness.
-
-        roi_shape (array-like of ``int``):
-
-            The shape of the ROI. Entries can be ``None`` to indicate
-            unboundedness.
-
-    '''
-
-    start = time.time()
+    # start = time.time()
 
     lut_dir = os.path.join(
         fragments_file,
@@ -70,16 +36,12 @@ def replace_fragment_ids(
 
     for threshold in thresholds:
 
-        print("edges_local2frags_%s_%d/%d.npz" % (merge_function, int(threshold*100), block_id))
+        # print("edges_local2frags_%s_%d/%d.npz" % (merge_function, int(threshold*100), block_id))
         edges = 'edges_local2frags_%s_%d/%d.npz' % (merge_function, int(threshold*100), block_id)
         edges = os.path.join(lut_dir, edges)
         edges = np.load(edges)['edges']
-        # print(edges)
-        # edges_lut = {n: k for n, k in np.dstack(edges[0], edges[1])}
-        # exit(0)
 
         adj_blocks = generate_adjacent_blocks(roi_offset, roi_shape, total_roi)
-        # print(adj_blocks); exit(0)
         for block in adj_blocks:
             adj_block_id = block.block_id
 
@@ -88,53 +50,34 @@ def replace_fragment_ids(
                     lut_dir,
                     lookup)
 
-            logging.info("Reading %s.." % (lookup))
+            logging.debug("Reading %s.." % (lookup))
 
             if not os.path.exists(lut):
                 logging.info("Skipping %s.." % lookup)
                 continue
 
             lut = np.load(lut)['fragment_segment_lut']
-
-            # for frag, comp in lut:
-            #     if frag in edges
-
-            # print(np.dstack((lut[0], lut[1])))
-            # for e in np.dstack((lut[0], lut[1])):
-                # print(e)
             frags2seg = {n: k for n, k in np.dstack((lut[0], lut[1]))[0]}
 
             for i in range(len(edges)):
                 if edges[i][0] in frags2seg:
                     if edges[i][0] != frags2seg[edges[i][0]]:
-                        # logging.info("%d remapped to %d" % (edges[i][0], frags2seg[edges[i][0]]))
                         edges[i][0] = frags2seg[edges[i][0]]
                 if edges[i][1] in frags2seg:
                     if edges[i][1] != frags2seg[edges[i][1]]:
-                        # logging.info("%d remapped to %d" % (edges[i][1], frags2seg[edges[i][1]]))
                         edges[i][1] = frags2seg[edges[i][1]]
 
-            # print(edges)
-            # exit(0)
-
-        # print(edges)
         if len(edges):
             # np.unique doesn't work on empty arrays
             edges = np.unique(edges, axis=0)
-        # print(edges)
-        # print("Length of edges: %d" % len(edges))
-        # unique_edges = set([tuple((m, n)) for m, n in edges])
-        # edges = [[m, n] for m, n in unique_edges]
-        # edges = np.array(edges)
-        # print(edges)
-        # print("Length of edges after uniquify: %d" % len(edges))
-        # exit(0)
 
         final_edges = 'edges_local2local_%s_%d/%d.npz' % (merge_function, int(threshold*100), block_id)
         out_file = os.path.join(lut_dir, final_edges)
 
-        logger.info("Writing %s" % final_edges)
+        logger.debug("Writing %s" % final_edges)
         np.savez_compressed(out_file, edges=edges)
+    logger.info("edges_local2frags_%s_%d/%d.npz" % (merge_function, int(threshold*100), block_id))
+    logger.info("Writing %s" % final_edges)
 
 
 def generate_adjacent_blocks(roi_offset, roi_shape, total_roi):
@@ -155,15 +98,8 @@ def generate_adjacent_blocks(roi_offset, roi_shape, total_roi):
 
         shifted_roi = current_block_roi.shift(roi_shape*offset_mult)
         if total_write_roi.intersects(shifted_roi):
-            # print(shifted_roi)
-            # print(total_roi)
             blocks.append(
                 daisy.Block(total_roi, shifted_roi, shifted_roi))
-
-    # print("Current block: %s" % daisy.Block(total_roi, roi, shifted_roi))
-    # print("Adjacent blocks:")
-    # for b in blocks:
-    #     print(b)
 
     return blocks
 

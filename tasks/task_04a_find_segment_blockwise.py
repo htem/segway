@@ -4,7 +4,7 @@ import sys
 import os
 import os.path as path
 
-import numpy as np
+# import numpy as np
 
 import daisy
 
@@ -67,7 +67,6 @@ class FindSegmentsBlockwiseTask(task_helper.SlurmTask):
             'lut_dir': self.lut_dir,
             'merge_function': self.merge_function,
             'edges_collection': self.edges_collection,
-            # 'num_workers': self.num_workers,
             'thresholds': self.thresholds,
         }
         self.slurmSetup(
@@ -99,7 +98,7 @@ class FindSegmentsBlockwiseTask(task_helper.SlurmTask):
         lookup = 'edges_local2frags_%s_%d/%d.npz' % (
             self.merge_function, int(self.last_threshold*100), block_id)
         out_file = os.path.join(self.out_dir, lookup)
-        logger.debug("Checking %s" % out_file)
+        logger.info("Checking %s" % out_file)
         exists = path.exists(out_file)
         return exists
 

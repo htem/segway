@@ -134,14 +134,14 @@ def enumerate_blocks_in_chunks(block, block_size, chunk_size, total_roi):
     chunk_shape = block_size / chunk_size
     # print(roi_shape / chunk_shape)
     # print(product(*list(roi_shape / chunk_shape)))
-    chunk_roi = daisy.Roi(block.write_roi.get_offset(), chunk_shape)
+    ref_roi = daisy.Roi(block.write_roi.get_offset(), chunk_shape)
 
     offsets = [range(n) for n in chunk_size]
 
     for offset_mult in product(*offsets):
 
         # print(offset_mult)
-        shifted_roi = chunk_roi.shift(chunk_shape*offset_mult)
+        shifted_roi = ref_roi.shift(chunk_shape*offset_mult)
         if total_roi.intersects(shifted_roi):
             blocks.append(
                 daisy.Block(total_roi, shifted_roi, shifted_roi))

@@ -3,16 +3,18 @@ import logging
 import sys
 import os
 import os.path as path
+
+# import numpy as np
+
 import daisy
 
-import task_helper
-from task_04a_find_segment_blockwise import FindSegmentsBlockwiseTask
+import task_helper2 as task_helper
+from task_04ba_find_segment_blockwise import FindSegmentsBlockwiseTask2a
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-class FindSegmentsBlockwiseTask2(task_helper.SlurmTask):
+class FindSegmentsBlockwiseTask2b(task_helper.SlurmTask):
 
     fragments_file = daisy.Parameter()
     fragments_dataset = daisy.Parameter()
@@ -26,13 +28,16 @@ class FindSegmentsBlockwiseTask2(task_helper.SlurmTask):
     sub_roi_offset = daisy.Parameter(None)
     sub_roi_shape = daisy.Parameter(None)
 
-    block_size = daisy.Parameter([4000, 4096, 4096])
+    block_size = daisy.Parameter()
+    super_chunk_size = daisy.Parameter()
 
     def prepare(self):
         '''Daisy calls `prepare` for each task prior to scheduling
         any block.'''
 
         self.block_size = tuple(self.block_size)
+        super_block_size = (
+            daisy.Coordinate(self.block_size) * tuple(self.super_chunk_size))
 
         fragments = daisy.open_ds(self.fragments_file, self.fragments_dataset)
 
@@ -40,38 +45,43 @@ class FindSegmentsBlockwiseTask2(task_helper.SlurmTask):
             total_roi = daisy.Roi(
                 tuple(self.sub_roi_offset), tuple(self.sub_roi_shape))
             assert fragments.roi.contains(total_roi)
-            total_roi = total_roi.grow(self.block_size, self.block_size)
+            total_roi = total_roi.grow(super_block_size, super_block_size)
 
         else:
-            total_roi = fragments.roi.grow(self.block_size, self.block_size)
-    
+            total_roi = fragments.roi.grow(super_block_size, super_block_size)
+
         read_roi = daisy.Roi((0,)*total_roi.dims(),
-                             self.block_size).grow(self.block_size, self.block_size)
-        write_roi = daisy.Roi((0,)*total_roi.dims(), self.block_size)
+                             super_block_size).grow(super_block_size, super_block_size)
+        write_roi = daisy.Roi((0,)*total_roi.dims(), super_block_size)
 
-        self.out_dir = os.path.join(
-            self.fragments_file,
-            self.lut_dir)
+        lut_dir_out = os.path.join(self.fragments_file, self.lut_dir)
+        super_lut_dir = 'super_%dx%dx%d_%s' % (
+            self.super_chunk_size[0], self.super_chunk_size[1], self.super_chunk_size[2],
+            self.merge_function)
+        lut_dir_out = os.path.join(lut_dir_out, super_lut_dir)
 
-        os.makedirs(self.out_dir, exist_ok=True)
+        for threshold in self.thresholds:
+            threshold_dir = lut_dir_out + '_%d' % int(threshold*100)
+            os.makedirs(os.path.join(threshold_dir, "edges_super2super"), exist_ok=True)
 
         self.last_threshold = self.thresholds[-1]
+        self.lut_dir_out = lut_dir_out
 
         config = {
             'db_host': self.db_host,
             'db_name': self.db_name,
             'fragments_file': self.fragments_file,
-            'lut_dir': self.lut_dir,
-            'merge_function': self.merge_function,
+            'lut_dir': lut_dir_out,
+            # 'merge_function': self.merge_function,
             'total_roi_offset': total_roi.get_offset(),
             'total_roi_shape': total_roi.get_shape(),
             # 'num_workers': self.num_workers,
             'thresholds': self.thresholds,
-            'block_size': self.block_size
+            'block_size': super_block_size
         }
         self.slurmSetup(
             config,
-            '04b_find_segments_blockwise.py')
+            '04bb_find_segments_blockwise.py')
 
         check_function = self.block_done
         if self.overwrite:
@@ -88,28 +98,28 @@ class FindSegmentsBlockwiseTask2(task_helper.SlurmTask):
             fit='shrink')
 
     def requires(self):
-        if self.no_check_dependency and not self.overwrite:
+        if self.no_check_dependency:
             return []
-        return [FindSegmentsBlockwiseTask(global_config=self.global_config)]
+        return [FindSegmentsBlockwiseTask2a(global_config=self.global_config)]
 
     def block_done(self, block):
 
-        block_id = block.block_id
-        lookup = 'edges_local2local_%s_%d/%d.npz' % (
-            self.merge_function, int(self.last_threshold*100), block_id)
-        out_file = os.path.join(self.out_dir, lookup)
-        logging.debug("Checking %s" % out_file)
+        lut_dir = self.lut_dir_out + '_%d' % int(self.last_threshold*100)
+        lookup = 'edges_super2super/%d.npz' % block.block_id
+        out_file = os.path.join(lut_dir, lookup)
+        logger.debug("Checking %s" % out_file)
         exists = path.exists(out_file)
-        # logger.info(exists)
         return exists
 
 
 if __name__ == "__main__":
 
+    logging.basicConfig(level=logging.INFO)
+
     user_configs, global_config = task_helper.parseConfigs(sys.argv[1:])
 
     daisy.distribute(
-        [{'task': FindSegmentsBlockwiseTask2(global_config=global_config,
+        [{'task': FindSegmentsBlockwiseTask2b(global_config=global_config,
                                              **user_configs),
          'request': None}],
         global_config=global_config)

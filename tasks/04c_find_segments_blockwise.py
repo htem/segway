@@ -82,28 +82,14 @@ def find_segments(
         print("Creating fragment-segment LUT for threshold %.3f..." % threshold)
         start = time.time()
         lut = np.array([nodes, components])
-
         print("%.3fs" % (time.time() - start))
 
         print("Storing fragment-segment LUT for threshold %.3f..." % threshold)
         start = time.time()
-
         lookup = 'seg_local2global_%s_%d_single' % (merge_function, int(threshold*100))
         out_file = os.path.join(lut_dir, lookup)
         np.savez_compressed(out_file, fragment_segment_lut=lut)
-
-
-
-        # print("Global LUT:")
-        # for i in range(len(lut[0])):
-        #     print("%d: %d" % (lut[0][i], lut[1][i]))
-
-
-
-
         print("%.3fs" % (time.time() - start))
-
-
 
 
 if __name__ == "__main__":
