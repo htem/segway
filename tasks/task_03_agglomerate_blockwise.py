@@ -1,11 +1,11 @@
-import json
+# import json
 import logging
-import lsd
+# import lsd
 import numpy as np
 import daisy
 import sys
 
-from lsd.parallel_aff_agglomerate import agglomerate_in_block
+# from lsd.parallel_aff_agglomerate import agglomerate_in_block
 
 import task_helper
 from task_02_extract_fragments import ExtractFragmentTask
@@ -14,6 +14,18 @@ from task_02_extract_fragments import ExtractFragmentTask
 # logging.getLogger('lsd.persistence.sqlite_rag_provider').setLevel(logging.DEBUG)
 
 logger = logging.getLogger(__name__)
+
+
+def shrink_roi(roi, pct):
+
+    assert pct <= 1.0
+
+    if pct <= 0.01:
+        return roi
+
+    check_mult = 2.0/pct
+    roi = roi.grow(-roi.get_shape()/check_mult, -roi.get_shape()/check_mult)
+    return roi
 
 
 class AgglomerateTask(task_helper.SlurmTask):
@@ -146,22 +158,27 @@ class AgglomerateTask(task_helper.SlurmTask):
 
     def block_done(self, block):
 
-        #if self.completion_db.count({'block_id': block.block_id}) >= 1:
-        #    logger.debug("Skipping block with db check")
-        #    return True
+        # checking with DB is somehow not reliable
+        check_db = False
+        if check_db:
+            if self.completion_db.count({'block_id': block.block_id}) >= 1:
+                logger.debug("Skipping block with db check")
+                return True
 
-        # compat with older runs
-        roi = block.write_roi
-        # decrease ROI to 1/8 at the center
-        roi = roi.grow(-roi.get_shape()/4, -roi.get_shape()/4)
-        roi = roi.grow(-roi.get_shape()/4, -roi.get_shape()/4)
-        roi = roi.grow(-roi.get_shape()/4, -roi.get_shape()/4)
-        print(roi)
-        done = (self.rag_provider.has_edges(roi) or
-                self.rag_provider.num_nodes(roi) == 0)
-        if done:
-            self.recording_block_done(block)
-        return done
+        for shrink_pct in [.975, .90, .75, .5, 0]:
+
+            roi = shrink_roi(block.write_roi, shrink_pct)
+            if self.rag_provider.has_edges(roi):
+                return True
+
+            if shrink_pct == .5:
+                return False
+
+            if self.rag_provider.num_nodes(roi) >= 2:
+                return False
+
+        # no nodes found, means an error in fragment extract; skip
+        return True
 
     def requires(self):
         if self.no_check_dependency:
@@ -187,15 +204,3 @@ if __name__ == "__main__":
                                   **user_configs),
          'request': req_roi}],
         global_config=global_config)
-
-    # logging.getLogger('lsd.parallel_aff_agglomerate').setLevel(logging.DEBUG)
-
-    # configs = {}
-    # for config in sys.argv[1:]:
-    #     with open(config, 'r') as f:
-    #         configs = {**json.load(f), **configs}
-    # aggregateConfigs(configs)
-    # print(configs)
-
-    # daisy.distribute([{'task': AgglomerateTask(), 'request': None}],
-    #     global_config=configs)

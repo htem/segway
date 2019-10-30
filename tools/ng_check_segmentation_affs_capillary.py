@@ -15,7 +15,9 @@ try:
     f = global_config["Input"]["output_file"]
     raw_file = global_config["Input"]["raw_file"]
 
-except:
+except Exception as e:
+
+    print(e)
 
     f = sys.argv[1]
     try:
@@ -69,24 +71,25 @@ if raw_file[-1] == '/':
     raw_file = raw_file[:-1]
 
 print("Opening %s..." % raw_file)
-raw = daisy.open_ds(raw_file, 'volumes/raw')
+try:
+    raw = daisy.open_ds(raw_file, 'volumes/raw')
+except:
+    raw = daisy.open_ds(raw_file, 'raw')
 
 viewer = neuroglancer.Viewer()
 
 with viewer.txn() as s:
 
     add_layer(s, raw, 'raw')
-
-    add_layer(s, daisy.open_ds(f, 'volumes/affs'), 'affs', shader='rgb')
-    # add_layer(s, daisy.open_ds(f, 'volumes/myelin'), 'myelin')
-    try: add_layer(s, daisy.open_ds(f, 'volumes/capillary_pred'), 'capillary_pred')
+    try: add_layer(s, daisy.open_ds(f, 'volumes/affs'), 'affs', shader='rgb')
     except: pass
-    add_layer(s, daisy.open_ds(f, 'volumes/fragments'), 'frag')
-
-    segment = daisy.open_ds(f, 'volumes/fragments')
+    add_layer(s, daisy.open_ds(f, 'volumes/capillary_pred'), 'capillary_pred')
+    
+    segment = daisy.open_ds(f, 'volumes/capillary_pred')
     s.navigation.position.voxelCoordinates = np.flip(
         # ((segment.roi.get_begin() + segment.roi.get_end()) / 2 / segment.voxel_size))
         ((segment.roi.get_begin() + segment.roi.get_end()) / 2 / daisy.Coordinate([40, 4, 4])))
+
 
 link = str(viewer)
 print(link)

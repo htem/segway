@@ -33,6 +33,7 @@ class SlurmTask(daisy.Task):
     debug_print_command_only = daisy.Parameter(False)
     overwrite = daisy.Parameter(False)
     no_check_dependency = daisy.Parameter(False)
+    no_precheck = daisy.Parameter(False)
 
     db_host = daisy.Parameter()
     db_name = daisy.Parameter()
@@ -250,8 +251,6 @@ def generateActorSbatch(
         pass
     config_file = os.path.join(
         '.run_configs', '%s_%d.config' % (logname, config_hash))
-    # log_out = os.path.join('.run_configs', '%d.out'%config_hash)
-    # log_err = os.path.join('.run_configs', '%d.err'%config_hash)
     with open(config_file, 'w') as f:
         json.dump(config, f)
 
@@ -522,6 +521,17 @@ def aggregateConfigs(configs):
         if 'roi_shape' in input_config:
             config['roi_shape'] = input_config['roi_shape']
 
+    if "PredictCapillaryTask" in configs:
+        config = configs["PredictCapillaryTask"]
+        config['raw_file'] = input_config['raw_file']
+        copyParameter(input_config, config, 'raw_dataset')
+        config['out_file'] = input_config['output_file']
+        if 'roi_offset' in input_config:
+            config['roi_offset'] = input_config['roi_offset']
+        if 'roi_shape' in input_config:
+            config['roi_shape'] = input_config['roi_shape']
+        copyParameter(input_config, config, 'replace_section_list')
+
     if "MergeMyelinTask" in configs:
         config = configs["MergeMyelinTask"]
         if 'affs_file' not in config:
@@ -538,6 +548,7 @@ def aggregateConfigs(configs):
         config = configs["ExtractFragmentTask"]
         copyParameter(input_config, config, 'output_file', 'affs_file')
         copyParameter(input_config, config, 'output_file', 'fragments_file')
+        copyParameter(input_config, config, 'output_file', 'capillary_pred_file')
         copyParameter(input_config, config, 'raw_file')
         copyParameter(input_config, config, 'raw_dataset')
         copyParameter(input_config, config, 'overwrite_sections')
@@ -724,48 +735,53 @@ def compute_compatible_roi(
         roi_context,
         source_roi,
         chunk_size,
-        center_roi_offset=False
+        center_roi_offset=False,
+        shrink_context=True,
+        sched_roi_outside_roi_ok=False,
         ):
+    '''Compute compatible input (schedule) ROI and output (dataset ROI)'''
 
-    # get total input and output ROIs
+    roi_context = daisy.Coordinate(roi_context)
+
     if roi_offset is not None and roi_shape is not None:
 
-        output_roi = daisy.Roi(
+        dataset_roi = daisy.Roi(
             tuple(roi_offset), tuple(roi_shape))
 
         if center_roi_offset:
-            output_roi = output_roi.shift(-daisy.Coordinate(tuple(roi_shape))/2)
-            output_roi = output_roi.snap_to_grid(voxel_size, mode="grow")
+            dataset_roi = dataset_roi.shift(-daisy.Coordinate(tuple(roi_shape))/2)
+            dataset_roi = dataset_roi.snap_to_grid(voxel_size, mode="grow")
 
-        input_roi = output_roi.grow(roi_context, roi_context)
-        assert input_roi.intersect(source_roi) == input_roi, \
-            "output_roi (%s) + roi_context (%s) = input_roi (%s) has to be within raw ROI" \
-            % (output_roi, roi_context, input_roi)
+        sched_roi = dataset_roi.grow(roi_context, roi_context)
+        assert sched_roi.intersect(source_roi) == sched_roi, \
+            "input_roi (%s) + roi_context (%s) = output_roi (%s) has to be within raw ROI %s" \
+            % (dataset_roi, roi_context, sched_roi, source_roi)
 
     elif sub_roi_offset is not None and sub_roi_shape is not None:
 
-        output_roi = source_roi  # total volume ROI
-        input_roi = daisy.Roi(
+        dataset_roi = source_roi  # total volume ROI
+        sched_roi = daisy.Roi(
             tuple(sub_roi_offset), tuple(sub_roi_shape))
-        assert output_roi.contains(input_roi)
+        assert dataset_roi.contains(sched_roi)
 
         if center_roi_offset:
             raise RuntimeError("Unimplemented")
-        # need align output_roi to prediction chunk size
+        # need align dataset_roi to prediction chunk size
 
-        output_roi_begin = [k for k in output_roi.get_begin()]
-        output_roi_begin[0] = align(output_roi.get_begin()[0], input_roi.get_begin()[0], chunk_size[0])
-        output_roi_begin[1] = align(output_roi.get_begin()[1], input_roi.get_begin()[1], chunk_size[1])
-        output_roi_begin[2] = align(output_roi.get_begin()[2], input_roi.get_begin()[2], chunk_size[2])
+        output_roi_begin = [k for k in dataset_roi.get_begin()]
+        output_roi_begin[0] = align(dataset_roi.get_begin()[0], sched_roi.get_begin()[0], chunk_size[0])
+        output_roi_begin[1] = align(dataset_roi.get_begin()[1], sched_roi.get_begin()[1], chunk_size[1])
+        output_roi_begin[2] = align(dataset_roi.get_begin()[2], sched_roi.get_begin()[2], chunk_size[2])
 
-        output_roi.set_offset(tuple(output_roi_begin))
+        dataset_roi.set_offset(tuple(output_roi_begin))
 
-        assert (output_roi.get_begin()[0] - input_roi.get_begin()[0]) % chunk_size[0] == 0
-        assert (output_roi.get_begin()[1] - input_roi.get_begin()[1]) % chunk_size[1] == 0
-        assert (output_roi.get_begin()[2] - input_roi.get_begin()[2]) % chunk_size[2] == 0
+        assert (dataset_roi.get_begin()[0] - sched_roi.get_begin()[0]) % chunk_size[0] == 0
+        assert (dataset_roi.get_begin()[1] - sched_roi.get_begin()[1]) % chunk_size[1] == 0
+        assert (dataset_roi.get_begin()[2] - sched_roi.get_begin()[2]) % chunk_size[2] == 0
 
-        input_roi = input_roi.grow(roi_context, roi_context)
-        assert output_roi.contains(input_roi)
+        sched_roi = sched_roi.grow(roi_context, roi_context)
+        if not sched_roi_outside_roi_ok:
+            assert dataset_roi.contains(sched_roi), "dataset_roi %s does not contain sched_roi %s" % (dataset_roi, sched_roi)
 
     else:
 
@@ -778,10 +794,13 @@ def compute_compatible_roi(
         assert sub_roi_shape is None
         # if no ROI is given, we need to shrink output ROI
         # to account for the roi_context
-        input_roi = source_roi
-        output_roi = source_roi.grow(-roi_context, -roi_context)
+        sched_roi = source_roi
+        dataset_roi = source_roi
 
-    return input_roi, output_roi
+        if shrink_context:
+            dataset_roi = dataset_roi.grow(-roi_context, -roi_context)
+
+    return sched_roi, dataset_roi
 
 
 def align(a, b, stride):
@@ -806,7 +825,7 @@ def check_block(
         logger,
         overwrite_sections=None,
         overwrite_mask=None,
-        check_datastore=True
+        check_datastore=True,
         ):
 
     logger.debug("Checking if block %s is complete..." % block.write_roi)
@@ -817,9 +836,10 @@ def check_block(
         return True
 
     if is_precheck and overwrite_sections is not None:
-        read_roi_mask = overwrite_mask.roi.intersect(block.read_roi)
+        # read_roi_mask = overwrite_mask.roi.intersect(block.read_roi)
         for roi in overwrite_sections:
-            if roi.intersects(read_roi_mask):
+            # if roi.intersects(block.read_roi):
+            if roi.intersects(block.write_roi):
                 logger.debug("Block overlaps overwrite_sections %s" % roi)
                 return False
 
@@ -858,3 +878,37 @@ def check_block(
     # TODO: this should be filtered by post check and not pre check
     # if (s == 0):
     #     self.log_error_block(block)
+
+
+# def get_rois(
+#         sub_roi_offset,
+#         sub_roi_shape,
+#         block_size,
+#         context,
+#         source_ds=None,
+#         prev_ds=None,
+#         ):
+
+#     if (sub_roi_offset is not None and sub_roi_shape is not None and
+#             source_ds is not None):
+#         # use source ROI and trim to sub_roi
+#         ds_roi = source_ds.roi
+
+#         total_roi = daisy.Roi(tuple(sub_roi_offset), tuple(sub_roi_shape))
+#         total_roi = total_roi.grow(context, context)
+#         read_roi = daisy.Roi((0,)*total_roi.dims(),
+#                              block_size).grow(context, context)
+#         write_roi = daisy.Roi((0,)*total_roi.dims(), block_size)
+
+#     else:
+#         # use prev dataset ROIs
+#         assert sub_roi_offset is None and sub_roi_shape is None
+#         assert prev_ds is not None
+
+#         ds_roi = prev_ds.roi
+#         total_roi = prev_ds.roi.grow(context, context)
+#         read_roi = daisy.Roi((0,)*prev_ds.roi.dims(),
+#                              block_size).grow(context, context)
+#         write_roi = daisy.Roi((0,)*prev_ds.roi.dims(), block_size)
+
+#     return (total_roi, read_roi, write_roi)

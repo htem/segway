@@ -31,6 +31,16 @@
             "num_workers": 1
         },
 
+    "PredictCapillaryTask":
+        {
+            "out_dataset" : "volumes/capillary_pred",
+            "num_workers": 4,
+            "lazyflow_num_threads": 16,
+            "lazyflow_mem": 4096,
+            "block_size": [1000, 65536, 65536],
+            "context": [0, 8192, 8192]
+        },
+
     "PredictSynapseTask":
         {
             "num_workers": 1

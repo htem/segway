@@ -4,7 +4,6 @@ import logging
 import numpy as np
 import sys
 import daisy
-import lsd
 from lsd.parallel_fragments import watershed_in_block
 import pymongo
 
@@ -24,6 +23,8 @@ if __name__ == "__main__":
     epsilon_agglomerate = 0
     use_mahotas = False
     min_seed_distance = 10  # default seed size from Jan
+    capillary_pred_file = None
+    capillary_pred_dataset = None
 
     for key in run_config:
         globals()['%s' % key] = run_config[key]
@@ -46,6 +47,18 @@ if __name__ == "__main__":
             fragments_file, myelin_dataset)
     except:
         myelin_ds = None
+
+    filter_masks = []
+    print(capillary_pred_file)
+    print(capillary_pred_dataset)
+
+    if capillary_pred_file is not None or capillary_pred_dataset is not None:
+        assert capillary_pred_file is not None
+        assert capillary_pred_dataset is not None
+        capillary_pred_ds = daisy.open_ds(capillary_pred_file, capillary_pred_dataset)
+        filter_masks.append(capillary_pred_ds)
+
+    assert(len(filter_masks))
 
     # open RAG DB
     logging.info("Opening RAG DB...")
@@ -83,8 +96,10 @@ if __name__ == "__main__":
                            fragments_in_xy,
                            epsilon_agglomerate,
                            mask,
-                           myelin_ds=myelin_ds,
-                           min_seed_distance=min_seed_distance
+                           filter_fragments=filter_fragments,
+                           # myelin_ds=myelin_ds,
+                           min_seed_distance=min_seed_distance,
+                           filter_masks=filter_masks,
                            # use_mahotas=use_mahotas,
                            )
 

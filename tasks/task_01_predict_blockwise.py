@@ -1,12 +1,12 @@
 import json
 import logging
-import numpy as np
+# import numpy as np
 import os
 import sys
 
 import daisy
-# import task_helper
-from segway.tasks import task_helper2 as task_helper
+# from segway.tasks import task_helper2 as task_helper
+import task_helper2 as task_helper
 
 logger = logging.getLogger(__name__)
 
@@ -144,8 +144,14 @@ class PredictTask(task_helper.SlurmTask):
         voxel_size = source.voxel_size
         self.net_voxel_size = tuple(self.net_voxel_size)
         if self.net_voxel_size != source.voxel_size:
-            logger.info("Mismatched net and source voxel size. "
-                        "Assuming downsampling")
+            downsample_factors = daisy.Coordinate(
+                    (1, self.xy_downsample, self.xy_downsample))
+            assert source.voxel_size*downsample_factors == self.net_voxel_size, (
+                    "Source voxel size %s mult by xy_downsample %d does not "
+                    "match network voxel size %s" % (
+                        source.voxel_size, self.xy_downsample, self.net_voxel_size))
+            # logger.info("Mismatched net and source voxel size. "
+                        # "Assuming downsampling")
             # force same voxel size for net in and output dataset
             voxel_size = self.net_voxel_size
 
@@ -172,7 +178,7 @@ class PredictTask(task_helper.SlurmTask):
         block_read_roi = daisy.Roi((0, 0, 0), block_input_size) - context
         block_write_roi = daisy.Roi((0, 0, 0), block_output_size)
 
-        input_roi, output_roi = task_helper.compute_compatible_roi(
+        sched_roi, dataset_roi = task_helper.compute_compatible_roi(
                 roi_offset=self.roi_offset,
                 roi_shape=self.roi_shape,
                 sub_roi_offset=self.sub_roi_offset,
@@ -183,10 +189,10 @@ class PredictTask(task_helper.SlurmTask):
             )
 
         logger.info("Following ROIs in world units:")
-        logger.info("Total input ROI  = %s" % input_roi)
+        logger.info("Total input ROI  = %s" % sched_roi)
         logger.info("Block read  ROI  = %s" % block_read_roi)
         logger.info("Block write ROI  = %s" % block_write_roi)
-        logger.info("Total output ROI = %s" % output_roi)
+        logger.info("Total output ROI = %s" % dataset_roi)
 
         logging.info('Preparing output dataset')
 
@@ -202,7 +208,7 @@ class PredictTask(task_helper.SlurmTask):
         self.affs_ds = daisy.prepare_ds(
             self.out_file,
             self.out_dataset,
-            output_roi,
+            dataset_roi,
             voxel_size,
             out_dtype,
             # write_roi=daisy.Roi((0, 0, 0), chunk_size),
@@ -218,7 +224,7 @@ class PredictTask(task_helper.SlurmTask):
             self.myelin_ds = daisy.prepare_ds(
                 self.out_file,
                 "volumes/myelin",
-                output_roi,
+                dataset_roi,
                 voxel_size,
                 out_dtype,
                 # write_roi=daisy.Roi((0, 0, 0), chunk_size),
@@ -239,14 +245,14 @@ class PredictTask(task_helper.SlurmTask):
                 self.overwrite_mask_f, "overwrite_mask")
 
         if self.overwrite_sections is not None:
-            write_shape = [k for k in output_roi.get_shape()]
+            write_shape = [k for k in dataset_roi.get_shape()]
             write_shape[0] = 40
             write_shape = tuple(write_shape)
 
             rois = []
-            # overwrite_sections_begin = output_roi.get_begin()
+            # overwrite_sections_begin = dataset_roi.get_begin()
             for s in self.overwrite_sections:
-                write_offset = [k for k in output_roi.get_begin()]
+                write_offset = [k for k in dataset_roi.get_begin()]
                 write_offset[0] = s*40
                 rois.append(daisy.Roi(write_offset, write_shape))
 
@@ -289,20 +295,24 @@ class PredictTask(task_helper.SlurmTask):
 
         check_function = (
                 lambda b: task_helper.check_block(
-                    b, self.affs_ds, is_precheck=True, completion_db=self.completion_db, recording_block_done=self.recording_block_done, logger=logger, check_datastore=False),
+                    b, self.affs_ds, is_precheck=True, completion_db=self.completion_db, recording_block_done=self.recording_block_done, logger=logger, check_datastore=False, overwrite_sections=self.overwrite_sections),
                 lambda b: task_helper.check_block(
-                    b, self.affs_ds, is_precheck=False, completion_db=self.completion_db, recording_block_done=self.recording_block_done, logger=logger)
+                    b, self.affs_ds, is_precheck=False, completion_db=self.completion_db, recording_block_done=self.recording_block_done, logger=logger, overwrite_sections=self.overwrite_sections)
                 )
 
         if self.overwrite:
             check_function = None
 
+        # if self.overwrite_sections is not None:
+            # check_function = None
+
         if self.no_check:
             check_function = (lambda b: False, lambda b: True)
 
+
         # any task must call schedule() at the end of prepare
         self.schedule(
-            total_roi=input_roi,
+            total_roi=sched_roi,
             read_roi=block_read_roi,
             write_roi=block_write_roi,
             # write_size=block_output_size,

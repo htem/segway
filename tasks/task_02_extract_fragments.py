@@ -7,9 +7,8 @@ import sys
 import daisy
 import lsd
 
-import task_helper
+import task_helper2 as task_helper
 from task_01_predict_blockwise import PredictTask
-from task_merge_myelin import MergeMyelinTask
 
 # logging.getLogger('lsd.parallel_fragments').setLevel(logging.DEBUG)
 # logging.getLogger('lsd.persistence.sqlite_rag_provider').setLevel(logging.DEBUG)
@@ -97,6 +96,11 @@ class ExtractFragmentTask(task_helper.SlurmTask):
 
     force_exact_write_size = daisy.Parameter(False)
 
+    capillary_pred_file = daisy.Parameter(None)
+    capillary_pred_dataset = daisy.Parameter(None)
+
+    filter_fragments = daisy.Parameter(0.3)
+
     def prepare(self):
         '''Daisy calls `prepare` for each task prior to scheduling
         any block.'''
@@ -140,30 +144,26 @@ class ExtractFragmentTask(task_helper.SlurmTask):
             # get ROI of source
             assert self.raw_file is not None and self.raw_dataset is not None
             source = daisy.open_ds(self.raw_file, self.raw_dataset)
-            ds_roi = source.roi
-
+            dataset_roi = source.roi
             total_roi = daisy.Roi(
                 tuple(self.sub_roi_offset), tuple(self.sub_roi_shape))
             total_roi = total_roi.grow(self.context, self.context)
-            read_roi = daisy.Roi((0,)*total_roi.dims(),
-                                 self.block_size).grow(self.context, self.context)
-            write_roi = daisy.Roi((0,)*total_roi.dims(), self.block_size)
 
         else:
 
-            ds_roi = self.affs.roi
-
+            dataset_roi = self.affs.roi
             total_roi = self.affs.roi.grow(self.context, self.context)
-            read_roi = daisy.Roi((0,)*self.affs.roi.dims(),
-                                 self.block_size).grow(self.context, self.context)
-            write_roi = daisy.Roi((0,)*self.affs.roi.dims(), self.block_size)
+
+        read_roi = daisy.Roi((0,)*total_roi.dims(),
+                             self.block_size).grow(self.context, self.context)
+        write_roi = daisy.Roi((0,)*total_roi.dims(), self.block_size)
 
         # prepare fragments dataset
         voxel_size = self.affs.voxel_size
         self.fragments_out = daisy.prepare_ds(
             self.fragments_file,
             self.fragments_dataset,
-            ds_roi,
+            dataset_roi,
             voxel_size,
             np.uint64,
             # daisy.Roi((0, 0, 0), self.block_size),
@@ -213,7 +213,10 @@ class ExtractFragmentTask(task_helper.SlurmTask):
             'fragments_dataset': self.fragments_dataset,
             'epsilon_agglomerate': self.epsilon_agglomerate,
             'use_mahotas': self.use_mahotas,
-            'min_seed_distance': self.min_seed_distance
+            'min_seed_distance': self.min_seed_distance,
+            'capillary_pred_file': self.capillary_pred_file,
+            'capillary_pred_dataset': self.capillary_pred_dataset,
+            'filter_fragments': self.filter_fragments,
         }
 
         self.slurmSetup(config, 'actor_fragment_extract.py')
@@ -264,17 +267,15 @@ class ExtractFragmentTask(task_helper.SlurmTask):
             logger.debug("Skipping block with db check")
             return True
 
-        # check using rag_provider.num_nodes for compatibility with older runs
-        done = self.rag_provider.num_nodes(block.write_roi) > 0
-        if done:
-            self.recording_block_done(block)
-            return True
+        # # check using rag_provider.num_nodes for compatibility with older runs
+        # done = self.rag_provider.num_nodes(block.write_roi) > 0
+        # if done:
+        #     self.recording_block_done(block)
+        #     return True
 
     def requires(self):
         if self.no_check_dependency:
             return []
-        if self.use_myelin_net:
-            return [MergeMyelinTask(global_config=self.global_config)]
         else:
             return [PredictTask(global_config=self.global_config)]
 
