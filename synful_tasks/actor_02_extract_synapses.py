@@ -183,16 +183,6 @@ def extract_synapses(ind_pred_ds,
                                    scores=scores_f, ID=ids, zyx=zyx,
                                    ids_sf_pre=ids_sf_pre,
                                    ids_sf_post=ids_sf_post)
-    
-    # Check if the synapse is in the roi according to the postsyn location
-    """
-    filtered_syn = []
-    for syn in synapses:
-        if not block.write_roi.contains(syn.location_post):
-            print("Block %d does NOT contain synapse %d" % (block.block_id, syn.id))
-        else:
-            filtered_syn.append(syn) 
-    """
 
     print("Extraction synapses execution time = %f s" % (time.time() - start_time))
     
@@ -246,38 +236,6 @@ def extract_superfragments(synapses, write_roi):
         sf.finalize()
 
     return superfragments_list
-        
-
-
-    # # write IDs
-    # # sf_ids = np.array([ids_sf_pre, ids_sf_post]).reshape(
-    # #                     len(ids_sf_pre)+len(ids_sf_post),).astype(int)
-    # sf_ids = list(np.unique(np.array(sf_ids)))
-    # print("Superfragments IDs:", sf_ids)
-    # synapses_ids = [[] for i in range(len(sf_ids))]
-    # # # these must not be confused with the ones above
-    # # # these will be the output
-    # # pre_sf_ids = [[] for i in range(len(sf_ids))]
-    # # post_sf_ids = [[] for i in range(len(sf_ids))]
- 
-    # i = 0
-    # for sfid in sf_ids:
-    #     # find where the sf id is pre/post and alloc the corresponding post/pre
-    #     ipre = np.where(sfid==ids_sf_pre)[0]
-    #     ipost = np.where(sfid==ids_sf_post)[0]
-    #     assert len(ipre) != 0 or len(ipost) != 0 
-    #     post_sf_ids[i] = list(ids_sf_post[ipre].astype(int))
-    #     pre_sf_ids[i] = list(ids_sf_pre[ipost].astype(int))
-    #     synapses_ids[i].extend(list(all_syn_ids[ipre]))
-    #     synapses_ids[i].extend(list(all_syn_ids[ipost]))
-
-    #     i+=1
-
-    # superfragments = synapse.create_superfragments(sf_ids, syn_ids=synapses_ids, pre_partners=pre_sf_ids,
-    #                                                post_partners=post_sf_ids, segment_ids=None)
-
-
-    # return superfragments
 
 
 if __name__ == "__main__":
@@ -362,8 +320,6 @@ if __name__ == "__main__":
         synapses = extract_synapses(ind_pred_ds,
                                     dir_pred_ds,
                                     sup_ds,
-                                    # db_name,
-                                    # db_host,
                                     parameters,
                                     block)  
         ### WRITE SYNAPSES IN DB

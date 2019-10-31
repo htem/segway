@@ -102,7 +102,7 @@ class SuperFragmentDatabase(object):
 
     def read_superfragments(self, syn_ids = None):
         if syn_ids is None:
-            logger.debug("No roi provided, querying all superfragments in database")
+            logger.debug("No ids provided, querying all superfragments in database")
             superfragments_dic = self.superfragments.find()
         elif syn_ids is not None:
             logger.debug("Querying superframents with following IDs:", syn_ids)
