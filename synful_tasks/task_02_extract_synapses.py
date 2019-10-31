@@ -49,7 +49,7 @@ class ExtractSynapsesTask(task_helper.SlurmTask):
 
     # cc or nms
     extract_type = daisy.Parameter("cc")
-    cc_threshold = daisy.Parameter(60)
+    cc_threshold = daisy.Parameter(0.25)
     loc_type = daisy.Parameter('edt')
     score_type = daisy.Parameter('mean')
     db_col_name_syn = daisy.Parameter('synapses')
@@ -78,12 +78,6 @@ class ExtractSynapsesTask(task_helper.SlurmTask):
             self.context = daisy.Coordinate(self.context)
 
         if self.sub_roi_offset is not None and self.sub_roi_shape is not None:
-
-            assert False, "Untested"  # I will make this right later
-
-            # get ROI of source
-            assert self.raw_file is not None and self.raw_dataset is not None
-            # source = daisy.open_ds(self.raw_file, self.raw_dataset)
 
             total_roi = daisy.Roi(
                 tuple(self.sub_roi_offset), tuple(self.sub_roi_shape))
