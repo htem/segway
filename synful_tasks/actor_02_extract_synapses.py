@@ -88,22 +88,27 @@ def extract_synapses(ind_pred_ds,
         logger.debug('Rescaling z channel with 255')
 
     voxel_size = np.array(ind_pred_ds.voxel_size)
-    predicted_syns, scores = detection.find_locations(zchannel, parameters,
+    predicted_syns, scores, areas = detection.find_locations(zchannel, parameters,
                                                       voxel_size)  # In world units.
+
     # Filter synapses for scores.
     new_scorelist = []
+    new_arealist = []
     if parameters.score_thr is not None:
         filtered_list = []
         for ii, loc in enumerate(predicted_syns):
             score = scores[ii]
+            area = areas[ii]
             if score > parameters.score_thr:
                 filtered_list.append(loc)
                 new_scorelist.append(score)
+                new_arealist.append(area)
 
         logger.info(
             'filtered out %i out of %d' % (len(predicted_syns) - len(filtered_list), len(predicted_syns)))
         predicted_syns = filtered_list
         scores = new_scorelist
+        areas = new_arealist
 
     # Load direction vectors and find target location
     dirmap = dir_pred_ds.to_ndarray(roi=pred_roi)
@@ -163,12 +168,14 @@ def extract_synapses(ind_pred_ds,
     pre_syns_f = []
     post_syns_f = []
     scores_f = []
+    areas_f = []
     i_f = [] # indices to consider
     for i in range(len(ids_sf_pre)):
         if ids_sf_pre[i] != ids_sf_post[i]:
             pre_syns_f.append(pre_syns[i])
             post_syns_f.append(post_syns[i])
             scores_f.append(scores[i])
+            areas_f.append(areas[i])
             i_f.append(i)
 
     ids_sf_pre = list(np.array(ids_sf_pre)[i_f])
@@ -180,13 +187,14 @@ def extract_synapses(ind_pred_ds,
     print("Synapses IDs: ", ids)
 
     synapses = synapse.create_synapses(pre_syns_f, post_syns_f,
-                                   scores=scores_f, ID=ids, zyx=zyx,
+                                   scores=scores_f, areas=areas_f, ID=ids, zyx=zyx,
                                    ids_sf_pre=ids_sf_pre,
                                    ids_sf_post=ids_sf_post)
 
     print("Extraction synapses execution time = %f s" % (time.time() - start_time))
-    
+
     return synapses 
+
 
 def extract_superfragments(synapses, write_roi):
 

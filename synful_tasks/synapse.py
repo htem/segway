@@ -17,21 +17,24 @@ class Synapse(object):
     """
 
     def __init__(self, id=None, id_superfrag_pre=None, id_superfrag_post=None,
-                 location_pre=None, location_post=None, score=None, zyx=None):
+                 location_pre=None, location_post=None, score=None, area=None, zyx=None):
         self.id = id
         self.id_superfrag_pre = id_superfrag_pre
         self.id_superfrag_post = id_superfrag_post
         self.location_pre = location_pre
         self.location_post = location_post
         self.score = score
+        self.area = area
         self.zyx = zyx
 
     def __repr__(self):
-        output_str = 'id: %s, sf_ids: [%s, %s], score: %s' % (
+        output_str = 'id: %s, sf_ids: [%s, %s], score: %s, area: %s' % (
             str(self.id),
             str(self.id_superfrag_pre),
             str(self.id_superfrag_post),
-            '{:0.3f}'.format(self.score) if self.score is not None else None)
+            '{:0.3f}'.format(self.score) if self.score is not None else None,
+            '{:0.3f}'.format(self.area) if self.area is not None else None
+            )
         return output_str
 
 def create_synapses_from_db(synapses_dic):
@@ -49,13 +52,14 @@ def create_synapses_from_db(synapses_dic):
         syn.id_superfrag_pre = syn_dic.get('pre_seg_id', None)
         syn.id_superfrag_post = syn_dic.get('post_seg_id', None)
         syn.score = syn_dic.get('score', None)
+        syn.area = syn_dic.get('area', None)
         syn.zyx = syn_dic.get('zyx', None)
         
         synapses.append(syn)
     return synapses
 
 
-def create_synapses(sources, targets, scores=None, ID=None, zyx=None,
+def create_synapses(sources, targets, scores=None, areas=None, ID=None, zyx=None,
                     ids_sf_pre=None, ids_sf_post=None):
     """Creates a list of synapses.
 
@@ -75,6 +79,8 @@ def create_synapses(sources, targets, scores=None, ID=None, zyx=None,
     for presite, postsite in zip(*[sources, targets]):
         if scores is not None:
             score = scores[counter]
+        if areas is not None:
+            area = areas[counter]
         if ID is not None:
             Id = ID[counter]    
         if zyx is not None:
@@ -86,6 +92,7 @@ def create_synapses(sources, targets, scores=None, ID=None, zyx=None,
         synapses.append(Synapse(location_pre=presite,
                                 location_post=postsite,
                                 score=score,
+                                area=area,
                                 id = Id,
                                 zyx=loc_zyx,
                                 id_superfrag_pre=id_sf_pre,

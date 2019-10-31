@@ -80,6 +80,8 @@ class SynapseDatabase(object):
             }
             if syn.score is not None:
                 syn_dic['score'] = float(syn.score)
+            if syn.area is not None:
+                syn_dic['area'] = int(syn.area)
             if syn.id_superfrag_pre is not None:
                 syn_dic['id_superfrag_pre'] = int(syn.id_superfrag_pre)
             if syn.id_superfrag_post is not None:
@@ -88,10 +90,10 @@ class SynapseDatabase(object):
             db_list.append(syn_dic)
 
             print("Inserting synapse: ID", syn_dic['id'])
-            self.synapses.insert_one(syn_dic)
+            # self.synapses.insert_one(syn_dic)
         
         # print("Inserting synapses Ids: ", syn_dic_id)
-        # self.synapses.insert_many(db_list)
+        self.synapses.insert_many(db_list)
         
         logger.debug("Insert %d synapses" % len(synapses))
 

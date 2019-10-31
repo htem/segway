@@ -155,6 +155,7 @@ def __from_labels_to_locs(labels, regions, voxel_size,
 
     locs = []
     scores = []
+    areas = []
     for reg in regions:
         label_id = reg['label']
         z1, y1, x1, z2, y2, x2 = reg['bbox']
@@ -182,10 +183,11 @@ def __from_labels_to_locs(labels, regions, voxel_size,
             else:
                 raise RuntimeError('score not defined')
             scores.append(score)
+            areas.append(reg['area'])
         locs.append(loc_abs * voxel_size)
     if score_vol is not None:
         assert len(locs) == len(scores)
-        return locs, scores
+        return locs, scores, areas
     else:
         return locs
 
@@ -226,13 +228,13 @@ def find_locations(probmap, parameters,
 
     if parameters.extract_type == 'cc':
         assert parameters.loc_type == 'edt', 'unknown loc_type option set: {}'.format(parameters.loc_type)
-        pred_locs, scorelist = __from_labels_to_locs(pred_labels,
+        pred_locs, scorelist, arealist = __from_labels_to_locs(pred_labels,
                                                      regions,
                                                      voxel_size,
                                                      score_vol=probmap,
                                                      score_type=parameters.score_type)
     pred_locs = [loc.astype(np.int64) for loc in pred_locs]
-    return pred_locs, scorelist
+    return pred_locs, scorelist, arealist
 
 
 def find_targets(source_locs, dirvectors,
