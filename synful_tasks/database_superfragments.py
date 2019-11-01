@@ -64,8 +64,14 @@ class SuperFragmentDatabase(object):
 
 
         if mode == 'w':
-            self.database.drop_collection(self.superfragments)
-            logger.debug('overwriting collection %s' % db_col_name)
+            i = input("Drop collection %s.%s? Yes/[No] " % (db_name, db_col_name))
+            if i == "Yes":
+                self.database.drop_collection(self.superfragments)
+                logger.info('Overwriting collection %s.%s' % (db_name, db_col_name))
+            else:
+                print("Aborted")
+                exit(0)
+                
 
         if db_col_name not in self.database.collection_names():
 
