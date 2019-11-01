@@ -89,7 +89,7 @@ class SynapseDatabase(object):
 
             db_list.append(syn_dic)
 
-            print("Inserting synapse: ID", syn_dic['id'])
+            # print("Inserting synapse: ID", syn_dic['id'])
             # self.synapses.insert_one(syn_dic)
         
         # print("Inserting synapses Ids: ", syn_dic_id)

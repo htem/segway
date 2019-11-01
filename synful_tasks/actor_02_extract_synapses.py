@@ -36,11 +36,13 @@ def __create_unique_syn_id(zyx):
     id = 0
     binary_str = []
     for i in zyx:
-        print(i)
         binary_str.append("{0:021b}".format(int(i)))
-    print(binary_str)
+    # print(binary_str)
     id = int(''.join(binary_str), 2)
-    print(id)
+    # print(id)
+
+    # print("%s: %d" % (zyx, id))
+
     return id
 
 
@@ -154,7 +156,7 @@ def extract_synapses(ind_pred_ds,
         pre_super_fragment_id = sup_ds[pre_syn]
         assert pre_super_fragment_id is not None
         ids_sf_pre.append(pre_super_fragment_id)
-    print("Pre super fragment ID: ", ids_sf_pre)
+    # print("Pre super fragment ID: ", ids_sf_pre)
 
     ids_sf_post = []
     for post_syn in post_syns:
@@ -162,7 +164,7 @@ def extract_synapses(ind_pred_ds,
         post_super_fragment_id = sup_ds[post_syn]
         assert post_super_fragment_id is not None
         ids_sf_post.append(post_super_fragment_id)
-    print("Post super fragment ID: ", ids_sf_post)
+    # print("Post super fragment ID: ", ids_sf_post)
 
     # filter false positives
     pre_syns_f = []
@@ -171,12 +173,15 @@ def extract_synapses(ind_pred_ds,
     areas_f = []
     i_f = [] # indices to consider
     for i in range(len(ids_sf_pre)):
-        if ids_sf_pre[i] != ids_sf_post[i]:
-            pre_syns_f.append(pre_syns[i])
-            post_syns_f.append(post_syns[i])
-            scores_f.append(scores[i])
-            areas_f.append(areas[i])
-            i_f.append(i)
+        if ids_sf_pre[i] == ids_sf_post[i]:
+            continue
+        if ids_sf_pre[i] == 0 or ids_sf_post[i] == 0:
+            continue
+        pre_syns_f.append(pre_syns[i])
+        post_syns_f.append(post_syns[i])
+        scores_f.append(scores[i])
+        areas_f.append(areas[i])
+        i_f.append(i)
 
     ids_sf_pre = list(np.array(ids_sf_pre)[i_f])
     ids_sf_post = list(np.array(ids_sf_post)[i_f])
@@ -184,7 +189,7 @@ def extract_synapses(ind_pred_ds,
     zyx = __create_syn_locations(pre_syns_f,post_syns_f)
     # Create IDs for synpses from volume coordinates
     ids = __create_syn_ids(zyx)
-    print("Synapses IDs: ", ids)
+    # print("Synapses IDs: ", ids)
 
     synapses = synapse.create_synapses(pre_syns_f, post_syns_f,
                                    scores=scores_f, areas=areas_f, ID=ids, zyx=zyx,
@@ -271,7 +276,7 @@ if __name__ == "__main__":
     db_client = pymongo.MongoClient(db_host)
     db = db_client[db_name]
 
-    #completion_db = db[completion_db_name]
+    completion_db = db[completion_db_name]
     print("db_name: ", db_name)
     print("db_host: ", db_host)
     print("db collection names: ", db_col_name_syn, db_col_name_sf)
@@ -300,8 +305,8 @@ if __name__ == "__main__":
     syn_db = SynapseDatabase(db_name, db_host, db_col_name_syn,
                  mode='r+')
     # print(syn_db.read_synapses())
-    for syn in syn_db.read_synapses():
-        print(syn)
+    # for syn in syn_db.read_synapses():
+        # print(syn)
 
     superfrag_db = SuperFragmentDatabase(db_name, db_host, db_col_name_sf,
                  mode='r+')
@@ -324,7 +329,7 @@ if __name__ == "__main__":
         dir_pred_ds = daisy.open_ds(syn_dir_file, syn_dir_dataset, 'r')
 
         sup_ds = daisy.open_ds(super_fragments_file, super_fragments_dataset, 'r')
-        
+
         synapses = extract_synapses(ind_pred_ds,
                                     dir_pred_ds,
                                     sup_ds,
@@ -332,7 +337,7 @@ if __name__ == "__main__":
                                     block)  
         ### WRITE SYNAPSES IN DB
         syn_db.write_synapses(synapses)
-        
+
         superfragments = extract_superfragments(synapses, block.write_roi)
         superfrag_db.write_superfragments(superfragments)
 
@@ -343,8 +348,12 @@ if __name__ == "__main__":
 
             time.sleep(1)
             sys.exit(1)
-        
-        
+
+        # write block completion
+        document = {
+            'block_id': block.block_id,
+        }
+        completion_db.insert(document)
 
         client_scheduler.release_block(block, ret=0)
 
