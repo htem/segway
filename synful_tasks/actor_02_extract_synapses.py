@@ -16,32 +16,13 @@ from daisy import Coordinate
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
-# def __create_syn_ids(zyx):
-#     """Create unique IDs"""
-#     '''21b per x, y, z, 63 bits total'''
-
-#     # 101, 101, 101 => "101101101"
-#     # 10, 1101, 101 => "101101101"
-
-#     ids = []
-#     for i in range(len(zyx)):
-#         #np.insert(zyx[i],0, block.block_id*block.write_roi.size())
-#         ids.append(int(''.join(map(str,zyx[i].astype(int)))))
-#     return ids
-
-
 def __create_unique_syn_id(zyx):
 
     id = 0
     binary_str = []
     for i in zyx:
         binary_str.append("{0:021b}".format(int(i)))
-    # print(binary_str)
     id = int(''.join(binary_str), 2)
-    # print(id)
-
-    # print("%s: %d" % (zyx, id))
 
     return id
 
@@ -70,8 +51,6 @@ def __create_syn_locations(predicted_syns, target_sites):
 def extract_synapses(ind_pred_ds,
                      dir_pred_ds,
                      sup_ds,
-                     # db_name,
-                     # db_host,
                      parameters,
                      block):
     """Extract synapses from the block and write in the DB"""

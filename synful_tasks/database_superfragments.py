@@ -71,7 +71,7 @@ class SuperFragmentDatabase(object):
             else:
                 print("Aborted")
                 exit(0)
-                
+
 
         if db_col_name not in self.database.collection_names():
 
@@ -106,16 +106,16 @@ class SuperFragmentDatabase(object):
                 logger.error(e.details)
                 raise
 
-    def read_superfragments(self, syn_ids = None):
-        if syn_ids is None:
+    def read_superfragments(self, sf_ids = None):
+        if sf_ids is None:
             logger.debug("No ids provided, querying all superfragments in database")
             superfragments_dic = self.superfragments.find()
-        elif syn_ids is not None:
-            logger.debug("Querying superframents with following IDs:", syn_ids)
+        elif sf_ids is not None:
+            logger.debug("Querying superframents with following IDs:", sf_ids)
             
             superfragments_dic = self.superfragments.find(
                 {
-                    'syn_ids' : {'$in': syn_ids}
+                    'id' : {'$in': sf_ids}
                 })
 
         return superfragments_dic

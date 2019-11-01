@@ -110,7 +110,7 @@ class SynapseDatabase(object):
 
         if roi is None:
             logger.debug("No roi provided, querying all synapses in database")
-            synapses_dic = self.synapses.find()
+            synapses_dic = self.synapses.find({})
         elif roi is not None:
             logger.debug("Querying synapses in %s", roi)
             bz, by, bx = roi.get_begin()
