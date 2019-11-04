@@ -56,6 +56,8 @@ class ExtractSynapsesTask(task_helper.SlurmTask):
     db_col_name_sf = daisy.Parameter('superfragments')
     # nms_radius = daisy.Parameter()
 
+    prediction_post_to_pre = daisy.Parameter(True)
+
     def prepare(self):
         '''Daisy calls `prepare` for each task prior to scheduling
         any block.'''
@@ -121,7 +123,8 @@ class ExtractSynapsesTask(task_helper.SlurmTask):
             'loc_type' : self.loc_type,
             'score_type' : self.score_type,
             'db_col_name_syn' : self.db_col_name_syn,
-            'db_col_name_sf': self.db_col_name_sf
+            'db_col_name_sf': self.db_col_name_sf,
+            'prediction_post_to_pre': self.prediction_post_to_pre,
         }
 
         self.slurmSetup(config, 'segway/synful_tasks/actor_02_extract_synapses.py')

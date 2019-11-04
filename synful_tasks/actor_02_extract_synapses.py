@@ -1,3 +1,4 @@
+import copy
 import json
 import os
 import logging
@@ -52,7 +53,9 @@ def extract_synapses(ind_pred_ds,
                      dir_pred_ds,
                      sup_ds,
                      parameters,
-                     block):
+                     block,
+                     prediction_post_to_pre=True,
+                     ):
     """Extract synapses from the block and write in the DB"""
     ##### EXTRACT SYNAPSES
     start_time = time.time()
@@ -121,8 +124,12 @@ def extract_synapses(ind_pred_ds,
             post_syns.append(loc)
             filt_ind.append(i)
 
-    pre_syns = np.array(predicted_syns)[filt_ind]
-    pre_syns = list(pre_syns)        
+    pre_syns = list(np.array(predicted_syns)[filt_ind])        
+
+    if prediction_post_to_pre:
+        pre_syns_tmp = pre_syns
+        pre_syns = copy.deepcopy(post_syns)
+        post_syns = copy.deepcopy(pre_syns_tmp)
     
     sup_ds = sup_ds[pred_roi]
     sup_ds.materialize()
@@ -184,10 +191,10 @@ def extract_superfragments(synapses, write_roi):
 
     # read Pre and Post IDS from synapses
 
-    all_syn_ids = []
-    for syn in synapses:
-        all_syn_ids.append(syn.id)
-    all_syn_ids = np.array(all_syn_ids)
+    # all_syn_ids = []
+    # for syn in synapses:
+    #     all_syn_ids.append(syn.id)
+    # all_syn_ids = np.array(all_syn_ids)
 
     # ids_sf_pre = np.zeros(len(synapses))
     # ids_sf_post = np.zeros(len(synapses))
@@ -221,7 +228,7 @@ def extract_superfragments(synapses, write_roi):
                 superfragments[post_partner_id] = sf
 
             sf.syn_ids.append(syn.id)
-            sf.pre_partners.append(post_partner_id)
+            sf.pre_partners.append(pre_partner_id)
 
     superfragments_list = [superfragments[item] for item in superfragments]
     for sf in superfragments_list:
