@@ -189,24 +189,12 @@ def extract_synapses(ind_pred_ds,
 
 def extract_superfragments(synapses, write_roi):
 
-    # read Pre and Post IDS from synapses
-
-    # all_syn_ids = []
-    # for syn in synapses:
-    #     all_syn_ids.append(syn.id)
-    # all_syn_ids = np.array(all_syn_ids)
-
-    # ids_sf_pre = np.zeros(len(synapses))
-    # ids_sf_post = np.zeros(len(synapses))
-    # i = 0
-
     superfragments = {}
     for syn in synapses:
 
         pre_partner_id = int(syn.id_superfrag_pre)
         post_partner_id = int(syn.id_superfrag_post)
 
-        # if Coordinate(syn.location_pre) in write_roi:
         if write_roi.contains(Coordinate(syn.location_pre)):
 
             if pre_partner_id in superfragments:
@@ -218,7 +206,6 @@ def extract_superfragments(synapses, write_roi):
             sf.syn_ids.append(syn.id)
             sf.post_partners.append(post_partner_id)
 
-        # if Coordinate(syn.location_post) in write_roi:
         if write_roi.contains(Coordinate(syn.location_post)):
 
             if post_partner_id in superfragments:
@@ -296,6 +283,9 @@ if __name__ == "__main__":
 
     superfrag_db = SuperFragmentDatabase(db_name, db_host, db_col_name_sf,
                  mode='r+')
+    ind_pred_ds = daisy.open_ds(syn_indicator_file, syn_indicator_dataset, 'r') 
+    dir_pred_ds = daisy.open_ds(syn_dir_file, syn_dir_dataset, 'r')
+    sup_ds = daisy.open_ds(super_fragments_file, super_fragments_dataset, 'r')
 
     while True:
         block = client_scheduler.acquire_block()
@@ -304,24 +294,12 @@ if __name__ == "__main__":
 
         logging.info("Running synapse extraction for block %s" % block)
 
-        # TODO: run function to extract synapse for this block
-        '''
-            1. get segment/synapse prediction data within the ROI
-            2. run extraction for this ROI
-            3. write to database
-        '''
-
-        ind_pred_ds = daisy.open_ds(syn_indicator_file, syn_indicator_dataset, 'r') 
-        dir_pred_ds = daisy.open_ds(syn_dir_file, syn_dir_dataset, 'r')
-
-        sup_ds = daisy.open_ds(super_fragments_file, super_fragments_dataset, 'r')
-
         synapses = extract_synapses(ind_pred_ds,
                                     dir_pred_ds,
                                     sup_ds,
                                     parameters,
-                                    block)  
-        ### WRITE SYNAPSES IN DB
+                                    block)
+
         syn_db.write_synapses(synapses)
 
         superfragments = extract_superfragments(synapses, block.write_roi)
