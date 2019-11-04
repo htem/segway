@@ -7,7 +7,7 @@ import os
 from funlib.show.neuroglancer import add_layer
 from segway import task_helper
 
-neuroglancer.set_static_content_source(url='http://10.117.28.139:8080')
+#neuroglancer.set_static_content_source(url='http://10.117.28.139:8080')
 neuroglancer.set_server_bind_address('0.0.0.0')
 
 try:

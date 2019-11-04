@@ -118,7 +118,11 @@ class SuperFragmentDatabase(object):
                     'id' : {'$in': sf_ids}
                 })
 
-        return superfragments_dic
+        items = []
+        for item in superfragments_dic:
+            items.append(item)
+
+        return items
 
     def __write(self, collection, match_fields, docs,
                 fail_if_exists=False, fail_if_not_exists=False, delete=False):
