@@ -7,20 +7,21 @@ from pymongo.errors import BulkWriteError, WriteError
 logger = logging.getLogger(__name__)
 
 
-class SuperFragment():
+class SuperFragment(object):
 
     def __init__(
             self,
             id,
-            syn_ids=[],
-            pre_partners=[],
-            post_partners=[],
+            syn_ids=None,
+            pre_partners=None,
+            post_partners=None,
             ):
 
         self.id = id
-        self.syn_ids = syn_ids
-        self.pre_partners = pre_partners
-        self.post_partners = post_partners
+
+        self.syn_ids = syn_ids if syn_ids is not None else []
+        self.pre_partners = pre_partners if pre_partners is not None else []
+        self.post_partners = post_partners if post_partners is not None else []
 
     def finalize(self):
 
@@ -92,7 +93,6 @@ class SuperFragmentDatabase(object):
         if self.mode == 'r+':
 
             items = [sf.to_json() for sf in superfragments]
-            # print(items)
 
             try:
                 self.__write(

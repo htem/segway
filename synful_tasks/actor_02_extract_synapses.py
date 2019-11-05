@@ -197,25 +197,19 @@ def extract_superfragments(synapses, write_roi):
 
         if write_roi.contains(Coordinate(syn.location_pre)):
 
-            if pre_partner_id in superfragments:
-                sf = superfragments[pre_partner_id]
-            else:
-                sf = SuperFragment(id=pre_partner_id)
-                superfragments[pre_partner_id] = sf
+            if pre_partner_id not in superfragments:
+                superfragments[pre_partner_id] = SuperFragment(id=pre_partner_id)
 
-            sf.syn_ids.append(syn.id)
-            sf.post_partners.append(post_partner_id)
+            superfragments[pre_partner_id].syn_ids.append(syn.id)
+            superfragments[pre_partner_id].post_partners.append(post_partner_id)
 
         if write_roi.contains(Coordinate(syn.location_post)):
 
-            if post_partner_id in superfragments:
-                sf = superfragments[post_partner_id]
-            else:
-                sf = SuperFragment(id=post_partner_id)
-                superfragments[post_partner_id] = sf
+            if post_partner_id not in superfragments:
+                superfragments[post_partner_id] = SuperFragment(id=post_partner_id)
 
-            sf.syn_ids.append(syn.id)
-            sf.pre_partners.append(pre_partner_id)
+            superfragments[post_partner_id].syn_ids.append(syn.id)
+            superfragments[post_partner_id].pre_partners.append(pre_partner_id)
 
     superfragments_list = [superfragments[item] for item in superfragments]
     for sf in superfragments_list:
