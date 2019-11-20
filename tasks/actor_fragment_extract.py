@@ -103,10 +103,8 @@ if __name__ == "__main__":
         document = dict()
         document.update({
             'block_id': block.block_id,
-            'read_roi': (block.read_roi.get_begin(), block.read_roi.get_shape()),
-            'write_roi': (block.write_roi.get_begin(), block.write_roi.get_shape()),
-            'start': 0,
-            'duration': 0
+            # 'read_roi': (block.read_roi.get_begin(), block.read_roi.get_shape()),
+            # 'write_roi': (block.write_roi.get_begin(), block.write_roi.get_shape()),
         })
         completion_db.insert(document)
 

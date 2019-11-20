@@ -8,6 +8,8 @@ import daisy
 
 from segway.tasks import task_helper2 as task_helper
 from task_01_predict_blockwise import PredictSynapseTask
+from database_synapses import SynapseDatabase
+from database_superfragments import SuperFragmentDatabase
 
 # logging.getLogger('lsd.parallel_fragments').setLevel(logging.DEBUG)
 # logging.getLogger('lsd.persistence.sqlite_rag_provider').setLevel(logging.DEBUG)
@@ -43,23 +45,34 @@ class ExtractSynapsesTask(task_helper.SlurmTask):
     sub_roi_offset = daisy.Parameter(None)
     sub_roi_shape = daisy.Parameter(None)
 
+    score_threshold = daisy.Parameter(0.7)
+
+    # cc or nms
+    extract_type = daisy.Parameter("cc")
+    cc_threshold = daisy.Parameter(0.25)
+    loc_type = daisy.Parameter('edt')
+    score_type = daisy.Parameter('mean')
+    db_col_name_syn = daisy.Parameter('synapses')
+    db_col_name_sf = daisy.Parameter('superfragments')
+    # nms_radius = daisy.Parameter()
+
+    prediction_post_to_pre = daisy.Parameter(True)
+
     def prepare(self):
         '''Daisy calls `prepare` for each task prior to scheduling
         any block.'''
 
-        # open RAG DB
-        logging.info("Opening RAG DB...")
-        self.rag_provider = daisy.persistence.MongoDbGraphProvider(
-            self.db_name,
-            host=self.db_host,
-            mode='r+',
-            directed=False,
-            # edges_collection='edges_' + self.merge_function,
-            # position_attribute=['center_z', 'center_y', 'center_x'],
-            # TODO: I'm not sure if you'd need to specify the edges and position attributes
-            # here
-            )
-        logging.info("RAG DB opened")
+        mode = 'r+'
+        if self.overwrite:
+            mode = 'w'
+
+        syn_db = SynapseDatabase(self.db_name, self.db_host, self.db_col_name_syn, mode=mode)
+        sf_db = SuperFragmentDatabase(self.db_name, self.db_host, self.db_col_name_sf, mode=mode)
+
+        # print("self.db_name: ", self.db_name)
+        # print("self.db_host: ", self.db_host)
+        # print("self.db_col_name_syn: ", self.db_col_name_syn)
+        # print("mode: ", mode)
 
         if self.context is None:
             self.context = daisy.Coordinate((0,)*self.affs.roi.dims())
@@ -67,12 +80,6 @@ class ExtractSynapsesTask(task_helper.SlurmTask):
             self.context = daisy.Coordinate(self.context)
 
         if self.sub_roi_offset is not None and self.sub_roi_shape is not None:
-
-            assert False, "Untested"  # I will make this right later
-
-            # get ROI of source
-            assert self.raw_file is not None and self.raw_dataset is not None
-            # source = daisy.open_ds(self.raw_file, self.raw_dataset)
 
             total_roi = daisy.Roi(
                 tuple(self.sub_roi_offset), tuple(self.sub_roi_shape))
@@ -110,6 +117,14 @@ class ExtractSynapsesTask(task_helper.SlurmTask):
             'syn_indicator_dataset': self.syn_indicator_dataset,
             'syn_dir_file': self.syn_dir_file,
             'syn_dir_dataset': self.syn_dir_dataset,
+            'score_threshold': self.score_threshold,
+            'extract_type' : self.extract_type,
+            'cc_threshold' : self.cc_threshold,
+            'loc_type' : self.loc_type,
+            'score_type' : self.score_type,
+            'db_col_name_syn' : self.db_col_name_syn,
+            'db_col_name_sf': self.db_col_name_sf,
+            'prediction_post_to_pre': self.prediction_post_to_pre,
         }
 
         self.slurmSetup(config, 'segway/synful_tasks/actor_02_extract_synapses.py')
@@ -136,9 +151,8 @@ class ExtractSynapsesTask(task_helper.SlurmTask):
         '''By default only check the `completion_db` database that gets
         marked for each finished block by the worker.
         '''
-
         if self.completion_db.count({'block_id': block.block_id}) >= 1:
-            logger.debug("Skipping block with db check")
+            logger.info("Skipping block with db check")
             return True
 
         return False
