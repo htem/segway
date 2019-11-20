@@ -52,13 +52,11 @@ if __name__ == "__main__":
     print(capillary_pred_file)
     print(capillary_pred_dataset)
 
-    if capillary_pred_file is not None or capillary_pred_dataset is not None:
-        assert capillary_pred_file is not None
-        assert capillary_pred_dataset is not None
+    if capillary_pred_file is not None and capillary_pred_dataset is not None:
+        #assert capillary_pred_file is not None
+        #assert capillary_pred_dataset is not None
         capillary_pred_ds = daisy.open_ds(capillary_pred_file, capillary_pred_dataset)
         filter_masks.append(capillary_pred_ds)
-
-    assert(len(filter_masks))
 
     # open RAG DB
     logging.info("Opening RAG DB...")
