@@ -3,6 +3,8 @@ import json
 import hashlib
 import multiprocessing
 import os
+import argparse
+import copy
 
 import daisy
 
@@ -11,36 +13,47 @@ class LaunchableDaisyTask():
 
     def parse_args(self, ap):
 
-        ap.add_argument(
-            "--db_host", type=str, help='database host',
-            default='10.117.28.250')
-        ap.add_argument(
-            "--db_name", type=str, help='database project name',
-            default=None)
-        ap.add_argument(
-            "--completion_db_col", type=str, help='completion_db_col name',
-            default=None)
-        ap.add_argument(
-            "--overwrite", type=int, help='completion_db_col name',
-            default=0)
-        ap.add_argument(
-            "--num_workers", type=int, help='completion_db_col name',
-            default=1)
-        ap.add_argument(
-            "--no_launch_workers", type=int, help='completion_db_col name',
-            default=0)
+        try:
+            ap.add_argument(
+                "--db_host", type=str, help='database host',
+                default='10.117.28.250')
+            ap.add_argument(
+                "--db_name", type=str, help='database project name',
+                default=None)
+            ap.add_argument(
+                "--completion_db_col", type=str, help='completion_db_col name',
+                default=None)
+            ap.add_argument(
+                "--overwrite", type=int, help='completion_db_col name',
+                default=0)
+            ap.add_argument(
+                "--num_workers", type=int, help='completion_db_col name',
+                default=1)
+            ap.add_argument(
+                "--no_launch_workers", type=int, help='completion_db_col name',
+                default=0)
+        except argparse.ArgumentError as e:
+            print("Conflicting argument naming with LaunchableDaisyTask")
+            raise e
 
         return vars(ap.parse_args())
 
     def init(self, config):
         self.launch_process_cmd = multiprocessing.Manager().dict()
-        # self.worker_script_file = os.path.realpath(__file__)
-        self.db_host = config['db_host']
-        self.db_name = config['db_name']
-        self.completion_db_col = config['completion_db_col']
-        self.overwrite = config['overwrite']
-        self.num_workers = config['num_workers']
-        self.no_launch_workers = config['no_launch_workers']
+
+        for key in config:
+            # globals()['%s' % key] = config[key]
+            setattr(self, '%s' % key, config[key])
+
+        self.__init_config = copy.deepcopy(config)
+
+        # self.db_host = config['db_host']
+        # self.db_name = config['db_name']
+        # self.completion_db_col = config['completion_db_col']
+        # self.overwrite = config['overwrite']
+        # self.num_workers = config['num_workers']
+        # self.no_launch_workers = config['no_launch_workers']
+
         self._init(config)
 
     def _init(self, config):
@@ -88,7 +101,12 @@ class LaunchableDaisyTask():
 
             client_scheduler.release_block(block, ret=0)
 
-    def write_config(self, config):
+    def write_config(self, extra_config=None):
+
+        config = self.__init_config
+        if extra_config:
+            for k in extra_config:
+                config[k] = extra_config[k]
 
         config_str = ''.join(['%s' % (v,) for v in config.values()])
         config_hash = abs(int(hashlib.md5(config_str.encode()).hexdigest(), 16))

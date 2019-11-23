@@ -78,7 +78,6 @@ def __run_worker():
 
     in_array = daisy.open_ds(in_file, in_ds)
     out_array = daisy.open_ds(out_file, out_ds, mode='r+')
-    # factor = tuple(factor)
 
     while True:
         block = client_scheduler.acquire_block()
@@ -427,7 +426,11 @@ if __name__ == "__main__":
         type=int,
         default=None,
         help="The size of a chunk in voxels")
+    parser.add_argument(
+        "--max_voxel_count", type=int, help='zyx size in pixel',
+        default=256*1024)
 
     args = parser.parse_args()
 
-    create_scale_pyramid(args.file, args.ds, args.scales, args.chunk_shape)
+    create_scale_pyramid(args.file, args.ds, args.scales, args.chunk_shape,
+        args.max_voxel_count)

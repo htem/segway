@@ -95,6 +95,8 @@ class MeshingTask(LaunchableDaisyTask):
 
     def _init(self, config):
 
+        self.worker_script_file = os.path.realpath(__file__)
+
         self.input_file = config['input_file']
         self.label_key = config['label_key']
         self.output_dir = config['output_dir']
