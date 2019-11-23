@@ -14,11 +14,6 @@ import ast
 
 logger = logging.getLogger(__name__)
 
-home = os.path.expanduser("~")
-RUNNING_REMOTELY = os.path.isfile(home + "/CONFIG_DAISY_REMOTE")
-RUNNING_ON_O2_LOGIN = os.path.isfile(home + "/CONFIG_DAISY_O2_LOGIN")
-RUNNING_IN_LOCAL_CLUSTER = os.path.isfile(home + "/CONFIG_DAISY_LOCAL")
-
 
 class SlurmTask(daisy.Task):
 
@@ -132,34 +127,15 @@ class SlurmTask(daisy.Task):
                 ' '.join(self.new_actor_cmd)))
 
         run_cmd = "cd %s" % os.getcwd() + "; "
-        if not RUNNING_IN_LOCAL_CLUSTER:
-            run_cmd += "source /home/tmn7/daisy/bin/activate;" + " "
         run_cmd += "DAISY_CONTEXT=%s" % context_str + " "
         run_cmd += ' '.join(self.new_actor_cmd)
 
-        if RUNNING_REMOTELY:
-            process_cmd = "ssh o2 " + "\"" + run_cmd + "\""
-        elif RUNNING_IN_LOCAL_CLUSTER:
-            if not self.debug_print_command_only:
-                assert 'CUDA_VISIBLE_DEVICES' in os.environ
-            process_cmd = run_cmd
-        else:
-            process_cmd = run_cmd
+        process_cmd = run_cmd
 
         print(process_cmd)
         self.launch_process_cmd['cmd'] = process_cmd
-        # print(self.launch_process_cmd)
         if not self.debug_print_command_only:
 
-            if RUNNING_REMOTELY:
-                cp = subprocess.run(process_cmd,
-                                    stdout=subprocess.PIPE,
-                                    shell=True
-                                    )
-                id = cp.stdout.strip().decode("utf-8")
-                self.started_jobs.append(id)
-
-            else:
                 worker_id = daisy.Context.from_env().worker_id
                 logout = open("%s/%s.%d.out" % (
                                         self.log_dir, self.logname, worker_id),
@@ -192,19 +168,6 @@ class SlurmTask(daisy.Task):
                 started_slurm_jobs = self.started_jobs_local
             except:
                 started_slurm_jobs = []
-
-        if len(started_slurm_jobs) > 0:
-            all_jobs = " ".join(started_slurm_jobs)
-            if RUNNING_REMOTELY:
-                cmd = "ssh o2 scancel {}".format(all_jobs)
-            elif RUNNING_IN_LOCAL_CLUSTER:
-                cmd = ""
-            else:
-                cmd = "scancel {}".format(all_jobs)
-            print(cmd)
-            subprocess.run(cmd, shell=True)
-        else:
-            print("No jobs to cleanup")
 
         self.task_done = True
 
@@ -273,18 +236,10 @@ def generateActorSbatch(
         sbatch_script, run_cmd, log_dir, logname,
         **kwargs)
 
-    if RUNNING_IN_LOCAL_CLUSTER:
-        new_actor_cmd = [
-            'sh',
-            '%s' % sbatch_script
-            ]
-
-    else:
-        new_actor_cmd = [
-            'sbatch',
-            '--parsable',
-            '%s' % sbatch_script
-            ]
+    new_actor_cmd = [
+        'sh',
+        '%s' % sbatch_script
+        ]
 
     return run_cmd, new_actor_cmd
 
@@ -376,11 +331,11 @@ def parseConfigs(args, aggregate_configs=True):
                 if 'Input' in new_configs and 'config_filename' not in global_configs['Input']:
                     global_configs['Input']['config_filename'] = config
 
-    print("\nhelper: final config")
-    print(global_configs)
+    # print("\nhelper: final config")
+    # print(global_configs)
 
     # update global confs with hierarchy conf
-    print(hierarchy_configs)
+    # print(hierarchy_configs)
     for k in hierarchy_configs.keys():
         if k in global_configs:
             global_configs[k].update(hierarchy_configs[k])
@@ -505,10 +460,6 @@ def aggregateConfigs(configs):
         copyParameter(input_config, config, 'overwrite_sections')
         copyParameter(input_config, config, 'overwrite_mask_f')
         copyParameter(input_config, config, 'center_roi_offset')
-
-        if RUNNING_IN_LOCAL_CLUSTER:
-            # restrict number of workers to 1 for predict task if we're running locally to avoid conflict with other daisies
-            config['num_workers'] = 1
 
     if "FixRawFromCatmaidTask" in configs:
         config = configs["FixRawFromCatmaidTask"]
@@ -693,8 +644,6 @@ def aggregateConfigs(configs):
         copyParameter(input_config, config, 'overwrite_mask_f')
         copyParameter(input_config, config, 'center_roi_offset')
         copyParameter(network_config, config, 'out_properties')
-        if RUNNING_IN_LOCAL_CLUSTER:
-            config['num_workers'] = 1
 
     if "ExtractSynapsesTask" in configs:
         config = configs["ExtractSynapsesTask"]
@@ -729,8 +678,6 @@ def aggregateConfigs(configs):
         copyParameter(input_config, config, 'overwrite_sections')
         copyParameter(input_config, config, 'overwrite_mask_f')
         copyParameter(input_config, config, 'center_roi_offset')
-        if RUNNING_IN_LOCAL_CLUSTER:
-            config['num_workers'] = 1
 
 
 def compute_compatible_roi(
@@ -757,9 +704,12 @@ def compute_compatible_roi(
             dataset_roi = dataset_roi.snap_to_grid(voxel_size, mode="grow")
 
         sched_roi = dataset_roi.grow(roi_context, roi_context)
-        assert sched_roi.intersect(source_roi) == sched_roi, \
+        # assert sched_roi.intersect(source_roi) == sched_roi, \
+        #     "input_roi (%s) + roi_context (%s) = output_roi (%s) has to be within raw ROI %s" \
+        #     % (dataset_roi, roi_context, sched_roi, source_roi)
+        assert dataset_roi.intersect(source_roi) == dataset_roi, \
             "input_roi (%s) + roi_context (%s) = output_roi (%s) has to be within raw ROI %s" \
-            % (dataset_roi, roi_context, sched_roi, source_roi)
+            % (dataset_roi, roi_context, dataset_roi, source_roi)
 
     elif sub_roi_offset is not None and sub_roi_shape is not None:
 
