@@ -5,10 +5,8 @@ import numpy as np
 import os
 
 from funlib.show.neuroglancer import add_layer
-from segway import task_helper
-
-#neuroglancer.set_static_content_source(url='http://10.117.28.139:8080')
-neuroglancer.set_server_bind_address('0.0.0.0')
+from segway import task_helper2 as task_helper
+from segway.gt_scripts import gt_tools
 
 try:
 
@@ -116,7 +114,7 @@ def add(s, a, name, shader=None):
     print(s.layers)
 
 
-viewer = neuroglancer.Viewer()
+viewer = gt_tools.make_ng_viewer()
 
 with viewer.txn() as s:
 
