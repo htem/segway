@@ -8,7 +8,7 @@ import os.path as path
 
 import daisy
 
-import task_helper
+import task_helper2 as task_helper
 from task_04b_find_segment_blockwise import FindSegmentsBlockwiseTask2
 
 logger = logging.getLogger(__name__)

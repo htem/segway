@@ -144,12 +144,15 @@ class PredictTask(task_helper.SlurmTask):
         voxel_size = source.voxel_size
         self.net_voxel_size = tuple(self.net_voxel_size)
         if self.net_voxel_size != source.voxel_size:
+
             downsample_factors = daisy.Coordinate(
                     (1, self.xy_downsample, self.xy_downsample))
+
             assert source.voxel_size*downsample_factors == self.net_voxel_size, (
                     "Source voxel size %s mult by xy_downsample %d does not "
                     "match network voxel size %s" % (
                         source.voxel_size, self.xy_downsample, self.net_voxel_size))
+            
             # logger.info("Mismatched net and source voxel size. "
                         # "Assuming downsampling")
             # force same voxel size for net in and output dataset
@@ -177,6 +180,13 @@ class PredictTask(task_helper.SlurmTask):
         # create read and write ROI
         block_read_roi = daisy.Roi((0, 0, 0), block_input_size) - context
         block_write_roi = daisy.Roi((0, 0, 0), block_output_size)
+
+        if self.center_roi_offset:
+            assert self.roi_offset is not None, "Cannot use center_roi_offset if roi_offset is None"
+            assert self.roi_shape is not None, "Cannot use center_roi_offset if roi_shape is None"
+            self.roi_offset = daisy.Coordinate(self.roi_offset)
+            self.roi_shape = daisy.Coordinate(self.roi_shape)
+            self.roi_offset -= self.roi_shape/2
 
         sched_roi, dataset_roi = task_helper.compute_compatible_roi(
                 roi_offset=self.roi_offset,

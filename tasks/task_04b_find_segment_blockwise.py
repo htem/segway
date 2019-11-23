@@ -5,7 +5,7 @@ import os
 import os.path as path
 import daisy
 
-import task_helper
+import task_helper2 as task_helper
 from task_04a_find_segment_blockwise import FindSegmentsBlockwiseTask
 
 logging.basicConfig(level=logging.INFO)

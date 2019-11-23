@@ -7,7 +7,7 @@ from itertools import product
 import numpy as np
 
 import daisy
-import task_helper
+import task_helper2 as task_helper
 from task_04c_find_segment_blockwise import FindSegmentsBlockwiseTask3
 
 logger = logging.getLogger(__name__)

@@ -160,6 +160,9 @@ class ExtractFragmentTask(task_helper.SlurmTask):
 
         # prepare fragments dataset
         voxel_size = self.affs.voxel_size
+        print("ROI:", dataset_roi)
+        print("Voxel size:", voxel_size)
+        print("Block size:", self.block_size)
         self.fragments_out = daisy.prepare_ds(
             self.fragments_file,
             self.fragments_dataset,
@@ -192,9 +195,21 @@ class ExtractFragmentTask(task_helper.SlurmTask):
 
             self.overwrite_sections = rois
 
-        print("total_roi: ", total_roi)
-        print("read_roi: ", read_roi)
-        print("write_roi: ", write_roi)
+        # print("total_roi: ", total_roi)
+        # print("read_roi: ", read_roi)
+        # print("write_roi: ", write_roi)
+
+        # adjust min seed distance base on voxel size
+        if self.min_seed_distance == 10:
+            if voxel_size[2] == 8:
+                # for 40x8x8
+                self.min_seed_distance = 7
+            elif voxel_size[2] == 16:
+                # for 40x16x16
+                self.min_seed_distance = 5
+            elif voxel_size[2] == 50:
+                # for 50x50x50
+                self.min_seed_distance = 5
 
         config = {
             'affs_file': self.affs_file,

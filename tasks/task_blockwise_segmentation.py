@@ -10,7 +10,7 @@ import os
 
 # from funlib.segment.arrays import replace_values
 
-import task_helper
+import task_helper2 as task_helper
 from task_03_agglomerate_blockwise import AgglomerateTask
 
 # logging.getLogger('lsd.parallel_fragments').setLevel(logging.DEBUG)

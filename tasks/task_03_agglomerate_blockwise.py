@@ -7,7 +7,7 @@ import sys
 
 # from lsd.parallel_aff_agglomerate import agglomerate_in_block
 
-import task_helper
+import task_helper2 as task_helper
 from task_02_extract_fragments import ExtractFragmentTask
 
 # logging.getLogger('lsd.parallel_fragments').setLevel(logging.DEBUG)
