@@ -1,12 +1,15 @@
-
 import json
 import pymongo
 # import sys
 import os
 
+import socket
+import errno
+
 import neuroglancer
 
-from segway import task_helper
+# from segway import task_helper
+import segway.tasks.task_helper2 as task_helper
 
 
 def get_db_names(config, file):
@@ -110,20 +113,22 @@ def load_config(config_f, no_db=False, no_zarr=False):
 
     script_name = config["script_name"]
 
+    working_dir = os.path.split(file)[0]
+
     if "out_file" not in config:
-        out_file = config["zarr"]["dir"] + "/" + script_name + ".zarr"
+        out_file = working_dir + "/" + script_name + ".zarr"
         config["out_file"] = out_file
     if not os.path.exists(config["out_file"]):
         config["out_file"] = os.path.join(script_dir, config["out_file"])
 
     if "raw_file" not in config:
-        raw_file = config["zarr"]["dir"] + "/" + script_name + ".zarr"
+        raw_file = working_dir + "/" + script_name + ".zarr"
         config["raw_file"] = raw_file
     if not os.path.exists(config["raw_file"]):
         config["raw_file"] = os.path.join(script_dir, config["raw_file"])
 
     if "skeleton_file" not in config:
-        skeleton_file = config["zarr"]["dir"] + "/" + script_name + "_skeleton.json"
+        skeleton_file = working_dir + "/" + script_name + "_skeleton.json"
         config["skeleton_file"] = skeleton_file
     if not os.path.exists(config["skeleton_file"]):
         config["skeleton_file"] = os.path.join(script_dir, config["skeleton_file"])
@@ -188,3 +193,27 @@ def print_ng_link(viewer):
     for alias, ip in ip_mapping:
         if alias in link:
             print(link.replace(alias, ip))
+
+def make_ng_viewer(unsynced=False, public=True):
+
+    viewer = None
+
+    for i in range(33400, 33500):
+        try:
+            if not public:
+                i = 0
+            neuroglancer.set_server_bind_address('0.0.0.0', i)
+            if unsynced:
+                viewer = neuroglancer.UnsynchronizedViewer()
+            else:
+                viewer = neuroglancer.Viewer()
+            break
+        except socket.error as error:
+            if error.errno != errno.EADDRINUSE:
+                raise RuntimeError("Unknown socket error: %s" % (error))
+
+
+    if viewer is None:
+        raise RuntimeError("Cannot make viewer in port range 33400-33500")
+
+    return viewer

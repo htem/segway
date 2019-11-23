@@ -52,39 +52,16 @@ def segment_from_skeleton(skeletons, segment_array, nodes):
     return segments
 
 
-def get_one_merged_components(segments, done):
-    # print(segments.keys())
-    for s in segments:
-        if s in done:
-            continue
-        components = segments[s]
-        if len(components) > 1:
-            return [components[c] for c in components]
-    return None
+def interpolate_locations_in_z(zyx0, zyx1, voxel_size):
+    z_res = voxel_size[0]
 
-
-def get_one_splitted_component(skeletons, segment_array, nodes, done):
-    for skid in skeletons:
-        segments = set()
-        if skid in done:
-            continue
-        s = skeletons[skid]
-        for n in s:
-            zyx = daisy.Coordinate(tuple(nodes[n]["zyx"]))
-            if not segment_array.roi.contains(zyx):
-                continue
-            seg_id = segment_array[zyx]
-            segments.add(seg_id)
-        if len(segments) > 1:
-            return (segments, skid)
-    return (None, None)
-
-
-def interpolate_locations_in_z(zyx0, zyx1):
-    # assuming z pixel size is 40
-    assert(zyx0[0] % 40 == 0)
-    assert(zyx1[0] % 40 == 0)
-    steps = int(math.fabs(zyx1[0] - zyx0[0]) / 40)
+    # assert zyx0[0] % z_res == 0, "%d not divisible by voxel size %d" % (zyx0[0], z_res)
+    # assert zyx1[0] % z_res == 0, "%d not divisible by voxel size %d" % (zyx1[0], z_res)
+    if (zyx0[0] % z_res) or (zyx1[0] % z_res):
+        # both locations need to be perfectly divisible to interpolate
+        # for now
+        return []
+    steps = int(math.fabs(zyx1[0] - zyx0[0]) / z_res)
     if steps <= 1:
         return []
 
@@ -92,8 +69,8 @@ def interpolate_locations_in_z(zyx0, zyx1):
     for i in range(3):
         delta.append((float(zyx1[i]) - zyx0[i]) / steps)
     # print(delta)
-    assert(int(delta[0]) == 40 or int(delta[0]) == -40)
-    # for z in range(zyx0[2], zyx0[2], 40):
+    assert(int(delta[0]) == z_res or int(delta[0]) == -z_res)
+    # for z in range(zyx0[2], zyx0[2], z_res):
     res = []
     for i in range(steps-1):
         res.append([int(zyx0[k] + (i+1)*delta[k]) for k in range(3)])
@@ -101,7 +78,7 @@ def interpolate_locations_in_z(zyx0, zyx1):
     return res
 
 
-def parse_skeleton_json(json):
+def parse_skeleton_json(json, voxel_size):
     skeletons = {}
     nodes = {}
     json = json["skeletons"]
@@ -122,7 +99,9 @@ def parse_skeleton_json(json):
                 # print(skel_json["treenodes"])
                 prev_node = skel_json["treenodes"][prev_node_id]
                 intermediates = interpolate_locations_in_z(
-                    to_zyx(prev_node["location"]), node["zyx"])
+                        to_zyx(prev_node["location"]),
+                        node["zyx"],
+                        voxel_size)
                 for loc in intermediates:
                     int_node_id = len(nodes)
                     int_node = {"zyx": loc}
@@ -155,11 +134,6 @@ if __name__ == "__main__":
     for xyz in unlabeled_segments_xyz:
         unlabeled_segments_zyx.append(daisy.Coordinate(to_daisy_coord(xyz)))
 
-    # skeleton_json = "skeleton.json"
-    skeleton_json = config["skeleton_file"]
-
-    with open(skeleton_json) as f:
-        skeletons, nodes = parse_skeleton_json(json.load(f))
 
     raw_ds = daisy.open_ds(config["raw_file"], config["raw_ds"])
 
@@ -167,6 +141,12 @@ if __name__ == "__main__":
     segment_file = config["segment_file"]
     segment_dataset = config["segment_ds"]
     segment_ds = daisy.open_ds(segment_file, segment_dataset, mode='r+')
+
+    # skeleton_json = "skeleton.json"
+    skeleton_json = config["skeleton_file"]
+    with open(skeleton_json) as f:
+        skeletons, nodes = parse_skeleton_json(json.load(f), segment_ds.voxel_size)
+
     segment_array = segment_ds[segment_ds.roi]
     segment_ndarray = segment_array.to_ndarray()
     segment_array = daisy.Array(
@@ -190,39 +170,41 @@ if __name__ == "__main__":
     unlabeled_ds = daisy.prepare_ds(
         segment_file,
         "volumes/labels/unlabeled_mask_skeleton",
-        raw_ds.roi,
-        raw_ds.voxel_size,
+        segment_ds.roi,
+        segment_ds.voxel_size,
         np.uint8,
-        # write_size=slice_roi_entire.get_shape(),
-        compressor={'id': 'zlib', 'level': 5}
+        compressor={'id': 'zlib', 'level': 5},
+        delete=True
         )
-
-    unlabeled_ndarray = unlabeled_ds.to_ndarray()
-    unlabeled_array = daisy.Array(
-        unlabeled_ndarray, unlabeled_ds.roi, unlabeled_ds.voxel_size)
 
     # unlabeled mask should be 0 in the context region
     print("Reset unlabeled mask...")
-    unlabeled_ndarray[:] = 0
-    unlabeled_array[unlabeled_ds.roi] = unlabeled_ndarray
+    unlabeled_ndarray = np.zeros(unlabeled_ds.shape, dtype=unlabeled_ds.dtype)
+    # unlabeled_array = daisy.Array(
+    #     unlabeled_ndarray, unlabeled_ds.roi, unlabeled_ds.voxel_size)
+
+
+    # unlabeled_ndarray[:] = 0
+    # unlabeled_array[unlabeled_ds.roi] = unlabeled_ndarray
 
     # unlabeled should be 1 in all traced skeleton
-    unlabeled_ndarray = unlabeled_array[segment_ds.roi].to_ndarray()
-    unlabeled_ndarray = np.array(unlabeled_ndarray, dtype=np.uint64)
+
+    # unlabeled_ndarray = unlabeled_array[segment_ds.roi].to_ndarray()
+    # unlabeled_ndarray = np.array(unlabeled_ndarray, dtype=np.uint64)
 
     skeletonized_segments = list(skeletonized_segments)
     new_mask_values = [1 for f in skeletonized_segments]
-    skeletonized_segments = np.array(
-        skeletonized_segments, dtype=segment_ndarray.dtype)
-    new_mask_values = np.array(new_mask_values, dtype=np.uint64)
+    # skeletonized_segments = np.array(
+        # skeletonized_segments, dtype=segment_ndarray.dtype)
+    # new_mask_values = np.array(new_mask_values, dtype=np.uint64)
     replace_values(
         segment_ndarray,
         skeletonized_segments,
         new_mask_values,
         unlabeled_ndarray)
 
-    unlabeled_array[segment_ds.roi] = unlabeled_ndarray
+    # unlabeled_array[segment_ds.roi] = unlabeled_ndarray
 
     print("Write unlabeled mask...")
-    unlabeled_ds[unlabeled_ds.roi] = unlabeled_array.to_ndarray()
+    unlabeled_ds[unlabeled_ds.roi] = unlabeled_ndarray
 

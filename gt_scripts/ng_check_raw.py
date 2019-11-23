@@ -2,10 +2,7 @@ import daisy
 import neuroglancer
 import sys
 import os
-
 import gt_tools
-
-neuroglancer.set_server_bind_address('0.0.0.0')
 
 if '.zarr' in sys.argv[1]:
     raw_file = sys.argv[1]
@@ -18,7 +15,7 @@ if raw_file[-1] == '/':
 
 raw = daisy.open_ds(raw_file, 'volumes/raw')
 
-viewer = neuroglancer.Viewer()
+viewer = gt_tools.make_ng_viewer()
 
 with viewer.txn() as s:
 

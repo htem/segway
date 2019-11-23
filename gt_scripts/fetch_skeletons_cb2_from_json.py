@@ -72,20 +72,26 @@ class AnnotationFetcher(CatmaidClientApplication):
 
 if __name__ == "__main__":
 
-    config = gt_tools.load_config(sys.argv[1])
+    config = gt_tools.load_config(sys.argv[1], no_db=True, no_zarr=True)
 
     force_yes = False
-    if len(sys.argv) > 2 and sys.argv[2] == "--yes":
-        force_yes = True
+    skeleton_f = None
+    if len(sys.argv) > 2:
+        if sys.argv[2] == "--yes":
+            force_yes = True
+        else:
+            skeleton_f = sys.argv[2]
 
     if "skeleton_file" not in config:
         raise RuntimeError('"skeleton_file" not in config')
-    skeleton_f = config["skeleton_file"]
-    if os.path.exists(skeleton_f) and force_yes is False:
-        i = input("Overwrite %s? [y/N] " % skeleton_f)
-        if i == '' or i == 'n' or i == 'N':
-            print("Aborting...")
-            exit(0)
+
+    if skeleton_f is None:
+        skeleton_f = config["skeleton_file"]
+        if os.path.exists(skeleton_f) and force_yes is False:
+            i = input("Overwrite %s? [y/N] " % skeleton_f)
+            if i == '' or i == 'n' or i == 'N':
+                print("Aborting...")
+                exit(0)
 
     client = catpy.CatmaidClient(
         'http://catmaid3.hms.harvard.edu/catmaidcb2/',
@@ -93,6 +99,19 @@ if __name__ == "__main__":
     )
     project_id = 2  # CB2 main project ID
     script_name = config["script_name"]
+
+    if "skeleton_project_id" in config:
+        project_id = config["skeleton_project_id"]
+        print("Fetching skeletons for %s" % script_name)
+        client.project_id = project_id
+        annotation_fetcher = AnnotationFetcher(client)
+        skeletons = annotation_fetcher.fetch_all_skeletons()
+        export_widget = ExportWidget(client)
+        geometry = export_widget.get_treenode_and_connector_geometry(*skeletons)
+        with open(skeleton_f, 'w') as f:
+            print("Writing to %s" % skeleton_f)
+            json.dump(geometry, f)
+        exit()
 
     if "CatmaidIn" in config:
         in_config = config["CatmaidIn"]
@@ -152,14 +171,11 @@ if __name__ == "__main__":
 
         annotation_fetcher = AnnotationFetcher(client)
         skeletons = annotation_fetcher.fetch_skeletons_in_bounding_box(offset, shape, context)
-        # skeletons = [s for s in skeletons]
-        print(skeletons)
         export_widget = ExportWidget(client)
         geometry = export_widget.get_treenode_and_connector_geometry(*skeletons)
 
         geometry = subtract_offset(geometry, offset, context)
 
-        # with open('%s_skeleton.json' % project, 'w') as f:
         with open(skeleton_f, 'w') as f:
             print("Writing to %s" % skeleton_f)
             json.dump(geometry, f)

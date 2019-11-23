@@ -141,7 +141,7 @@ with viewer.txn() as s:
 
     segment = daisy.open_ds(f, 'volumes/segmentation_0.700')
     s.navigation.position.voxelCoordinates = np.flip(
-        ((segment.roi.get_begin() + segment.roi.get_end()) / 2 / segment.voxel_size))
+        ((segment.roi.get_begin() + segment.roi.get_end()) / 2 / raw.voxel_size))
 
 
 link = str(viewer)

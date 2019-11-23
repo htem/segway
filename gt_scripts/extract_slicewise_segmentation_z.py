@@ -1,13 +1,13 @@
-import json
+# import json
 import logging
 import sys
 import daisy
 import numpy as np
 from networkx import Graph
 import gt_tools
-sys.path.insert(0, "/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_segmentation")
-from segway import task_helper
+# sys.path.insert(0, "/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_segmentation")
 
+# from segway import task_helper
 from segway.tasks.segmentation_functions import agglomerate_in_block, segment
 
 logger = logging.getLogger(__name__)
@@ -83,18 +83,21 @@ if __name__ == "__main__":
 
     num_workers = 12
 
+    voxel_size = affs_ds.voxel_size
+
     total_roi_shape = affs_ds.roi.get_shape()
     block_roi_x_dim = [x for x in total_roi_shape]
-    block_roi_x_dim[2] = 80
+    block_roi_x_dim[2] = voxel_size[2]
     block_roi_x_dim = daisy.Roi((0, 0, 0), block_roi_x_dim)
     block_roi_y_dim = [x for x in total_roi_shape]
-    block_roi_y_dim[1] = 40
+    block_roi_y_dim[1] = voxel_size[1]
     block_roi_y_dim = daisy.Roi((0, 0, 0), block_roi_y_dim)
     block_roi_z_dim = [x for x in total_roi_shape]
-    block_roi_z_dim[0] = 40
+    block_roi_z_dim[0] = voxel_size[0]
     block_roi_z_dim = daisy.Roi((0, 0, 0), block_roi_z_dim)
 
-    thresholds = [.1, .15, .85, .9]
+    # thresholds = [.1, .15, .85, .9]
+    thresholds = [.1, .9]
     segmentation_dss = []
 
     for threshold in thresholds:
@@ -122,8 +125,6 @@ if __name__ == "__main__":
             thresholds,
             segmentation_dss
             ),
-        # check_function=lambda b: check_block(
-        #     b, segmentation_dss[5]),
         num_workers=num_workers,
         read_write_conflict=False,
         fit='valid')

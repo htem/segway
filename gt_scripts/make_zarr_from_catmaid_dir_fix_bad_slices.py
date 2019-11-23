@@ -6,9 +6,12 @@ import sys
 import json
 import os
 
+import gt_tools
+
 config_f = sys.argv[1]
-with open(config_f) as f:
-    config = json.load(f)
+# with open(config_f) as f:
+    # config = json.load(f)
+config = gt_tools.load_config(sys.argv[1], no_db=True, no_zarr=True)
 script_name = os.path.basename(config_f)
 script_name = script_name.split(".")[0]
 
@@ -33,8 +36,8 @@ roi_context = in_config.get("roi_context_nm", [0, 0, 0])
 roi_shape = in_config["roi_shape_nm"]
 
 out_config = config["zarr"]
-cutout_f = out_config["dir"] + "/" + script_name + ".zarr"
-cutout_f_with_context = out_config["dir"] + "/" + script_name + "with_context.zarr"
+# cutout_f = out_config["dir"] + "/" + script_name + ".zarr"
+cutout_f = config["out_file"]
 zero_offset = out_config.get("zero_offset", True)
 xy_downsample = out_config.get("xy_downsample", 1)
 
@@ -94,19 +97,6 @@ cutout_ds = daisy.prepare_ds(
 
 # exit(0)
 
-# cutout_with_context_ds = daisy.prepare_ds(
-#     cutout_f_with_context,
-#     'raw',
-#     write_roi_with_context,
-#     write_voxel_size,
-#     np.uint8,
-#     # write_size=raw_dir_shape,
-#     # num_channels=self.out_dims,
-#     # temporary fix until
-#     # https://github.com/zarr-developers/numcodecs/pull/87 gets approved
-#     # (we want gzip to be the default)
-#     compressor={'id': 'zlib', 'level': 5}
-#     )
 
 
 print("write_roi: %s" % write_roi)

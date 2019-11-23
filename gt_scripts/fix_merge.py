@@ -4,6 +4,12 @@ import daisy
 # import sys
 import networkx
 import numpy as np
+# import rando# import json
+# import logging
+import daisy
+# import sys
+import networkx
+import numpy as np
 # import random
 import collections
 
@@ -12,7 +18,7 @@ import collections
 from funlib.evaluate import split_graph
 from funlib.segment.arrays import replace_values
 
-logging.basicConfig(level=logging.INFO)
+# logging.basicConfig(level=logging.INFO)
 
 
 def get_graph(input, threshold=0.9, rag_weight_attribute="capacity"):
@@ -31,6 +37,16 @@ def get_graph(input, threshold=0.9, rag_weight_attribute="capacity"):
     return graph
 
 
+def get_segment_id(zyx, fragments_array, fragments_lut, segment_array):
+    fid = fragments_array[zyx]
+    if fragments_lut is not None and fid in fragments_lut:
+        ret = fragments_lut[fid]
+    else:
+        ret = segment_array[zyx]
+    assert ret is not None
+    return ret
+
+
 def fix_merge(
         components_zyx,
         fragments_array,
@@ -42,6 +58,7 @@ def fix_merge(
         ignored_fragments=set(),
         next_segid=None,
         errored_fragments_out=None,
+        fragments_lut=None,
         **kwargs):
 
     # open fragments
@@ -74,7 +91,6 @@ def fix_merge(
                 continue
 
             if f in ignored_fragments:
-                # assert False, "Deprecated"
                 continue
 
             # check for duplications within skeleton
@@ -90,11 +106,11 @@ def fix_merge(
 
             # check if fragment is duplicated across skeletons
             if f in fragments_ids:
-                print("Fragment %d is duplicated across skeletons!" % f)
-                print(frag_to_coords[f])
+                # print("Fragment %d is duplicated across skeletons!" % f)
+                # print(frag_to_coords[f])
                 pixel_coords = []
                 for zyx in frag_to_coords[f]:
-                    print(to_pixel_coord(zyx))
+                    # print(to_pixel_coord(zyx))
                     pixel_coords.append(to_pixel_coord(zyx))
 
                 if errored_fragments_out is None:
@@ -113,7 +129,7 @@ def fix_merge(
         if len(comp):
             components.append(comp)
 
-    # remove problematic fragments from the component lists
+    # remove problem fragments from the component lists
     for c in components:
         for error_fragment in errored_fragments:
             try:
@@ -124,11 +140,16 @@ def fix_merge(
     components = [c for c in components if len(c)]
 
     # # make sure that components are of different fragments
-    merged_segment_id = segment_array[components_zyx[0][0]]
+    merged_segment_id = get_segment_id(
+        components_zyx[0][0],
+        fragments_array,
+        fragments_lut,
+        segment_array)
+    # merged_segment_id = segment_array[components_zyx[0][0]]
     if len(components) <= 1:
         return 0, merged_segment_id
 
-    print("Input components: %s" % components)
+    # print("Input components: %s" % components)
 
     num_splits = split_graph(
         rag,
@@ -137,7 +158,7 @@ def fix_merge(
         weight_attribute=rag_weight_attribute,
         split_attribute="cut_id"
         )
-    print("Num cuts made: %d" % num_splits)
+    # print("Num cuts made: %d" % num_splits)
 
     # relabeling split regions
     # assuming that all components given have the same segment_id
@@ -164,33 +185,33 @@ def fix_merge(
     # rewrite_segment = False
 
     if rewrite_segment:
-        print("Computing new segmentation...")
+        # print("Computing new segmentation...")
         for node, node_data in rag.nodes(data=True):
             node_zyx = daisy.Coordinate(tuple((node_data['center_z'],
                                         node_data['center_y'],
                                         node_data['center_x'])))
-            if segment_array[node_zyx] == merged_segment_id:
+
+            segment_id = get_segment_id(node_zyx, fragments_array, fragments_lut, segment_array)
+            if segment_id == merged_segment_id:
                 if node_data["cut_id"] != parent_cut_id:
                     # print("Node %d at %s has cut_id %d" % (node, to_pixel_coord(node_zyx), node_data["cut_id"]))
                     mask_values.append(node)
                     new_values.append(new_segment_ids[node_data["cut_id"]])
 
-        # print("mask_values:", mask_values)
-        # print("new_values:", new_values)
+        if fragments_lut is not None:
+            for m, n in zip(mask_values, new_values):
+                m = int(m)
+                n = int(n)
+                if m != n:
+                    fragments_lut[m] = n
 
-        mask_values = np.array(mask_values, dtype=fragments_array.dtype)
-        new_values = np.array(new_values, dtype=segment_array.dtype)
-
-        print("Replacing values...")
-        segment_ndarray = segment_array.to_ndarray()
-        replace_values(
-            fragments_array.to_ndarray(),
-            mask_values,
-            new_values,
-            segment_ndarray,
-            )
-        print("Write new segmentation...")
-        segment_array[segment_array.roi] = segment_ndarray
+        else:
+            replace_values(
+                fragments_array.to_ndarray(),
+                mask_values,
+                new_values,
+                segment_array.data,
+                )
 
         return num_splits, merged_segment_id
 

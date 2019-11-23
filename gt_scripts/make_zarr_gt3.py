@@ -47,8 +47,13 @@ if __name__ == "__main__":
     raw_file = config["raw_file"]
     raw_ds = daisy.open_ds(raw_file, "volumes/raw")
 
-    myelin_ds = daisy.open_ds(file, config["myelin_ds"])
     out_file = config["out_file"]
+
+    # if 'clear_myelin' in config and config['clear_myelin']:
+    #     myelin_ds = daisy.open_ds(file, config["myelin_ds"], 'r+')
+    #     myelin_ds[myelin_ds.roi] = 255
+
+    # myelin_ds = daisy.open_ds(file, config["myelin_ds"])
 
     if True:
         out = daisy.prepare_ds(
@@ -57,11 +62,12 @@ if __name__ == "__main__":
             segment_ds.roi,
             segment_ds.voxel_size,
             segment_ds.dtype,
-            compressor={'id': 'zlib', 'level': 5}
+            compressor={'id': 'zlib', 'level': 5},
+            delete=True
             )
         print("Reading neuron_ids...")
         out_array = segment_ds.to_ndarray()
-        np.place(out_array, myelin_ds.to_ndarray() == 0, 0)
+        #np.place(out_array, myelin_ds.to_ndarray() == 0, 0)
         print("Writing neuron_ids...")
         out[out.roi] = out_array
 
@@ -72,7 +78,8 @@ if __name__ == "__main__":
             mask_ds.roi,
             segment_ds.voxel_size,
             mask_ds.dtype,
-            compressor={'id': 'zlib', 'level': 5}
+            compressor={'id': 'zlib', 'level': 5},
+            delete=True
             )
         print("Reading labels_mask...")
         out_array = daisy.Array(
@@ -93,7 +100,8 @@ if __name__ == "__main__":
             mask_ds.roi,
             segment_ds.voxel_size,
             mask_ds.dtype,
-            compressor={'id': 'zlib', 'level': 5}
+            compressor={'id': 'zlib', 'level': 5},
+            delete=True
             )
         print("Copying labels_mask2...")
         out[out.roi] = mask_ds
@@ -105,7 +113,8 @@ if __name__ == "__main__":
             unlabeled_ds.roi,
             segment_ds.voxel_size,
             unlabeled_ds.dtype,
-            compressor={'id': 'zlib', 'level': 5}
+            compressor={'id': 'zlib', 'level': 5},
+            delete=True
             )
         print("Copying unlabeled...")
         out[out.roi] = unlabeled_ds
@@ -118,7 +127,8 @@ if __name__ == "__main__":
                 raw_ds.roi,
                 segment_ds.voxel_size,
                 raw_ds.dtype,
-                compressor=None
+                compressor=None,
+                delete=True
                 )
             print("Copying raw...")
             raw_out[raw_ds.roi] = raw_ds

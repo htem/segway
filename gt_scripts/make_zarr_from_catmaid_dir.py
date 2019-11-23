@@ -7,9 +7,14 @@ import sys
 import json
 import os
 
+import gt_tools
+
 config_f = sys.argv[1]
-with open(config_f) as f:
-    config = json.load(f)
+# with open(config_f) as f:
+#     config = json.load(f)
+
+config = gt_tools.load_config(sys.argv[1], no_db=True, no_zarr=True)
+
 script_name = os.path.basename(config_f)
 script_name = script_name.split(".")[0]
 
@@ -17,7 +22,8 @@ script_name = script_name.split(".")[0]
 in_config = config["CatmaidIn"]
 raw_f = in_config["file"]
 voxel_size = in_config["voxel_size"]
-raw_dir_shape = [m*n for m, n in zip(in_config["tile_shape"], voxel_size)]  # zyx in nm
+tile_shape = in_config["tile_shape"]
+raw_dir_shape = [m*n for m, n in zip(tile_shape, voxel_size)]  # zyx in nm
 
 roi_offset = in_config["roi_offset"]
 if in_config["roi_offset_encoding"] == "tile":
@@ -33,15 +39,12 @@ roi_shape = in_config["roi_shape_nm"]
 
 out_config = config["zarr"]
 cutout_f = out_config["dir"] + "/" + script_name + ".zarr"
+print(cutout_f)
+cutout_f = config["out_file"]
+print(cutout_f)
 cutout_f_with_context = out_config["dir"] + "/" + script_name + "with_context.zarr"
 zero_offset = out_config.get("zero_offset", True)
 xy_downsample = out_config.get("xy_downsample", 1)
-
-# in nm
-# roi_offset = (78*40, 96*1024*4, 125*1024*4)
-# roi_shape = (4000, 4096, 4096)
-# roi_offset = (175*40, 96*1024*4, 125*1024*4)
-# roi_shape = (80, 4096, 4096)
 
 write_voxel_size = voxel_size
 if xy_downsample > 1:
@@ -64,14 +67,12 @@ write_roi_with_context = write_roi_with_context.grow(
 print(write_roi_with_context)
 write_roi = write_roi_with_context
 
-# roi_offset -= roi_context
 roi_offset[0] -= roi_context[0]
 roi_offset[1] -= roi_context[1]
 roi_offset[2] -= roi_context[2]
 roi_offset[0] += additional_offset[0]
 roi_offset[1] += additional_offset[1]
 roi_offset[2] += additional_offset[2]
-# exit(0)
 roi_shape[0] += roi_context[0]
 roi_shape[1] += roi_context[1]
 roi_shape[2] += roi_context[2]
@@ -80,7 +81,11 @@ roi_shape[1] += roi_context[1]
 roi_shape[2] += roi_context[2]
 
 write_roi_abs = daisy.Roi(roi_offset, roi_shape)
-# exit(0)
+
+replace_section_list = {}
+if 'replace_section_list' in in_config:
+    for pair in in_config['replace_section_list']:
+        replace_section_list[pair[0]] = pair[1]
 
 cutout_ds = daisy.prepare_ds(
     cutout_f,
@@ -88,8 +93,12 @@ cutout_ds = daisy.prepare_ds(
     write_roi,
     write_voxel_size,
     np.uint8,
-    compressor=None
+    compressor=None,
+    delete=True
     )
+
+cutout_nd = np.zeros(write_roi.get_shape()/daisy.Coordinate(write_voxel_size), dtype=np.uint8)
+cutout_array = daisy.Array(cutout_nd, write_roi, write_voxel_size)
 
 # exit(0)
 
@@ -140,55 +149,44 @@ for z_index in range(z_begin, z_end):
             found = False
             z_index_tmp = z_index
             while not found:
+
+                if z_index_tmp in replace_section_list:
+                    z_index_tmp = replace_section_list[z_index_tmp]
+
                 tile_f = raw_f + ('/%d/%d/%d.jpg' % (z_index_tmp, y_index, x_index))
                 try:
                     tile = Image.open(tile_f)
                 except:
                     print("Missing %s" % tile_f)
                     z_index_tmp -= 1
+                    if z_index_tmp in replace_section_list:
+                        raise RuntimeError("%s not found and not in replace_section_list" % tile_f)
                     # exit(0)
                     continue
 
                 tile_roi = daisy.Roi(
-                    (z_index*40, y_index*4*1024, x_index*4*1024),
+                    (
+			z_index*voxel_size[0]*tile_shape[0],
+			y_index*voxel_size[1]*tile_shape[1],
+			x_index*voxel_size[2]*tile_shape[2],
+		    ),
                     (raw_dir_shape[0], raw_dir_shape[1], raw_dir_shape[2]))
 
-                print(tile_roi)
-                print(write_roi_abs)
+                print("tile_roi:", tile_roi)
+                print("write_roi_abs:", write_roi_abs)
                 # exit(0)
                 local_write_roi_abs = write_roi_abs.intersect(tile_roi)
                 print("local_write_roi_abs: %s" % local_write_roi_abs)
                 # exit(0)
 
-                # slice_roi_shape = raw_dir_shape.copy()
-                # # print(x_index)
-                # # print(x_end)
-                # # print(roi_shape[2] % raw_dir_shape[2])
-                # # print(slice_roi_shape)
-                # x_begin = 0
-                # y_begin = 0
-                # x_end = raw_dir_shape[2]
-                # y_end = raw_dir_shape[1]
-
-                # if x_index == (x_end-1) and (roi_shape[2] % raw_dir_shape[2]):
-                #     x_end = roi_shape[2] % raw_dir_shape[2]
-                #     slice_roi_shape[2] = x_end
-                # if y_index == (y_end-1) and (roi_shape[1] % raw_dir_shape[1]):
-                #     y_end = roi_shape[1] % raw_dir_shape[1]
-                #     slice_roi_shape[1] = y_end
-                # # print(slice_roi_shape)
-                crop_x_begin = local_write_roi_abs.get_begin()[2] % (4*1024)
-                crop_y_begin = local_write_roi_abs.get_begin()[1] % (4*1024)
+                crop_x_begin = local_write_roi_abs.get_begin()[2] % (voxel_size[2]*tile_shape[2])
+                crop_y_begin = local_write_roi_abs.get_begin()[1] % (voxel_size[1]*tile_shape[1])
                 crop_x_end = crop_x_begin + local_write_roi_abs.get_shape()[2]
                 crop_y_end = crop_y_begin + local_write_roi_abs.get_shape()[1]
                 print("crop_x_begin: %s" % crop_x_begin)
                 print("crop_y_begin: %s" % crop_y_begin)
                 print("crop_x_end: %s" % crop_x_end)
                 print("crop_y_end: %s" % crop_y_end)
-                # # exit(0)
-                # tile = tile.crop((2048, 2048, 4096, 2048 + 2))
-                # print(np.asarray(tile))
-                # exit(0)
 
 
                 tile = tile.crop((
@@ -202,7 +200,7 @@ for z_index in range(z_begin, z_end):
                     int(local_write_roi_abs.get_shape()[1]/voxel_size[1]/xy_downsample),
                     int(local_write_roi_abs.get_shape()[2]/voxel_size[2]/xy_downsample))
 
-                if np.sum(tile_array) == 0:
+                if len(replace_section_list) == 0 and np.sum(tile_array) == 0:
                     print("Blacked out %s" % tile_f)
                     z_index_tmp -= 1
                     continue
@@ -230,4 +228,7 @@ for z_index in range(z_begin, z_end):
             # print(cutout_ds.roi)
             # print(np.asarray(tile))
             # exit(0)
-            cutout_ds[local_write_roi] = tile_array
+            cutout_array[local_write_roi] = tile_array
+
+print("Writing to disk...")
+cutout_ds[cutout_ds.roi] = cutout_array

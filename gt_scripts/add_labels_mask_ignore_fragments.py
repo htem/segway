@@ -6,6 +6,9 @@ import logging
 # import collections
 # import multiprocessing
 import scipy.ndimage as ndimage
+import os
+import json
+
 import gt_tools
 
 from funlib.segment.arrays import replace_values
@@ -39,7 +42,12 @@ if __name__ == "__main__":
     config = gt_tools.load_config(sys.argv[1])
     file = config["file"]
 
-    ignored_fragments = config["ignored_fragments"]
+    problem_fragments_filename = os.path.join(file, "problem_fragments.json")
+    if os.path.exists(problem_fragments_filename):
+        with open(problem_fragments_filename) as f:
+            ignored_fragments = json.load(f)
+    else:
+        ignored_fragments = config["ignored_fragments"]
 
     if len(ignored_fragments) == 0:
         print("No fragments to process... Done.")
@@ -52,10 +60,6 @@ if __name__ == "__main__":
     labels_mask_ds = daisy.open_ds(file, "volumes/labels/labels_mask_z", mode='r+')
     print("Caching labels_mask_ds...")
     labels_mask_ndarray = labels_mask_ds.to_ndarray()
-
-    # labels_mask2_ds = daisy.open_ds(file, "volumes/labels/labels_mask2")
-    # print("Caching labels_mask2_ds...")
-    # labels_mask2_ndarray = labels_mask2_ds.to_ndarray()
 
     print("Computing ignore_mask...")
     ignore_mask = np.zeros_like(fragments_ndarray, dtype=np.uint8)

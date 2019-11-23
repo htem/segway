@@ -4,8 +4,6 @@ import sys
 
 import gt_tools
 
-neuroglancer.set_server_bind_address('0.0.0.0')
-
 config = gt_tools.load_config(sys.argv[1])
 f = config["file"]
 raw_file = config["raw_file"]
@@ -17,7 +15,7 @@ if raw_file[-1] == '/':
 
 raw = daisy.open_ds(raw_file, 'volumes/raw')
 
-viewer = neuroglancer.Viewer()
+viewer = gt_tools.make_ng_viewer()
 
 with viewer.txn() as s:
 

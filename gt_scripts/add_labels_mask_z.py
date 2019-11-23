@@ -8,8 +8,6 @@ import multiprocessing
 import scipy.ndimage as ndimage
 import gt_tools
 
-# from funlib.segment.arrays import replace_values
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -179,9 +177,9 @@ def process_block(
         ):
 
     total_roi = block.read_roi
-    print("block.read_roi: %s" % block.read_roi)
+    # print("block.read_roi: %s" % block.read_roi)
 
-    print("resetting mask...")
+    # print("resetting mask...")
     if reset_mask:
         mask_ds[total_roi] = 0
     fragments_ds = daisy.open_ds(file, fragments_ds_path)
@@ -201,10 +199,10 @@ def process_block(
         segment_array = daisy.Array(
             gt_ndarray, block.read_roi, segment_ds.voxel_size)
 
-    print("hi_threshold_ds.roi: %s" % hi_threshold_ds.roi)
-    print("fragments_ds.roi: %s" % fragments_ds.roi)
-    print("segment_ds.roi: %s" % segment_ds.roi)
-    print("total_roi.roi: %s" % total_roi)
+    # print("hi_threshold_ds.roi: %s" % hi_threshold_ds.roi)
+    # print("fragments_ds.roi: %s" % fragments_ds.roi)
+    # print("segment_ds.roi: %s" % segment_ds.roi)
+    # print("total_roi.roi: %s" % total_roi)
 
     rag = rag_provider[total_roi]
 
@@ -251,7 +249,7 @@ def process_block(
     # print("Write mask..")
     mask_ds[total_roi] = labels_mask
 
-    # print("Masking out unknown regions...")
+    # print("Masking out unlabeled regions...")
     # mask_array = mask_ds[block.read_roi].to_ndarray()
     # mask_array[gt_ndarray == 0] = 0
     # mask_ds[block.read_roi] = mask_array
@@ -314,7 +312,6 @@ if __name__ == "__main__":
     z_hi_threshold_ds = daisy.open_ds(file, "volumes/segmentation_slice_z_0.900")
     z_lo_threshold_ds = daisy.open_ds(file, "volumes/segmentation_slice_z_0.100")
     if "skeleton_file" in config:
-        #segment_ds_path = "volumes/segmentation_skeleton"
         segment_ds_path = config["segmentation_skeleton_ds"]
     else:
         assert False
@@ -328,31 +325,12 @@ if __name__ == "__main__":
         edges_collection=config["db_edges_collection"])
     voxel_size = segment_ds.voxel_size
     context = 0  # nm
-    xy_step = 40
+    # xy_step = 40
     total_roi_offset = segment_ds.roi.get_offset()
     total_roi_shape = segment_ds.roi.get_shape()
-    if debug:
-        assert False
-        total_roi_offset2 = [i for i in total_roi_offset]
-        total_roi_offset2[0] = 66*40
-        total_roi_offset = tuple(total_roi_offset2)
-        total_roi_shape = daisy.Coordinate(
-            (40*1, total_roi_shape[1], total_roi_shape[2]))   # first 8 secs
     total_roi = daisy.Roi(total_roi_offset, total_roi_shape)
-    # if debug:
-    #     total_roi = total_roi.shift((29*40, 0, 0))
 
-    # slice_x_shape = [x for x in total_roi_shape]
-    # slice_x_shape[0] = slice_x_shape[0] - 2*context
-    # slice_x_shape[1] = slice_x_shape[1] - 2*context
-    # slice_x_shape[2] = xy_step
-    # # slice_x_shape = daisy.Roi((context, context, 0), slice_x_shape)
-    # slice_x_step = daisy.Coordinate((0, 0, xy_step))
-    # slice_x_roi_entire = [x for x in total_roi_shape]
-    # slice_x_roi_entire[2] = xy_step
-    # slice_x_roi_entire = daisy.Roi((0, 0, 0), slice_x_roi_entire)
-
-    z_step = 40
+    z_step = voxel_size[0]
     slice_z_shape = [x for x in total_roi_shape]
     slice_z_shape[0] = z_step
     slice_z_shape[1] = slice_z_shape[1] - 2*context

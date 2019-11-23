@@ -4,6 +4,8 @@ import daisy
 import sys
 import math
 import collections
+import json
+import os
 
 import networkx
 
@@ -85,30 +87,57 @@ except ImportError:
 
 logging.basicConfig(level=logging.INFO)
 
+# global voxel_size
+# voxel_size = [40, 4, 4]
 
 def to_daisy_coord(xyz):
-    return [xyz[2]*40, xyz[1]*4, xyz[0]*4]
-
+    global voxel_size
+    return [xyz[2]*voxel_size[0],
+            xyz[1]*voxel_size[1],
+            xyz[0]*voxel_size[2],
+            ]
 
 def to_pixel_coord(zyx):
-    return [zyx[2]/4, zyx[1]/4, zyx[0]/40]
+    global voxel_size
+    return [
+            zyx[2]/voxel_size[2],
+            zyx[1]/voxel_size[1],
+            zyx[0]/voxel_size[0],
+            ]
 
 
 def to_zyx(xyz):
     return [xyz[2], xyz[1], xyz[0]]
 
 
-def segment_from_skeleton(skeletons, segment_array, nodes):
+def segment_from_skeleton(
+        skeletons,
+        segment_array,
+        nodes,
+        fragments_array,
+        merge_correction_lut):
+
+    # print("Getting segments from skeletons...")
+
     segments = collections.defaultdict(lambda: collections.defaultdict(list))
 
+    # print(merge_correction_lut)
+
     for skeleton_id in skeletons:
-        for n in skeletons[skeleton_id]:
-            zyx = daisy.Coordinate(tuple(nodes[n]["zyx"]))
+        for node in skeletons[skeleton_id]:
+            zyx = daisy.Coordinate(tuple(nodes[node]["zyx"]))
             if not segment_array.roi.contains(zyx):
                 continue
-            segid = segment_array[zyx]
+
+            fid = fragments_array[zyx]
+            if fid in merge_correction_lut:
+                segid = merge_correction_lut[fid]
+                # print("%d: %d" % (fid, segid))
+            else:
+                segid = segment_array[zyx]
+
             assert(segid is not None)
-            segments[segid][skeleton_id].append(n)
+            segments[segid][skeleton_id].append(node)
 
     return segments
 
@@ -125,9 +154,12 @@ def get_one_merged_components(segments, done):
 
 def get_one_splitted_component(
         skeletons, segment_array, nodes, done,
-        fragments_array, ignored_fragments):
+        fragments_array, ignored_fragments,
+        split_correction_lut,
+        ):
+
     for skid in skeletons:
-        segments = set()
+        segments = []
         zyxs = []
         if skid in done:
             continue
@@ -137,14 +169,18 @@ def get_one_splitted_component(
             if not segment_array.roi.contains(zyx):
                 continue
 
-            if fragments_array[zyx] in ignored_fragments:
+            fid = fragments_array[zyx]
+            if fid in ignored_fragments:
                 continue
 
             seg_id = segment_array[zyx]
+
+            if seg_id in split_correction_lut:
+                seg_id = split_correction_lut[seg_id]
             if seg_id != 0:
                 # TODO: not entirely sure why this could be
                 # when bound is checked above
-                segments.add(seg_id)
+                segments.append(seg_id)
                 zyxs.append(zyx)
         if len(segments) > 1:
             return (segments, skid, zyxs)
@@ -210,6 +246,8 @@ def parse_skeleton_json(json, interpolation=True):
 
 if __name__ == "__main__":
 
+    global voxel_size
+
     config = gt_tools.load_config(sys.argv[1])
     file = config["file"]
 
@@ -226,10 +264,6 @@ if __name__ == "__main__":
     make_segment_cache = True
     make_fragment_cache = True
 
-    skeleton_json = config["skeleton_file"]
-    with open(skeleton_json) as f:
-        skeletons, nodes = parse_skeleton_json(json.load(f), interpolation=True)
-
     segmentation_skeleton_ds = config["segmentation_skeleton_ds"]
 
     if update_existing_volume:
@@ -239,6 +273,16 @@ if __name__ == "__main__":
 
     segment_file = config.get("segment_file", config["file"])
     segment_ds = daisy.open_ds(segment_file, segment_dataset)
+
+    voxel_size = segment_ds.voxel_size
+    interpolation = True
+    if voxel_size[0] == voxel_size[1] and voxel_size[0] == voxel_size[2]:
+        interpolation = False
+
+    skeleton_json = config["skeleton_file"]
+    with open(skeleton_json) as f:
+        skeletons, nodes = parse_skeleton_json(json.load(f), interpolation=interpolation)
+
     segment_array = segment_ds[segment_ds.roi]
     if make_segment_cache:
         print("Making segment cache...")
@@ -253,6 +297,8 @@ if __name__ == "__main__":
     fragments_ds = daisy.open_ds(fragments_file, fragments_dataset)
     fragments_array = fragments_ds[fragments_ds.roi]
 
+    problem_fragments_filename = os.path.join(segment_file, "problem_fragments.json")
+
     print("Creating corrected segment at %s" % segmentation_skeleton_ds)
 
     corrected_segment_ds = daisy.prepare_ds(
@@ -263,6 +309,8 @@ if __name__ == "__main__":
         segment_ds.dtype,
         compressor={'id': 'zlib', 'level': 5}
         )
+
+    merge_correction_lut = {}
 
     if correct_merges:
 
@@ -296,8 +344,6 @@ if __name__ == "__main__":
         print("Get max segment_id...")
         max_segid = 0
         for n, n_data in rag.nodes(data=True):
-            # zyx = daisy.Coordinate(tuple([n_data[c] for c in position_attributes]))
-            # max_segid = max(segment_array[zyx], max_segid)
             max_segid = max(n_data['segment_id'], max_segid)
         assert max_segid != 0
         next_segid = max_segid + 1
@@ -312,9 +358,8 @@ if __name__ == "__main__":
         errored_fragments = []
         while True:
 
-            print("Getting segments from skeletons...")
             segment_by_skeletons = segment_from_skeleton(
-                skeletons, segment_array, nodes)
+                skeletons, segment_array, nodes, fragments_array, merge_correction_lut)
 
             merged_segment, merge_components = get_one_merged_components(
                     segment_by_skeletons, processed_segments)
@@ -323,23 +368,18 @@ if __name__ == "__main__":
                 print("No more merged components found")
                 break
 
-            # print(merge_components)
-
             # convert to zyx
             components_zyx = [
                 [nodes[n]["zyx"] for n in c] for c in merge_components]
 
-            print("Fix merged components...")
-            for c in components_zyx:
-                print([to_pixel_coord(node_zyx) for node_zyx in c])
+            # print("Fix merged components...")
+            # for c in components_zyx:
+            #     print([to_pixel_coord(node_zyx) for node_zyx in c])
 
-            # merged_segment = rag.nodes[merge_components[0]].segment_id
             subrag = get_graph(
                 rag, segment_threshold, rag_weight_attribute,
                 filter_in_segments=[merged_segment],
                 components=merge_components)
-
-            # print(subrag.nodes(data=True))
 
             n_splits, segment_id = fix_merge(
                 components_zyx,
@@ -350,15 +390,39 @@ if __name__ == "__main__":
                 ignored_fragments=ignored_fragments,
                 next_segid=next_segid,
                 errored_fragments_out=errored_fragments,
+                fragments_lut=merge_correction_lut,
+                # fragments_lut=None,
                 )
 
             next_segid += n_splits
             processed_segments.add(segment_id)
 
+        print("Problem fragments with more than one skeleton nodes:")
         if len(errored_fragments):
             for f in errored_fragments:
                 print(f)
-            assert False, "There are error fragments, put them in ignored_fragments first"
+
+        for f, coord in errored_fragments:
+            ignored_fragments.append(f)
+        ignored_fragments = set(ignored_fragments)
+
+        with open(problem_fragments_filename, 'w') as f:
+            ignored_fragments_json = [str(k) for k in ignored_fragments]
+            json.dump(ignored_fragments_json, f)
+
+        if len(merge_correction_lut):
+            print("Writing merge corrections...")
+            mask_values = []
+            new_values = []
+            for k in merge_correction_lut:
+                mask_values.append(k)
+                new_values.append(merge_correction_lut[k])
+            replace_values(
+                fragments_array.data,
+                mask_values,
+                new_values,
+                segment_array.data,
+                )
 
     if correct_splits:
         processed_segments = set()
@@ -367,6 +431,8 @@ if __name__ == "__main__":
             print("Making fragment cache...")
             fragments_array.materialize()
 
+        split_correction_lut = {}
+
         while True:
             splitted_segments, skeleton_id, coords = get_one_splitted_component(
                     skeletons,
@@ -374,30 +440,41 @@ if __name__ == "__main__":
                     nodes,
                     processed_segments,
                     fragments_array,
-                    ignored_fragments)
+                    ignored_fragments,
+                    split_correction_lut,
+                    # merge_correction_lut
+                    )
             processed_segments.add(skeleton_id)
 
             if splitted_segments is None:
                 break  # done
 
-            print("Splitted segments:")
-            for s, zyx in zip(splitted_segments, coords):
-                # print("Splitted segments: %s" % splitted_segments)
-                print("%s (%s)" % (s, to_pixel_coord(zyx)), end=', ')
+            # print("Splitted segments:")
+            # for s, zyx in zip(splitted_segments, coords):
+            #     # print("Splitted segments: %s" % splitted_segments)
+            #     print("%s (%s)" % (s, to_pixel_coord(zyx)), end=', ')
+            # print()
 
-            mask_values = list(splitted_segments)
-            new_values = [mask_values[0] for k in mask_values]
+            root_label = splitted_segments[0]
+            while root_label in split_correction_lut:
+                root_label = split_correction_lut[root_label]
 
-            print("Replacing values...")
-            segment_ndarray = segment_array.to_ndarray()
-            replace_values(
-                segment_ndarray,
-                mask_values,
-                new_values,
-                segment_ndarray,
-                )
-            print("Write new segmentation...")
-            segment_array[segment_array.roi] = segment_ndarray
+            for s in splitted_segments:
+                if s != root_label:
+                    split_correction_lut[s] = root_label
+
+        print("Writing split corrections...")
+        mask_values = []
+        new_values = []
+        for k in split_correction_lut:
+            mask_values.append(k)
+            new_values.append(split_correction_lut[k])
+        replace_values(
+            segment_array.data,
+            mask_values,
+            new_values,
+            segment_array.data,
+            )
 
     print("Write segmentation to disk...")
     corrected_segment_ds[corrected_segment_ds.roi] = segment_array.to_ndarray()

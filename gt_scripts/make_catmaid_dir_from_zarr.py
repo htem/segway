@@ -18,8 +18,10 @@ xy_downsample = 1
 try:
     cutout_ds = daisy.open_ds(config["raw_file"], config["raw_ds"])
 except:
+    path = config["zarr"]["dir"] + "/" + script_name + ".zarr"
+    print(path)
     cutout_ds = daisy.open_ds(
-        config["zarr"]["dir"] + "/" + script_name + ".zarr", "volumes/raw")
+        path, "volumes/raw")
 
 voxel_size = cutout_ds.voxel_size
 
@@ -27,15 +29,12 @@ catmaid_folder = config["CatmaidOut"].get("folder", script_name)
 catmaid_f = config["CatmaidOut"]["dir"] + "/" + catmaid_folder
 
 roi_offset = cutout_ds.roi.get_begin()
+print("offset = %s" % str(roi_offset))
 roi_shape = cutout_ds.roi.get_end() - roi_offset
+print("shape = %s" % str(roi_shape))
 
-# catmaid_shape = []
-# for m, n in zip(cutout_ds.roi.get_shape(), voxel_size):
-#     assert(m % n == 0)
-#     catmaid_shape.append(m/n)
-raw_dir_shape = [40, roi_shape[1], roi_shape[2]]
+raw_dir_shape = [voxel_size[0], roi_shape[1], roi_shape[2]]
 print(raw_dir_shape)
-# exit(0)
 
 z_begin = int(roi_offset[0] / raw_dir_shape[0])
 z_end = int((roi_offset[0] + roi_shape[0]) / raw_dir_shape[0])
@@ -47,11 +46,6 @@ x_begin = int(roi_offset[2] / raw_dir_shape[2])
 x_end = int((roi_offset[2] + roi_shape[2]) / raw_dir_shape[2])
 if (roi_offset[2] + roi_shape[2]) % raw_dir_shape[2]:
     x_end += 1
-
-# try:
-#     os.mkdir(catmaid_f)  # if errors, make sure parent folder is correct
-# except:
-#     pass
 
 for z_index in range(z_begin, z_end):
     for y_index in range(y_begin, y_end):
@@ -81,13 +75,8 @@ for z_index in range(z_begin, z_end):
                     int(slice_roi_shape[1]/voxel_size[1]/xy_downsample),
                     int(slice_roi_shape[2]/voxel_size[2]/xy_downsample))
 
-            # print(slice_array)
-
             print(fpath)
             tile = Image.fromarray(slice_array)
             tile.save(fpath, quality=95)
 
             continue
-
-
-exit(0)
