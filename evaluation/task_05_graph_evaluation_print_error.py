@@ -44,7 +44,7 @@ def compare_segmentation_to_ground_truth_skeleton(
          rand_merge_list,
          voi_split_list,
          voi_merge_list) = [], [], [], []
-       
+
         graph_list= graph_lists[i]
         for graph in graph_list:
             if graph is None:
@@ -83,12 +83,12 @@ def compare_segmentation_to_ground_truth_skeleton(
         split_and_merge.extend((model, numb_merge, numb_split))
         split_and_merge_rand.extend((model, rand_merge_list, rand_split_list))
         split_and_merge_voi.extend((model, voi_merge_list, voi_split_list))
-   
+
     plot_errors = partial(generate_error_plot,
                           agglomeration_thresholds,
                           configs['output']['config_JSON'],
                           configs['name'],
-                          configs['output']['output_path'], 
+                          configs['output']['output_path'],
                           configs['output']['markers'],
                           colours,
                           configs['output']['font_size'],
@@ -118,13 +118,13 @@ def color_generator(length):
 def generate_graphs_with_seg_labels(agglomeration_thresholds, segmentation_path,num_processes, skeleton_configs):
     graph_list = []
     unlabelled_skeleton = construct_skeleton_graph(skeleton_configs['skeleton_path'],skeleton_configs['with_interpolation'],skeleton_configs['step'],skeleton_configs['leaf_node_removal_depth'])
-    
+
     if os.path.exists(os.path.join(segmentation_path, 'luts/fragment_segment')):
         fragment_graph = add_predicted_seg_labels_from_vol(unlabelled_skeleton.copy(),segmentation_path,'volumes/fragments',skeleton_configs['load_segment_array_to_memory'])
-        
+
         parameters_list = [(fragment_graph.copy(), segmentation_path, 'volumes/'+threshold)
                             for threshold in agglomeration_thresholds]
-        
+
         graph_list = [replace_fragment_ids_with_LUT_values(pl[0],pl[1],pl[2]) for pl in parameters_list]
     else:
         parameters_list = [(unlabelled_skeleton.copy(), segmentation_path, 'volumes/'+threshold,
@@ -147,10 +147,10 @@ def generate_error_plot(
         line_width,
         error_metric,
         *split_and_merge):
-  
+
     fig, ax = plt.subplots(figsize=(8, 6))
     for j in range(int(len(split_and_merge)/3)):
-      
+
         ax.plot(split_and_merge[j*3+1], split_and_merge[j*3+2],
                 label=split_and_merge[j*3], color = colors[j],
                 zorder=1, alpha=0.8, linewidth=line_width)
@@ -165,23 +165,23 @@ def generate_error_plot(
                            s=30)
     ax.legend(prop={'size': font_size})
     if error_metric == 'number':
-        ax.set_ylim(bottom=-0.8)
-        ax.set_xlim(left=-0.8)
+        #ax.set_ylim(bottom=-0.8)
+        #ax.set_xlim(left=-0.8)
         plt.xlabel('Merge Error Count')
         plt.ylabel('Split Error Count')
     elif error_metric == 'rand':
-        ax.set_ylim(bottom=0)
-        ax.set_xlim(left=-0.01)
+        #ax.set_ylim(bottom=0)
+        #ax.set_xlim(left=-0.01)
         plt.xlabel('Merge Rand')
         plt.ylabel('Split Rand')
     elif error_metric == 'voi':
-        ax.set_ylim(bottom=0)
-        ax.set_xlim(left=-0.01)
+        #ax.set_ylim(bottom=0)
+        #ax.set_xlim(left=-0.01)
         plt.xlabel('Merge VOI')
         plt.ylabel('Split VOI')
 
-    output_file_name = output_path+'/'+config_file_name+'_'+volume_name+'_'+error_metric 
-    
+    output_file_name = output_path+'/'+config_file_name+'_'+volume_name+'_'+error_metric
+
     plt.savefig(output_file_name, dpi=300)
 
 
@@ -204,7 +204,7 @@ def write_error_files(output_path, file_name,
     except FileExistsError:
         pass
     print("output path:", output_path)
-    if write_txt:    
+    if write_txt:
         with open(output_path + file_name + '.txt', 'w') as f:
             print("MERGE ERRORS (" + str(len(merge_error_rows)) + ")", file=f)
             for error in merge_error_rows:
@@ -247,7 +247,7 @@ def format_errors(merge_errors, split_errors, graph, voxel_size):
 
 
 def generate_output_path_and_file_name(output_configs, seg_vol, seg_path):
-    output_path = os.path.join(output_configs['output_path'], 
+    output_path = os.path.join(output_configs['output_path'],
                                output_configs['config_JSON'] + '_error_coords/')
     seg_info = seg_path.split('/')
     file_name = 'error_coords_' + seg_info[-4] + '_' + \
@@ -259,4 +259,3 @@ def generate_output_path_and_file_name(output_configs, seg_vol, seg_path):
 def to_pixel_coord_xyz(zyx, voxel_size):
     zyx = (Coordinate(zyx) / Coordinate(voxel_size))
     return Coordinate((zyx[2], zyx[1], zyx[0]))
-
