@@ -1,16 +1,21 @@
 from __future__ import print_function
 import sys
-from gunpowder import *
-from gunpowder.contrib import ZeroOutConstSections
-from gunpowder.tensorflow import *
 import json
 import logging
 import os
 import glob
 import pymongo
 
-from EditSectionsNode import ReplaceSectionsNode
+import gpu_utils
+if "CUDA_VISIBLE_DEVICES" not in os.environ:
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_utils.pick_random_gpu_lowest_memory())
+print("Running script on GPU #%s" % os.environ["CUDA_VISIBLE_DEVICES"])
 
+from gunpowder import *
+from gunpowder.contrib import ZeroOutConstSections
+from gunpowder.tensorflow import *
+
+from EditSectionsNode import ReplaceSectionsNode
 
 def predict(
         iteration,
@@ -89,12 +94,12 @@ def predict(
         }
         initial_raw = rawfr
 
-    if "myelin_embedding" in net_config:
-        myelin_embedding = ArrayKey('MYELIN')
-        chunk_request.add(myelin_embedding, output_size)
-        outputs[net_config['myelin_embedding']] = myelin_embedding
-        dataset_names[myelin_embedding] = "volumes/myelin"
-        daisy_roi_map[myelin_embedding] = "write_roi"
+    # if "myelin_embedding" in net_config:
+    #     myelin_embedding = ArrayKey('MYELIN')
+    #     chunk_request.add(myelin_embedding, output_size)
+    #     outputs[net_config['myelin_embedding']] = myelin_embedding
+    #     dataset_names[myelin_embedding] = "volumes/myelin"
+    #     daisy_roi_map[myelin_embedding] = "write_roi"
 
     print("db_host: ", db_host)
     print("db_name: ", db_name)
@@ -144,8 +149,8 @@ def predict(
         )
     pipeline += IntensityScaleShift(affs, 255, 0)
 
-    if "myelin_embedding" in net_config:
-        pipeline += IntensityScaleShift(myelin_embedding, 255, 0)
+    # if "myelin_embedding" in net_config:
+    #     pipeline += IntensityScaleShift(myelin_embedding, 255, 0)
 
     pipeline += PrintProfilingStats(every=10)
 
