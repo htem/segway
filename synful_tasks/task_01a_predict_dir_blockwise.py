@@ -24,9 +24,9 @@ class PredictSynapseDirTask(PredictSynapseTask):
     serialize_gpu_predictions = daisy.Parameter(True)
 
     def requires(self):
-        if self.serialize_gpu_predictions:
-            return [PredictSynapseTask(global_config=self.global_config)]
-        else:
+        # if self.serialize_gpu_predictions:
+        #     return [PredictSynapseTask(global_config=self.global_config)]
+        # else:
             return []
 
 

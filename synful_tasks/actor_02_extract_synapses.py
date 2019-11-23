@@ -33,6 +33,8 @@ def __create_syn_ids(zyx_list):
     ret = []
     for zyx in zyx_list:
         ret.append(__create_unique_syn_id(zyx))
+
+    assert(len(set(ret)) == len(ret))  # make sure that we created unique IDs
     return ret
 
 
@@ -119,22 +121,23 @@ def extract_synapses(ind_pred_ds,
     # Filter post synaptic location not incuded in the block: do not compute syynapses
     post_syns = []
     filt_ind = []
-    for i, loc in enumerate(target_sites):
+    for i, loc in enumerate(predicted_syns):
         if block.write_roi.contains(loc):
             post_syns.append(loc)
             filt_ind.append(i)
 
-    pre_syns = list(np.array(predicted_syns)[filt_ind])        
+    pre_syns = list(np.array(target_sites)[filt_ind])
 
-    if prediction_post_to_pre:
+    assert(prediction_post_to_pre)
+    if not prediction_post_to_pre:
         pre_syns_tmp = pre_syns
         pre_syns = copy.deepcopy(post_syns)
         post_syns = copy.deepcopy(pre_syns_tmp)
-    
+
     sup_ds = sup_ds[pred_roi]
     sup_ds.materialize()
-    print("sup_ds.roi:", sup_ds.roi)
-    
+    # print("sup_ds.roi:", sup_ds.roi)
+
     # Superfragments IDs
     ids_sf_pre = []
     for pre_syn in pre_syns:
@@ -172,9 +175,10 @@ def extract_synapses(ind_pred_ds,
     ids_sf_pre = list(np.array(ids_sf_pre)[i_f])
     ids_sf_post = list(np.array(ids_sf_post)[i_f])
     # Create xyz locations
-    zyx = __create_syn_locations(pre_syns_f,post_syns_f)
+    zyx = __create_syn_locations(pre_syns_f, post_syns_f)
     # Create IDs for synpses from volume coordinates
-    ids = __create_syn_ids(zyx)
+    # ids = __create_syn_ids(zyx)
+    ids = __create_syn_ids(post_syns_f)  # make ID based on post for uniqueness
     # print("Synapses IDs: ", ids)
 
     synapses = synapse.create_synapses(pre_syns_f, post_syns_f,
@@ -182,7 +186,7 @@ def extract_synapses(ind_pred_ds,
                                    ids_sf_pre=ids_sf_pre,
                                    ids_sf_post=ids_sf_post)
 
-    print("Extraction synapses execution time = %f s" % (time.time() - start_time))
+    # print("Extraction synapses execution time = %f s" % (time.time() - start_time))
 
     return synapses 
 
