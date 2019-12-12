@@ -56,6 +56,7 @@ class PredictTask(task_helper.SlurmTask):
     raw_dataset = daisy.Parameter()
     roi_offset = daisy.Parameter(None)
     roi_shape = daisy.Parameter(None)
+    roi_context = daisy.Parameter(None)
     out_file = daisy.Parameter()
     out_dataset = daisy.Parameter()
     block_size_in_chunks = daisy.Parameter([1, 1, 1])
@@ -187,6 +188,19 @@ class PredictTask(task_helper.SlurmTask):
             self.roi_offset = daisy.Coordinate(self.roi_offset)
             self.roi_shape = daisy.Coordinate(self.roi_shape)
             self.roi_offset -= self.roi_shape/2
+
+        if self.roi_context is not None:
+            assert self.center_roi_offset is None or self.center_roi_offset == False
+            assert self.roi_offset is None
+            assert self.roi_shape is None
+            self.roi_context = daisy.Coordinate(self.roi_context)
+            self.roi_offset = self.roi_context
+            self.roi_shape = source.roi.get_shape()
+            self.roi_shape -= self.roi_context
+            self.roi_shape -= self.roi_context
+            # print("self.roi_offset:", self.roi_offset)
+            # print("self.roi_shape:", self.roi_shape)
+            # logger.info("user context    = %s" % (context,))
 
         sched_roi, dataset_roi = task_helper.compute_compatible_roi(
                 roi_offset=self.roi_offset,

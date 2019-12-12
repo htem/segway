@@ -450,6 +450,8 @@ def aggregateConfigs(configs):
             config['roi_offset'] = input_config['roi_offset']
         if 'roi_shape' in input_config:
             config['roi_shape'] = input_config['roi_shape']
+        if 'roi_context' in input_config:
+            config['roi_context'] = input_config['roi_context']
         if 'sub_roi_offset' in input_config:
             config['sub_roi_offset'] = input_config['sub_roi_offset']
         if 'sub_roi_shape' in input_config:
