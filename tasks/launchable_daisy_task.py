@@ -193,7 +193,12 @@ class LaunchableDaisyTask():
 
         if self.overwrite:
             print("Dropping %s in %s" % (self.db_name, self.db_host))
-            i = input("Sure? Yes/[No] ")
+
+            if self.overwrite == 2:
+                i = "Yes"
+            else:
+                i = input("Sure? Yes/[No] ")
+
             if i == "Yes":
                 db_client.drop_database(self.db_name)
                 print("Dropped %s!" % self.db_name)

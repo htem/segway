@@ -30,6 +30,9 @@ class FindSegmentsBlockwiseTask(task_helper.SlurmTask):
     sub_roi_shape = daisy.Parameter(None)
 
     block_size = daisy.Parameter()
+    indexing_block_size = daisy.Parameter()
+
+    ignore_degenerates = daisy.Parameter(False)
 
     def prepare(self):
         '''Daisy calls `prepare` for each task prior to scheduling
@@ -68,6 +71,8 @@ class FindSegmentsBlockwiseTask(task_helper.SlurmTask):
             'merge_function': self.merge_function,
             'edges_collection': self.edges_collection,
             'thresholds': self.thresholds,
+            'indexing_block_size': self.indexing_block_size,
+            'ignore_degenerates': self.ignore_degenerates,
         }
         self.slurmSetup(
             config,
@@ -85,6 +90,7 @@ class FindSegmentsBlockwiseTask(task_helper.SlurmTask):
             check_function=check_function,
             num_workers=self.num_workers,
             read_write_conflict=False,
+            max_retries=self.max_retries,
             fit='shrink')
 
     def requires(self):
@@ -94,11 +100,15 @@ class FindSegmentsBlockwiseTask(task_helper.SlurmTask):
 
     def block_done(self, block):
 
+        # if self.completion_db.count({'block_id': block.block_id}) >= 1:
+        #     logger.debug("Skipping block with db check")
+        #     return True
+
         block_id = block.block_id
         lookup = 'edges_local2frags_%s_%d/%d.npz' % (
             self.merge_function, int(self.last_threshold*100), block_id)
         out_file = os.path.join(self.out_dir, lookup)
-        logger.info("Checking %s" % out_file)
+        # logger.info("Checking %s" % out_file)
         exists = path.exists(out_file)
         return exists
 

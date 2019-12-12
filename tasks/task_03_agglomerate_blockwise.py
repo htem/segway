@@ -2,14 +2,11 @@
 import logging
 # import lsd
 import numpy as np
-import daisy
 import sys
-
-# from lsd.parallel_aff_agglomerate import agglomerate_in_block
-
+# sys.path.insert(0, '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/daisy')
+import daisy
 import task_helper2 as task_helper
 from task_02_extract_fragments import ExtractFragmentTask
-
 # logging.getLogger('lsd.parallel_fragments').setLevel(logging.DEBUG)
 # logging.getLogger('lsd.persistence.sqlite_rag_provider').setLevel(logging.DEBUG)
 
@@ -73,6 +70,7 @@ class AgglomerateTask(task_helper.SlurmTask):
     affs_dataset = daisy.Parameter()
     fragments_file = daisy.Parameter()
     fragments_dataset = daisy.Parameter()
+    indexing_block_size = daisy.Parameter(None)
     block_size = daisy.Parameter()
     context = daisy.Parameter()
     db_host = daisy.Parameter()
@@ -96,15 +94,15 @@ class AgglomerateTask(task_helper.SlurmTask):
         fragments = daisy.open_ds(self.fragments_file, self.fragments_dataset, mode='r')
 
         # open RAG DB
-        logging.info("Opening RAG DB...")
         self.rag_provider = daisy.persistence.MongoDbGraphProvider(
             self.db_name,
             host=self.db_host,
             mode='r+',
             directed=False,
             edges_collection='edges_' + self.merge_function,
-            position_attribute=['center_z', 'center_y', 'center_x'])
-        logging.info("RAG DB opened")
+            position_attribute=['center_z', 'center_y', 'center_x'],
+            indexing_block_size=self.indexing_block_size,
+        )
 
         assert fragments.data.dtype == np.uint64
 
@@ -137,7 +135,8 @@ class AgglomerateTask(task_helper.SlurmTask):
             'db_name': self.db_name,
             'num_workers': self.num_workers,
             'merge_function': self.merge_function,
-            'threshold': self.threshold
+            'threshold': self.threshold,
+            'indexing_block_size': self.indexing_block_size,
         }
         self.slurmSetup(config, 'actor_agglomerate.py')
 

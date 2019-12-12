@@ -3,6 +3,8 @@ import os
 import logging
 import numpy as np
 import sys
+
+# sys.path.insert(0, '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/daisy')
 import daisy
 from lsd.parallel_fragments import watershed_in_block
 import pymongo
@@ -21,7 +23,6 @@ if __name__ == "__main__":
     mask_file = None
     mask_dataset = None
     epsilon_agglomerate = 0
-    use_mahotas = False
     min_seed_distance = 10  # default seed size from Jan
     capillary_pred_file = None
     capillary_pred_dataset = None
@@ -65,13 +66,12 @@ if __name__ == "__main__":
         host=db_host,
         mode='r+',
         directed=False,
-        position_attribute=['center_z', 'center_y', 'center_x'])
+        position_attribute=['center_z', 'center_y', 'center_x'],
+        indexing_block_size=indexing_block_size,
+        )
     logging.info("RAG DB opened")
 
     assert fragments_out.data.dtype == np.uint64
-
-    # Tri 5/13/19: disable use_mahotas for now, let me know if this needs to be enabled
-    assert use_mahotas == False
 
     db_client = pymongo.MongoClient(db_host)
     db = db_client[db_name]

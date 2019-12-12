@@ -317,7 +317,7 @@ def parseConfigs(args, aggregate_configs=True):
                 user_configs[key] = ast.literal_eval(val)
         else:
             with open(config, 'r') as f:
-                print("\nhelper: loading %s" % config)
+                # print("helper: loading %s" % config)
                 new_configs = json.load(f)
                 keys = set(list(global_configs.keys())).union(list(new_configs.keys()))
                 for k in keys:
@@ -413,7 +413,7 @@ def aggregateConfigs(configs):
     for config in configs:
 
         if "Task" not in config:
-            print("Skipping %s" % config)
+            # print("Skipping %s" % config)
             continue
 
         # print("Copying defaults for ", config)
@@ -505,7 +505,7 @@ def aggregateConfigs(configs):
         config = configs["ExtractFragmentTask"]
         copyParameter(input_config, config, 'output_file', 'affs_file')
         copyParameter(input_config, config, 'output_file', 'fragments_file')
-        copyParameter(input_config, config, 'output_file', 'capillary_pred_file')
+        # copyParameter(input_config, config, 'output_file', 'capillary_pred_file')
         copyParameter(input_config, config, 'raw_file')
         copyParameter(input_config, config, 'raw_dataset')
         copyParameter(input_config, config, 'overwrite_sections')
@@ -729,15 +729,18 @@ def compute_compatible_roi(
         output_roi_begin[1] = align(dataset_roi.get_begin()[1], sched_roi.get_begin()[1], chunk_size[1])
         output_roi_begin[2] = align(dataset_roi.get_begin()[2], sched_roi.get_begin()[2], chunk_size[2])
 
+        print("dataset_roi:", dataset_roi)
         dataset_roi.set_offset(tuple(output_roi_begin))
+        print("dataset_roi:", dataset_roi)
 
         assert (dataset_roi.get_begin()[0] - sched_roi.get_begin()[0]) % chunk_size[0] == 0
         assert (dataset_roi.get_begin()[1] - sched_roi.get_begin()[1]) % chunk_size[1] == 0
         assert (dataset_roi.get_begin()[2] - sched_roi.get_begin()[2]) % chunk_size[2] == 0
 
-        sched_roi = sched_roi.grow(roi_context, roi_context)
         if not sched_roi_outside_roi_ok:
             assert dataset_roi.contains(sched_roi), "dataset_roi %s does not contain sched_roi %s" % (dataset_roi, sched_roi)
+
+        sched_roi = sched_roi.grow(roi_context, roi_context)
 
     else:
 

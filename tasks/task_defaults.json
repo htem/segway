@@ -35,8 +35,8 @@
         {
             "out_dataset" : "volumes/capillary_pred",
             "num_workers": 4,
-            "lazyflow_num_threads": 16,
-            "lazyflow_mem": 4096,
+            "lazyflow_num_threads": 4,
+            "lazyflow_mem": 2048,
             "block_size": [1000, 65536, 65536],
             "context": [0, 8192, 8192]
         },

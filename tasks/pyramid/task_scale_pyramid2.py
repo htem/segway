@@ -4,7 +4,7 @@ import os
 import sys
 import numpy as np
 import skimage
-import copy
+# import copy
 
 import daisy
 
@@ -66,24 +66,10 @@ def calculateNextIsotropicScaleFactor(voxel_size,
         ):
 
     dims = len(voxel_size)
-    # voxel_size = copy.deepcopy(voxel_size)
-
-    # factors = 1
     voxel_size = [k for k in voxel_size]
     factors = [1 for k in voxel_size]
 
-    # 40, 4, 4
-    # - min factor = 1
-    # - 4 -> 8 because 
-
-    # 40, 32, 32
-    # - 40, 64, 64
-
     while True:
-
-        # voxel_size2 = copy.deepcopy(voxel_size)
-        # for i in preferred_axis:
-        #     voxel_size2.remove(voxel_size[i])
 
         if max(voxel_size)/min(voxel_size) < downsampling_mult:
             max_voxel_size = max(voxel_size)
@@ -106,15 +92,6 @@ def calculateNextIsotropicScaleFactor(voxel_size,
         if max(factors) >= max_downsampling:
             break
 
-    # while factors < max_voxel_count:
-    #     for i in range(dims-1, -1, -1):
-    #         if factors >= max_voxel_count:
-    #             continue
-    #         if voxel_size[i] == min(voxel_size):
-    #             voxel_size[i] *= 2
-    #             factors *= 2
-    #             voxel_dims[i] *= 2
-
     return daisy.Coordinate(factors)
 
 
@@ -127,7 +104,8 @@ class ScalePyramidTask(LaunchableDaisyTask):
         try:
             self.in_ds = daisy.open_ds(self.in_file, self.in_ds_name)
         except:
-            print("ERROR: Dataset %s not found in %s" % (self.in_ds_name, self.in_file))
+            print("ERROR: Dataset %s not found in %s" % (
+                self.in_ds_name, self.in_file))
             exit(1)
 
         voxel_size = self.in_ds.voxel_size
@@ -145,7 +123,8 @@ class ScalePyramidTask(LaunchableDaisyTask):
         sub_roi = None
         if self.roi_offset is not None or self.roi_shape is not None:
             assert self.roi_offset is not None and self.roi_shape is not None
-            self.schedule_roi = daisy.Roi(tuple(self.roi_offset), tuple(self.roi_shape))
+            self.schedule_roi = daisy.Roi(
+                tuple(self.roi_offset), tuple(self.roi_shape))
             sub_roi = self.schedule_roi
         else:
             self.schedule_roi = self.in_ds.roi
@@ -154,7 +133,8 @@ class ScalePyramidTask(LaunchableDaisyTask):
             try:
                 self.scale_factor = daisy.Coordinate(self.scale_factor)
             except Exception:
-                self.scale_factor = daisy.Coordinate((self.scale_factor,)*self.write_size.dims())
+                self.scale_factor = daisy.Coordinate(
+                    (self.scale_factor,)*self.write_size.dims())
         else:
             self.scale_factor = calculateNextIsotropicScaleFactor(voxel_size)
 

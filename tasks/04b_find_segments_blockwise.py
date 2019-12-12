@@ -28,17 +28,19 @@ def replace_fragment_ids(
         block_id=None,
         **kwargs):
 
-    # start = time.time()
-
     lut_dir = os.path.join(
         fragments_file,
         lut_dir)
 
     for threshold in thresholds:
 
-        # print("edges_local2frags_%s_%d/%d.npz" % (merge_function, int(threshold*100), block_id))
+        '''Load local2frags edges of this block and replace the target frags
+        with the super fragment node IDs'''
+
         edges = 'edges_local2frags_%s_%d/%d.npz' % (merge_function, int(threshold*100), block_id)
         edges = os.path.join(lut_dir, edges)
+        # if not os.path.exists(edges):
+        #     continue
         edges = np.load(edges)['edges']
 
         adj_blocks = generate_adjacent_blocks(roi_offset, roi_shape, total_roi)
