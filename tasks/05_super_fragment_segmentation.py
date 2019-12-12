@@ -82,6 +82,9 @@ def segment_in_block(
             logging.debug("Load local LUT...")
             start = time.time()
             local_lut = 'seg_frags2local_%s_%d/%d' % (merge_function, int(threshold*100), block.block_id)
+            if not os.path.exists(local_lut):
+                # no segment to relabel
+                continue
             local_lut = np.load(os.path.join(lut_dir, local_lut + ".npz"))['fragment_segment_lut']
             logging.debug("Found %d fragments" % len(local_lut[0]))
             logging.debug("%.3fs"%(time.time() - start))

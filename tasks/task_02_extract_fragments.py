@@ -4,11 +4,13 @@ import numpy as np
 # import os
 import sys
 
+# sys.path.insert(0, '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/daisy')
 import daisy
 import lsd
 
 import task_helper2 as task_helper
 from task_01_predict_blockwise import PredictTask
+
 
 # logging.getLogger('lsd.parallel_fragments').setLevel(logging.DEBUG)
 # logging.getLogger('lsd.persistence.sqlite_rag_provider').setLevel(logging.DEBUG)
@@ -62,6 +64,7 @@ class ExtractFragmentTask(task_helper.SlurmTask):
     affs_file = daisy.Parameter()
     affs_dataset = daisy.Parameter()
     block_size = daisy.Parameter()
+    indexing_block_size = daisy.Parameter()
     context = daisy.Parameter()
     db_host = daisy.Parameter()
     db_name = daisy.Parameter()
@@ -115,13 +118,14 @@ class ExtractFragmentTask(task_helper.SlurmTask):
         else:
             self.mask = None
 
-        # open RAG DB
-        logging.info("Opening RAG DB...")
-        self.rag_provider = lsd.persistence.MongoDbRagProvider(
+        self.rag_provider = daisy.persistence.MongoDbGraphProvider(
             self.db_name,
             host=self.db_host,
-            mode='r+')
-        logging.info("RAG DB opened")
+            mode='r+',
+            directed=False,
+            position_attribute=['center_z', 'center_y', 'center_x'],
+            indexing_block_size=self.indexing_block_size,
+            )
 
         delete_ds = False
         if self.overwrite:
@@ -199,11 +203,20 @@ class ExtractFragmentTask(task_helper.SlurmTask):
         # print("read_roi: ", read_roi)
         # print("write_roi: ", write_roi)
 
+        if (self.capillary_pred_file is not None or
+                self.capillary_pred_dataset is not None):
+            assert self.capillary_pred_file is not None, \
+                   "Both capillary_pred_file and " \
+                   "capillary_pred_dataset must be defined"
+            assert self.capillary_pred_dataset is not None, \
+                   "Both capillary_pred_file and " \
+                   "capillary_pred_dataset must be defined"
+
         # adjust min seed distance base on voxel size
         if self.min_seed_distance == 10:
             if voxel_size[2] == 8:
                 # for 40x8x8
-                self.min_seed_distance = 7
+                self.min_seed_distance = 8
             elif voxel_size[2] == 16:
                 # for 40x16x16
                 self.min_seed_distance = 5
@@ -218,6 +231,7 @@ class ExtractFragmentTask(task_helper.SlurmTask):
             'mask_file': self.mask_file,
             'mask_dataset': self.mask_dataset,
             'block_size': self.block_size,
+            'indexing_block_size': self.indexing_block_size,
             'context': self.context,
             'db_host': self.db_host,
             'db_name': self.db_name,

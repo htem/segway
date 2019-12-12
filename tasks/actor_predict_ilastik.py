@@ -5,6 +5,7 @@ import numpy as np
 import sys
 import daisy
 import shutil
+from datetime import datetime
 
 from collections import OrderedDict
 # from PIL import Image
@@ -125,9 +126,13 @@ if __name__ == "__main__":
     # for concurrent open across jobs/workers
 
     print("WORKER: Running with context %s" % os.environ['DAISY_CONTEXT'])
-    workerid = daisy.Context.from_env().worker_id
-    local_ilastik_project_path = "%s_%d.ilp" % (config_file, workerid)
-    shutil.copyfile(ilastik_project_path, local_ilastik_project_path)
+    while True:
+        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S%f")
+        local_ilastik_project_path = "%s_%s.ilp" % (config_file, timestamp)
+        if os.path.exists(local_ilastik_project_path):
+            continue
+        shutil.copyfile(ilastik_project_path, local_ilastik_project_path)
+        break
 
     client_scheduler = daisy.Client()
 

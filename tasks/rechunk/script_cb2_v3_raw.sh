@@ -9,9 +9,12 @@ ds="volumes/raw_mipmap"
 
 f="/n/groups/htem/temcagt/datasets/cb2/zarr_volume/cb2_v3.zarr"
 ds="volumes/raw_mipmap"
-# optimized for voxel size 40x16x16
-# 32x64x64 = 128k
-python segway/tasks/rechunk/task_rechunk_test.py $f $ds/s2 $f $ds/s2_rechunked --num_workers 16
+python segway/tasks/rechunk/task_rechunk.py $f $ds/s1 $f $ds/s1_rechunked --num_workers 16
+
+
+f="/n/groups/htem/temcagt/datasets/cb2/zarr_volume/cb2_v3.zarr"
+ds="volumes/raw_mipmap"
+python segway/tasks/rechunk/task_rechunk.py $f $ds/s2 $f $ds/s2_rechunked --num_workers 16
 
 
 write_size="64 64 64"

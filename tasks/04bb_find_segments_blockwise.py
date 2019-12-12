@@ -109,7 +109,7 @@ def replace_fragment_ids(
         lut_file = os.path.join(lut_dir_out, 'edges_super2super', str(block_id))
         np.savez_compressed(lut_file, edges=edges)
 
-    print("Storing ", lut_file)
+    # print("Storing ", lut_file)
 
 
 def generate_adjacent_blocks(roi_offset, roi_shape, total_roi):
@@ -117,11 +117,11 @@ def generate_adjacent_blocks(roi_offset, roi_shape, total_roi):
     blocks = []
     current_block_roi = daisy.Roi(roi_offset, roi_shape)
 
-    print("total_roi:", total_roi)
-    print("current_block_roi:", current_block_roi)
+    # print("total_roi:", total_roi)
+    # print("current_block_roi:", current_block_roi)
 
     total_write_roi = total_roi.grow(-roi_shape, -roi_shape)
-    print("total_write_roi:", total_write_roi)
+    # print("total_write_roi:", total_write_roi)
 
     for offset_mult in [
             (-1, 0, 0),
@@ -133,7 +133,7 @@ def generate_adjacent_blocks(roi_offset, roi_shape, total_roi):
             ]:
 
         shifted_roi = current_block_roi.shift(roi_shape*offset_mult)
-        print("shifted_roi:", shifted_roi)
+        # print("shifted_roi:", shifted_roi)
         if total_write_roi.intersects(shifted_roi):
             blocks.append(
                 daisy.Block(total_roi, shifted_roi, shifted_roi))
@@ -174,6 +174,8 @@ if __name__ == "__main__":
             block = client_scheduler.acquire_block()
             if block is None:
                 break
+
+            print(block)
 
             roi_offset = block.write_roi.get_offset()
             roi_shape = daisy.Coordinate(tuple(block_size))

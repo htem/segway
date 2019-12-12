@@ -1,32 +1,27 @@
-import daisy
 import json
 import logging
 import sys
+import daisy
 import time
 import os
-# import queue
 
 import pymongo
 import numpy as np
-# import multiprocessing as mp
 from funlib.segment.graphs.impl import connected_components
 
 import task_helper
 
-logging.basicConfig(level=logging.INFO)
-logging.getLogger('daisy.persistence.shared_graph_provider').setLevel(logging.DEBUG)
+# logging.getLogger('daisy.persistence.shared_graph_provider').setLevel(logging.DEBUG)
 logger = logging.getLogger(__name__)
-# np.set_printoptions(threshold=sys.maxsize, formatter={'all':lambda x: str(x)})
 
 
 def read_block(graph_provider, block):
 
-    start = time.time()
     logger.debug("Reading graph in block %s", block)
+    start = time.time()
     graph = graph_provider[block.read_roi]
-    logger.debug(
-        "Read graph from graph provider in %.3fs",
-        time.time() - start)
+    logger.debug("Read graph from graph provider in %.3fs",
+                time.time() - start)
 
     nodes = {
         'id': []
@@ -84,10 +79,8 @@ def read_block(graph_provider, block):
     }
     logger.debug("Parsed graph in %.3fs", time.time() - start)
 
-    start = time.time()
-    # block_queue.put((nodes, edges))
+    # start = time.time()
     return (nodes, edges)
-    logger.debug("Queued graph data in %.3fs", time.time() - start)
 
 
 def find_segments(
@@ -103,6 +96,7 @@ def find_segments(
         thresholds,
         run_type=None,
         block_id=None,
+        ignore_degenerates=False,
         **kwargs):
 
     '''
@@ -144,18 +138,42 @@ def find_segments(
         position_attribute=[
             'center_z',
             'center_y',
-            'center_x'])
+            'center_x'],
+        indexing_block_size=indexing_block_size,
+        )
 
-    node_attrs, edge_attrs = read_block(graph_provider, block)
+    res = read_block(graph_provider, block)
+
+    if res is None:
+        if not ignore_degenerates:
+            raise RuntimeError('No nodes found in %s' % block)
+        else:
+            logger.info('No nodes found in %s' % block)
+        # create dummy nodes
+        node_attrs = {
+            'id': np.array([0], dtype=np.uint64),
+        }
+        edge_attrs = {
+            'u': np.array([0]),
+            'v': np.array([0]),
+        }
+    else:
+        node_attrs, edge_attrs = res
 
     if 'id' not in node_attrs:
-        print('No nodes found in', block)
-        return
+        if not ignore_degenerates:
+            raise RuntimeError('No nodes found in %s' % block)
+        else:
+            logger.info('No nodes found in %s' % block)
+        nodes = [0]
+    else:
+        nodes = node_attrs['id']
 
-    nodes = node_attrs['id']
     u_array = edge_attrs['u'].astype(np.uint64)
     v_array = edge_attrs['v'].astype(np.uint64)
     edges = np.stack([u_array, v_array], axis=1)
+
+    logger.info("RAG contains %d nodes, %d edges" % (len(nodes), len(edges)))
 
     if len(u_array) == 0:
         # this block somehow has no edges, or is not agglomerated
@@ -163,24 +181,17 @@ def find_segments(
         v_array = np.array([0], dtype=np.uint64)
         edges = np.array([[0, 0]], dtype=np.uint64)
 
-        # assert False, "Block %s is empty!"
+        return
 
     if 'merge_score' in edge_attrs:
         scores = edge_attrs['merge_score'].astype(np.float32)
     else:
         scores = np.ones_like(u_array, dtype=np.float32)
 
-    # for i in range(len(scores)):
-    #     print("%d to %d: %f" % (u_array[i], v_array[i], scores[i]))
-
     # each block should have at least one node, edge, and score
     assert len(nodes)
     assert len(edges)
     assert len(scores)
-
-    # print("edge_attrs: ", edge_attrs)
-
-    print("Complete RAG contains %d nodes, %d edges" % (len(nodes), len(edges)))
 
     out_dir = os.path.join(
         fragments_file,
@@ -189,10 +200,7 @@ def find_segments(
     if run_type:
         out_dir = os.path.join(out_dir, run_type)
 
-    # os.makedirs(out_dir, exist_ok=True)
-
     for threshold in thresholds:
-
         get_connected_components(
                 nodes,
                 edges,
@@ -200,7 +208,8 @@ def find_segments(
                 threshold,
                 merge_function,
                 out_dir,
-                block_id)
+                block_id,
+                ignore_degenerates=ignore_degenerates)
 
 
 def get_connected_components(
@@ -212,6 +221,7 @@ def get_connected_components(
         out_dir,
         block_id=None,
         hi_threshold=0.95,
+        ignore_degenerates=False,
         **kwargs):
 
     if block_id is None:
@@ -222,23 +232,25 @@ def get_connected_components(
     edges_tmp = edges[scores <= threshold]
     scores_tmp = scores[scores <= threshold]
 
-    if len(edges_tmp) == 0:
+    if len(edges_tmp):
+        components = connected_components(nodes, edges_tmp, scores_tmp, threshold,
+                                          use_node_id_as_component_id=1)
+
+    else:
         print("edges_tmp: ", edges_tmp)
         print("scores_tmp: ", scores_tmp)
         print("edges: ", edges)
         print("scores: ", scores)
-        raise RuntimeError("Empty edges in graph! Likely unfinished agglomeration.")
-
-    components = connected_components(nodes, edges_tmp, scores_tmp, threshold,
-                                      use_node_id_as_component_id=1)
+        print("len(nodes): ", len(nodes))
+        if not ignore_degenerates:
+            raise RuntimeError(
+                'Empty edges in graph! Likely unfinished agglomeration.')
+        else:
+            logger.info(
+                'Empty edges in graph! Likely unfinished agglomeration.')
+        components = nodes
 
     lut = np.array([nodes, components])
-
-    start = time.time()
-
-    # print("******Local LUT: ")
-    # for i in range(len(lut[0])):
-    #     print("%d: %d" % (lut[0][i], lut[1][i]))
 
     lookup = 'seg_frags2local_%s_%d/%d' % (merge_function, int(threshold*100), block_id)
     out_file = os.path.join(out_dir, lookup)
@@ -277,8 +289,6 @@ def get_connected_components(
     lookup = 'edges_local2frags_%s_%d/%d' % (merge_function, int(threshold*100), block_id)
     out_file = os.path.join(out_dir, lookup)
     np.savez_compressed(out_file, edges=edges)
-
-    print("%.3fs" % (time.time() - start))
 
 
 if __name__ == "__main__":

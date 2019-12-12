@@ -4,6 +4,7 @@ import logging
 import numpy as np
 import sys
 
+# sys.path.insert(0, '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/daisy')
 import daisy
 import lsd
 from lsd.parallel_aff_agglomerate import agglomerate_in_block
@@ -40,20 +41,6 @@ if __name__ == "__main__":
         'hist_quant_90': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 90, ScoreValue, 256, false>>',
         'hist_quant_90_initmax': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 90, ScoreValue, 256, true>>',
         'mean': 'OneMinus<MeanAffinity<RegionGraphType, ScoreValue>>',
-
-        'mean_mod': 'OneMinus<SuppressSmallEdgeAffinity<RegionGraphType, ScoreValue, 2, 80, 5, MeanAffinityProvider<RegionGraphType, ScoreValue>>>', # worked for cutout8
-        'hist_quant_30_mod': 'OneMinus<SuppressSmallEdgeAffinity<RegionGraphType, ScoreValue, 2, 80, 5, HistogramQuantileProvider<RegionGraphType, 30, ScoreValue, 256, false>>>',
-        'hist_quant_40_mod': 'OneMinus<SuppressSmallEdgeAffinity<RegionGraphType, ScoreValue, 2, 80, 5, HistogramQuantileProvider<RegionGraphType, 40, ScoreValue, 256, false>>>',
-        'hist_quant_50_mod': 'OneMinus<SuppressSmallEdgeAffinity<RegionGraphType, ScoreValue, 2, 80, 5, HistogramQuantileProvider<RegionGraphType, 50, ScoreValue, 256, false>>>',
-        'hist_quant_60_mod': 'OneMinus<SuppressSmallEdgeAffinity<RegionGraphType, ScoreValue, 2, 80, 5, HistogramQuantileProvider<RegionGraphType, 60, ScoreValue, 256, false>>>',
-        'hist_quant_70_mod': 'OneMinus<SuppressSmallEdgeAffinity<RegionGraphType, ScoreValue, 2, 80, 5, HistogramQuantileProvider<RegionGraphType, 70, ScoreValue, 256, false>>>',
-        # 'mean': 'OneMinus<SuppressSmallEdgeAffinity<RegionGraphType, ScoreValue, 5, 100, 10, MeanAffinityProvider<RegionGraphType, ScoreValue>>>', # .6, works okay for one case
-        # 'mean': 'OneMinus<SuppressSmallEdgeAffinity<RegionGraphType, ScoreValue, 5, 85, 10, MeanAffinityProvider<RegionGraphType, ScoreValue>>>', # .6, works okay for one case
-        # 'mean': 'OneMinus<SuppressSmallEdgeAffinity<RegionGraphType, ScoreValue, 3, 85, 5, MeanAffinityProvider<RegionGraphType, ScoreValue>>>', # too many merges
-        # 'mean': 'OneMinus<SuppressSmallEdgeAffinity<RegionGraphType, ScoreValue, 1, 80, 5, MeanAffinityProvider<RegionGraphType, ScoreValue>>>', # worked for cutout8
-        # 'mean': 'OneMinus<SuppressSmallEdgeAffinity<RegionGraphType, ScoreValue, 1, 140, 5, MeanAffinityProvider<RegionGraphType, ScoreValue>>>', # seemed to also work
-        # 'mean': 'OneMinus<SuppressSmallEdgeAffinity<RegionGraphType, ScoreValue, 2, 80, 0, MeanAffinityProvider<RegionGraphType, ScoreValue>>>', # worked for cutout8
-        # 'mean': 'OneMinus<SuppressSmallEdgeAffinity<RegionGraphType, ScoreValue, 1, 80, 5, MeanAffinityProvider<RegionGraphType, ScoreValue>>>', # worked for cutout8
     }[merge_function]
 
     logging.info("Reading affs from %s", affs_file)
@@ -63,20 +50,15 @@ if __name__ == "__main__":
     fragments = daisy.open_ds(fragments_file, fragments_dataset, mode='r')
 
     # open RAG DB
-    logging.info("Opening RAG DB...")
-    # rag_provider = lsd.persistence.MongoDbRagProvider(
-    #     db_name,
-    #     host=db_host,
-    #     mode='r+',
-    #     edges_collection='edges_' + merge_function)
     rag_provider = daisy.persistence.MongoDbGraphProvider(
         db_name,
         host=db_host,
         mode='r+',
         directed=False,
         edges_collection='edges_' + merge_function,
-        position_attribute=['center_z', 'center_y', 'center_x'])
-    logging.info("RAG DB opened")
+        position_attribute=['center_z', 'center_y', 'center_x'],
+        indexing_block_size=indexing_block_size,
+        )
 
     assert fragments.data.dtype == np.uint64
 

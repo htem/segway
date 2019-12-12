@@ -28,9 +28,9 @@ def get_chunkwise_lut(
         ):
 
     print("block:", block)
-    print("super_block_size:", super_block_size)
-    print("super_chunk_size:", super_chunk_size)
-    print("total_roi:", total_roi)
+    # print("super_block_size:", super_block_size)
+    # print("super_chunk_size:", super_chunk_size)
+    # print("total_roi:", total_roi)
     blocks = enumerate_blocks_in_chunks(
         block, super_block_size, super_chunk_size, total_roi)
 
@@ -44,7 +44,13 @@ def get_chunkwise_lut(
             nodes_file = 'nodes_%s_%d/%d.npz' % (
                 merge_function, int(threshold*100), b.block_id)
             nodes_file = os.path.join(lut_dir_src, nodes_file)
-            local_nodes_list.append(np.load(nodes_file)['nodes'])
+            try:
+                local_nodes_list.append(np.load(nodes_file)['nodes'])
+            except:
+                # File not found maybe due to degenerate segmentation
+                # (all sections missing raw at the edge of vol)
+                # TODO: better error detection
+                pass
         nodes = np.concatenate(local_nodes_list)
 
         local_edges_list = []
@@ -52,26 +58,35 @@ def get_chunkwise_lut(
             edges_file = 'edges_local2local_%s_%d/%d.npz' % (
                 merge_function, int(threshold*100), b.block_id)
             edges_file = os.path.join(lut_dir_src, edges_file)
-            local_edges_list.append(np.load(edges_file)['edges'])
+            try:
+                local_edges_list.append(np.load(edges_file)['edges'])
+            except:
+                # File not found maybe due to degenerate segmentation
+                # (all sections missing raw at the edge of vol)
+                # TODO: better error detection
+                pass
         edges = np.concatenate(local_edges_list)
 
-        print("Getting CCs...")
-        start = time.time()
-        components = connected_components(
-                                    nodes, edges,
-                                    scores=None, threshold=1.0,
-                                    no_scores=1,
-                                    use_node_id_as_component_id=1
-                                    )
-        print("%.3fs" % (time.time() - start))
+        # print("Getting CCs...")
+        # start = time.time()
+        if len(edges):
+            components = connected_components(
+                                        nodes, edges,
+                                        scores=None, threshold=1.0,
+                                        no_scores=1,
+                                        use_node_id_as_component_id=1
+                                        )
+        else:
+            components = nodes
+        # print("%.3fs" % (time.time() - start))
 
         seg_local2super = np.array([nodes, components])
-        print("Storing seg_local2super LUT for threshold %.3f..." % threshold)
+        # print("Storing seg_local2super LUT for threshold %.3f..." % threshold)
         lut_file = os.path.join(lut_dir_out, 'seg_local2super', str(block.block_id))
         np.savez_compressed(lut_file, seg=seg_local2super)
 
         nodes_super = np.unique(components)
-        print("Storing nodes_super LUT for threshold %.3f..." % threshold)
+        # print("Storing nodes_super LUT for threshold %.3f..." % threshold)
         lut_file = os.path.join(lut_dir_out, 'nodes_super', str(block.block_id))
         np.savez_compressed(lut_file, nodes=nodes_super)
 
@@ -80,7 +95,8 @@ def get_chunkwise_lut(
         def not_in_graph(u, v):
             return u not in nodes_in_vol or v not in nodes_in_vol
         outward_edges = np.array([not_in_graph(n[0], n[1]) for n in edges])
-        edges = edges[outward_edges]
+        if len(outward_edges):
+            edges = edges[outward_edges]
 
         local2super = {n: k for n, k in np.dstack((seg_local2super[0], seg_local2super[1]))[0]}
         for i in range(len(edges)):
@@ -94,7 +110,7 @@ def get_chunkwise_lut(
             # np.unique doesn't work on empty arrays
             edges = np.unique(edges, axis=0)
 
-        print("Storing edges_super2local LUT for threshold %.3f..." % threshold)
+        # print("Storing edges_super2local LUT for threshold %.3f..." % threshold)
         lut_file = os.path.join(lut_dir_out, 'edges_super2local', str(block.block_id))
         np.savez_compressed(lut_file, edges=edges)
 
