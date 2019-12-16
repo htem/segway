@@ -51,7 +51,6 @@ def segment_in_block(
     chunkwise_luts = {}
     for threshold in thresholds:
 
-        segmentation = segmentations[threshold]
 
         chunkwise_lut = get_chunkwise_lut(
             block,
@@ -69,7 +68,7 @@ def segment_in_block(
 
     for block in blocks:
 
-        logging.info("Processing block %s" % block)
+        logging.debug("Processing block %s" % block)
 
         logging.debug("Copying fragments to memory...")
         start = time.time()
@@ -82,10 +81,12 @@ def segment_in_block(
             logging.debug("Load local LUT...")
             start = time.time()
             local_lut = 'seg_frags2local_%s_%d/%d' % (merge_function, int(threshold*100), block.block_id)
+            local_lut = os.path.join(lut_dir, local_lut + ".npz")
             if not os.path.exists(local_lut):
                 # no segment to relabel
+                print("%s not found" % local_lut)
                 continue
-            local_lut = np.load(os.path.join(lut_dir, local_lut + ".npz"))['fragment_segment_lut']
+            local_lut = np.load(local_lut)['fragment_segment_lut']
             logging.debug("Found %d fragments" % len(local_lut[0]))
             logging.debug("%.3fs"%(time.time() - start))
 
@@ -102,6 +103,8 @@ def segment_in_block(
 
             logging.debug("Writing segments...")
             start = time.time()
+            # print(relabelled)
+            segmentation = segmentations[threshold]
             segmentation[roi] = relabelled
             logging.debug("%.3fs"%(time.time() - start))
 

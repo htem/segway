@@ -38,7 +38,9 @@ alias 06_check_all="python -i ${segway_dir}/gt_scripts/ng_check_gt_pre_final.py 
 alias 07_make_zarr_gt="python ${segway_dir}/gt_scripts/make_zarr_gt3.py ${gt_json}"
 alias 07_check_zarr_gt="python -i ${segway_dir}/gt_scripts/ng_check_gt.py ${gt_json}"
 
-alias run_skeleton_correction_no_merge="python ${segway_dir}/gt_scripts/fix_gt_with_skeleton.py ${gt_json} --no_correct_merge"
-alias run_skeleton_correction_no_split="python ${segway_dir}/gt_scripts/fix_gt_with_skeleton.py ${gt_json} --no_correct_split"
+alias add_dummy_myelin="python ${segway_dir}/gt_scripts/add_dummy_myelin.py ${gt_json}"
 
-alias test_04_run_skeleton_correction="python ${segway_dir}/gt_scripts/fix_gt_with_skeleton2.py ${gt_json}"
+# alias run_skeleton_correction_no_merge="python ${segway_dir}/gt_scripts/fix_gt_with_skeleton.py ${gt_json} --no_correct_merge"
+# alias run_skeleton_correction_no_split="python ${segway_dir}/gt_scripts/fix_gt_with_skeleton.py ${gt_json} --no_correct_split"
+
+# alias test_04_run_skeleton_correction="python ${segway_dir}/gt_scripts/fix_gt_with_skeleton2.py ${gt_json}"

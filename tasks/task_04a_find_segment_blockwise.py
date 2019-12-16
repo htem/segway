@@ -30,7 +30,7 @@ class FindSegmentsBlockwiseTask(task_helper.SlurmTask):
     sub_roi_shape = daisy.Parameter(None)
 
     block_size = daisy.Parameter()
-    indexing_block_size = daisy.Parameter()
+    indexing_block_size = daisy.Parameter(None)
 
     ignore_degenerates = daisy.Parameter(False)
 

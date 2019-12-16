@@ -5,7 +5,8 @@ import numpy as np
 import os
 
 from funlib.show.neuroglancer import add_layer
-from segway import task_helper
+import segway.tasks.task_helper2 as task_helper
+from segway.gt_scripts import gt_tools
 
 neuroglancer.set_server_bind_address('0.0.0.0')
 
@@ -88,6 +89,7 @@ try:
 except:
     raw = daisy.open_ds(raw_file, 'raw')
 
+print("Opening %s..." % f)
 
 def add(s, a, name, shader=None):
 
@@ -113,7 +115,7 @@ def add(s, a, name, shader=None):
     print(s.layers)
 
 
-viewer = neuroglancer.Viewer()
+viewer = gt_tools.make_ng_viewer()
 
 with viewer.txn() as s:
 

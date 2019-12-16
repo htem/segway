@@ -16,12 +16,12 @@ from funlib.segment.arrays import replace_values
 logging.basicConfig(level=logging.INFO)
 
 
-def to_daisy_coord(xyz):
-    return [xyz[2]*40, xyz[1]*4, xyz[0]*4]
+def to_daisy_coord(xyz, voxel_size):
+    return [xyz[2]*voxel_size[0], xyz[1]*voxel_size[1], xyz[0]*voxel_size[2]]
 
 
 def to_pixel_coord(zyx):
-    return [zyx[2]/4, zyx[1]/4, zyx[0]/40]
+    return [zyx[2]/voxel_size[2], zyx[1]/voxel_size[1], zyx[0]/voxel_size[0]]
 
 
 def to_zyx(xyz):
@@ -129,17 +129,24 @@ if __name__ == "__main__":
     config_f = sys.argv[1]
     config = gt_tools.load_config(config_f)
 
+    raw_ds = daisy.open_ds(config["raw_file"], config["raw_ds"])
+
+    voxel_size = raw_ds.voxel_size
+
     unlabeled_segments_zyx = []
     unlabeled_segments_xyz = config.get("unlabeled_segments_xyz", [])
     for xyz in unlabeled_segments_xyz:
-        unlabeled_segments_zyx.append(daisy.Coordinate(to_daisy_coord(xyz)))
+        unlabeled_segments_zyx.append(daisy.Coordinate(to_daisy_coord(xyz, voxel_size)))
 
-
-    raw_ds = daisy.open_ds(config["raw_file"], config["raw_ds"])
+    foreground_segments_zyx = []
+    foreground_segments_xyz = config.get("foreground_segments_xyz", [])
+    for xyz in foreground_segments_xyz:
+        foreground_segments_zyx.append(daisy.Coordinate(to_daisy_coord(xyz, voxel_size)))
 
     print("Making segment cache...")
     segment_file = config["segment_file"]
-    segment_dataset = config["segment_ds"]
+    # segment_dataset = config["segment_ds"]
+    segment_dataset = config["segmentation_skeleton_ds"]
     segment_ds = daisy.open_ds(segment_file, segment_dataset, mode='r+')
 
     # skeleton_json = "skeleton.json"
@@ -180,23 +187,9 @@ if __name__ == "__main__":
     # unlabeled mask should be 0 in the context region
     print("Reset unlabeled mask...")
     unlabeled_ndarray = np.zeros(unlabeled_ds.shape, dtype=unlabeled_ds.dtype)
-    # unlabeled_array = daisy.Array(
-    #     unlabeled_ndarray, unlabeled_ds.roi, unlabeled_ds.voxel_size)
-
-
-    # unlabeled_ndarray[:] = 0
-    # unlabeled_array[unlabeled_ds.roi] = unlabeled_ndarray
-
-    # unlabeled should be 1 in all traced skeleton
-
-    # unlabeled_ndarray = unlabeled_array[segment_ds.roi].to_ndarray()
-    # unlabeled_ndarray = np.array(unlabeled_ndarray, dtype=np.uint64)
 
     skeletonized_segments = list(skeletonized_segments)
     new_mask_values = [1 for f in skeletonized_segments]
-    # skeletonized_segments = np.array(
-        # skeletonized_segments, dtype=segment_ndarray.dtype)
-    # new_mask_values = np.array(new_mask_values, dtype=np.uint64)
     replace_values(
         segment_ndarray,
         skeletonized_segments,
@@ -208,3 +201,40 @@ if __name__ == "__main__":
     print("Write unlabeled mask...")
     unlabeled_ds[unlabeled_ds.roi] = unlabeled_ndarray
 
+    if len(foreground_segments_zyx):
+
+        print(foreground_segments_zyx)
+        print(segment_array.roi)
+
+        segment_by_foreground = [segment_array[zyx] for zyx in foreground_segments_zyx]
+
+        unlabeled_ds = daisy.prepare_ds(
+            segment_file,
+            "volumes/labels/unlabeled_mask_skeleton_foreground",
+            segment_ds.roi,
+            segment_ds.voxel_size,
+            np.uint8,
+            compressor={'id': 'zlib', 'level': 5},
+            delete=True
+            )
+
+        # unlabeled mask should be 0 in the context region
+        print("Reset unlabeled mask...")
+        unlabeled_ndarray = np.zeros(unlabeled_ds.shape, dtype=unlabeled_ds.dtype)
+
+        # segment_by_skeletons_foreground = copy.deepcopy(segment_by_skeletons)
+        # if len(foreground_segments_zyx):
+        #     # remove all segment IDs not in this list
+        #     for segid in segment_by_skeletons:
+        #         if segid not in 
+
+        segment_by_foreground = list(segment_by_foreground)
+        new_mask_values = [1 for f in segment_by_foreground]
+        replace_values(
+            segment_ndarray,
+            segment_by_foreground,
+            new_mask_values,
+            unlabeled_ndarray)
+
+        print("Write foreground mask...")
+        unlabeled_ds[unlabeled_ds.roi] = unlabeled_ndarray

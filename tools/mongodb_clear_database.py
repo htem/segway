@@ -1,7 +1,6 @@
 # import json
 import logging
 import sys
-# import segway.tasks.task_helper
 
 import pymongo
 

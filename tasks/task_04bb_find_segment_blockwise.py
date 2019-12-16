@@ -95,6 +95,7 @@ class FindSegmentsBlockwiseTask2b(task_helper.SlurmTask):
             check_function=check_function,
             num_workers=self.num_workers,
             read_write_conflict=False,
+            max_retries=self.max_retries,
             fit='shrink')
 
     def requires(self):

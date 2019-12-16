@@ -5,7 +5,7 @@
         "voxel_size":[40, 4, 4]
     },   
     "Output": {
-        "colors":["y","k","coral","purple","navy","lime","salmon","saddlebrown","gold"],
+        "colors":["dodgerblue","k","deeppink","limegreen","navy","red","coral","slategray","yellow"],
         "markers":["o", "^", "s", "*", "p", "D", "<", "X", ">", "h"],
         "metric_plots": [["area", "mean"],
                          ["area", "max"],

@@ -5,7 +5,7 @@ import numpy as np
 import os
 
 from funlib.show.neuroglancer import add_layer
-from segway import task_helper
+import segway.tasks.task_helper2 as task_helper
 
 neuroglancer.set_server_bind_address('0.0.0.0')
 

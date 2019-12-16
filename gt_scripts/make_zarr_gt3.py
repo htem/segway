@@ -29,9 +29,9 @@ if __name__ == "__main__":
 
     segment_ds_name = config["segment_ds"]
     if "myelin_mask_file" in config:
+        assert False, "Deprecated"
         segment_ds_name = "volumes/labels/neuron_ids_myelin"
     elif "skeleton_file" in config:
-        #segment_ds_name = "volumes/segmentation_skeleton"
         segment_ds_name = config["segmentation_skeleton_ds"]
 
     segment_ds = daisy.open_ds(
@@ -40,6 +40,8 @@ if __name__ == "__main__":
 
     if "skeleton_file" in config:
         unlabeled_ds = "volumes/labels/unlabeled_mask_skeleton"
+        if "foreground_segments_xyz" in config:
+            unlabeled_ds = "volumes/labels/unlabeled_mask_skeleton_foreground"
     else:
         unlabeled_ds = "volumes/labels/unlabeled_mask"
     unlabeled_ds = daisy.open_ds(file, unlabeled_ds)
@@ -48,12 +50,6 @@ if __name__ == "__main__":
     raw_ds = daisy.open_ds(raw_file, "volumes/raw")
 
     out_file = config["out_file"]
-
-    # if 'clear_myelin' in config and config['clear_myelin']:
-    #     myelin_ds = daisy.open_ds(file, config["myelin_ds"], 'r+')
-    #     myelin_ds[myelin_ds.roi] = 255
-
-    # myelin_ds = daisy.open_ds(file, config["myelin_ds"])
 
     if True:
         out = daisy.prepare_ds(
