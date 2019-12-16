@@ -450,10 +450,6 @@ def aggregateConfigs(configs):
             config['roi_offset'] = input_config['roi_offset']
         if 'roi_shape' in input_config:
             config['roi_shape'] = input_config['roi_shape']
-        if 'sub_roi_offset' in input_config:
-            config['sub_roi_offset'] = input_config['sub_roi_offset']
-        if 'sub_roi_shape' in input_config:
-            config['sub_roi_shape'] = input_config['sub_roi_shape']
         config['myelin_prediction'] = network_config.get('myelin_prediction', 0)
         copyParameter(input_config, config, 'delete_section_list')
         copyParameter(input_config, config, 'replace_section_list')
@@ -728,6 +724,8 @@ def compute_compatible_roi(
         output_roi_begin[2] = align(dataset_roi.get_begin()[2], sched_roi.get_begin()[2], chunk_size[2])
 
         print("dataset_roi:", dataset_roi)
+        print("sched_roi:", sched_roi)
+        print("chunk_size:", chunk_size)
         dataset_roi.set_offset(tuple(output_roi_begin))
         print("dataset_roi:", dataset_roi)
 
