@@ -11,7 +11,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-
 if __name__ == "__main__":
 
     '''Example: python add_custom_labels_mask2.py /n/groups/htem/ESRF_id16a/jaspersLegCryo/groundTruthing/190322_r1_50nm_export2_labels_mask.zarr --roi_offset 2500 0 0 --roi_shape 9000 14000 14000'''

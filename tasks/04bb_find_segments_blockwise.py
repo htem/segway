@@ -30,7 +30,14 @@ def replace_fragment_ids(
 
     base_lut_dir_out = lut_dir
 
+    # debug_mode = False
+
     for threshold in thresholds:
+
+        # if block.block_id == 2423 and int(threshold*100) == 50:
+        #     debug_mode = True
+        # else:
+        #     debug_mode = False
 
         lut_dir_out = base_lut_dir_out + '_%d' % int(threshold*100)
 
@@ -53,8 +60,8 @@ def replace_fragment_ids(
         bilateral_edges = []
 
         adj_blocks = generate_adjacent_blocks(roi_offset, roi_shape, total_roi)
-        for block in adj_blocks:
-            adj_block_id = block.block_id
+        for adj_block in adj_blocks:
+            adj_block_id = adj_block.block_id
 
             node_lut_file = os.path.join(lut_dir_out, 'nodes_super', str(adj_block_id) + '.npz')
             super_fragment_nodes.extend(np.load(node_lut_file)['nodes'])
@@ -107,9 +114,14 @@ def replace_fragment_ids(
             edges = np.unique(edges, axis=0)
 
         lut_file = os.path.join(lut_dir_out, 'edges_super2super', str(block_id))
+        # if debug_mode:
+        #     print("final edges:", edges)
+        #     print("lut_file:", lut_file)
+        #     print("block.block_id:", block.block_id)
+        #     print("block_id:", block_id)
+        #     pass
+        #     # exit(0)
         np.savez_compressed(lut_file, edges=edges)
-
-    # print("Storing ", lut_file)
 
 
 def generate_adjacent_blocks(roi_offset, roi_shape, total_roi):

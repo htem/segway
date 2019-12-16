@@ -5,7 +5,7 @@ import numpy as np
 import os
 
 from funlib.show.neuroglancer import add_layer
-from segway import task_helper2 as task_helper
+import segway.tasks.task_helper2 as task_helper
 from segway.gt_scripts import gt_tools
 
 try:
@@ -134,10 +134,14 @@ with viewer.txn() as s:
     except: pass
     try: add_layer(s, daisy.open_ds(f, 'volumes/segmentation_0.500'), 'seg_500', visible=False)
     except: pass
-    add_layer(s, daisy.open_ds(f, 'volumes/segmentation_0.600'), 'seg_600', visible=False)
-    add_layer(s, daisy.open_ds(f, 'volumes/segmentation_0.700'), 'seg_700')
-    add_layer(s, daisy.open_ds(f, 'volumes/segmentation_0.800'), 'seg_800', visible=False)
-    add_layer(s, daisy.open_ds(f, 'volumes/segmentation_0.900'), 'seg_900', visible=False)
+    try: add_layer(s, daisy.open_ds(f, 'volumes/segmentation_0.600'), 'seg_600', visible=False)
+    except: pass
+    try: add_layer(s, daisy.open_ds(f, 'volumes/segmentation_0.700'), 'seg_700', visible=True)
+    except: pass
+    try: add_layer(s, daisy.open_ds(f, 'volumes/segmentation_0.800'), 'seg_800', visible=False)
+    except: pass
+    try: add_layer(s, daisy.open_ds(f, 'volumes/segmentation_0.900'), 'seg_900', visible=False)
+    except: pass
 
     segment = daisy.open_ds(f, 'volumes/segmentation_0.700')
     s.navigation.position.voxelCoordinates = np.flip(

@@ -1,6 +1,6 @@
 import daisy
 # from daisy import Coordinate, Roi
-# import numpy as np
+import numpy as np
 from PIL import Image
 import sys
 import json
@@ -20,10 +20,19 @@ except:
     cutout_ds = daisy.open_ds(
         path, "volumes/raw")
 
+affs_ds = daisy.open_ds(config["affs_file"], config["affs_ds"])
+affs_array = daisy.Array(
+    np.zeros(cutout_ds.shape, np.uint8),
+    cutout_ds.roi,
+    cutout_ds.voxel_size
+    )
+affs_ndarray = affs_ds.to_ndarray()
+affs_array[affs_ds.roi] = affs_ndarray[2]
+
 voxel_size = cutout_ds.voxel_size
 
 catmaid_folder = config["CatmaidOut"].get("folder", script_name)
-catmaid_f = config["CatmaidOut"]["dir"] + "/" + catmaid_folder
+catmaid_f = config["CatmaidOut"]["dir"] + "/" + catmaid_folder + '_affs'
 
 roi_offset = cutout_ds.roi.get_begin()
 print("offset = %s" % str(roi_offset))
@@ -71,9 +80,17 @@ for z_index in range(z_begin, z_end):
             slice_array = cutout_ds[slice_roi].to_ndarray().reshape(
                     int(slice_roi_shape[1]/voxel_size[1]),
                     int(slice_roi_shape[2]/voxel_size[2]))
+            img_raw = Image.fromarray(slice_array)
+
+            affs_data = affs_array[slice_roi].to_ndarray().reshape(
+                    int(slice_roi_shape[1]/voxel_size[1]),
+                    int(slice_roi_shape[2]/voxel_size[2]))
+            img_affs = Image.fromarray(affs_data)
+
+            alpha = .5  # 0.0 = first img, 1.0 = second img
+            tile = Image.blend(img_affs, img_raw, alpha)
 
             print(fpath)
-            tile = Image.fromarray(slice_array)
             tile.save(fpath, quality=95)
 
             continue

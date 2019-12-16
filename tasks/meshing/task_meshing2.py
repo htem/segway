@@ -123,6 +123,8 @@ class MeshingTask(LaunchableDaisyTask):
         else:
             self.roi = self.ds.roi
 
+        print("self.ds.roi:", self.ds.roi)
+
         self.voxel_size = self.ds.voxel_size
         self.roi = self.roi.snap_to_grid(self.voxel_size, 'grow')
 
@@ -175,6 +177,8 @@ class MeshingTask(LaunchableDaisyTask):
                 voxel_size[1]*self.downsample[1],
                 voxel_size[2]*self.downsample[2],
                 ]
+
+        # print(ndarray)
 
         labels, labels_count = np.unique(ndarray, return_counts=True)
         offset = block.read_roi.get_offset()

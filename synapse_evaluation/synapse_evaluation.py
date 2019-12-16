@@ -278,6 +278,8 @@ def plot_false_pos_false_neg(error_counts, plot_title,
                 ax.scatter(fn, fp, color=col,
                             marker=mark, alpha=.5)
         first_iteration = False
+    plt.xlim([-10,100])
+    plt.ylim([-10,100])
     box = ax.get_position()
     plt.xlabel('False Negatives')
     plt.ylabel('False Positives')
