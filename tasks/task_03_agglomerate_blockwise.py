@@ -3,12 +3,10 @@ import logging
 # import lsd
 import numpy as np
 import sys
-# sys.path.insert(0, '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/daisy')
+import os
 import daisy
 import task_helper2 as task_helper
 from task_02_extract_fragments import ExtractFragmentTask
-# logging.getLogger('lsd.parallel_fragments').setLevel(logging.DEBUG)
-# logging.getLogger('lsd.persistence.sqlite_rag_provider').setLevel(logging.DEBUG)
 
 logger = logging.getLogger(__name__)
 
@@ -72,9 +70,13 @@ class AgglomerateTask(task_helper.SlurmTask):
     fragments_dataset = daisy.Parameter()
     indexing_block_size = daisy.Parameter(None)
     block_size = daisy.Parameter()
+    fragments_block_size = daisy.Parameter(None)
     context = daisy.Parameter()
     db_host = daisy.Parameter()
     db_name = daisy.Parameter()
+    db_file = daisy.Parameter(None)
+    db_file_name = daisy.Parameter(None)
+    filedb_roi_offset = daisy.Parameter(None)
     num_workers = daisy.Parameter()
     merge_function = daisy.Parameter()
     threshold = daisy.Parameter(default=1.0)
@@ -93,36 +95,53 @@ class AgglomerateTask(task_helper.SlurmTask):
         logging.info("Reading fragments from %s", self.fragments_file)
         fragments = daisy.open_ds(self.fragments_file, self.fragments_dataset, mode='r')
 
-        # open RAG DB
-        self.rag_provider = daisy.persistence.MongoDbGraphProvider(
-            self.db_name,
-            host=self.db_host,
-            mode='r+',
-            directed=False,
-            edges_collection='edges_' + self.merge_function,
-            position_attribute=['center_z', 'center_y', 'center_x'],
-            indexing_block_size=self.indexing_block_size,
-        )
-
         assert fragments.data.dtype == np.uint64
 
         # shape = affs.shape[1:]
         self.context = daisy.Coordinate(self.context)
 
         if self.sub_roi_offset is not None and self.sub_roi_shape is not None:
-
             total_roi = daisy.Roi(
                 tuple(self.sub_roi_offset), tuple(self.sub_roi_shape))
             total_roi = total_roi.grow(self.context, self.context)
             read_roi = daisy.Roi((0,)*total_roi.dims(),
                                  self.block_size).grow(self.context, self.context)
             write_roi = daisy.Roi((0,)*total_roi.dims(), self.block_size)
+            if self.filedb_roi_offset is None:
+                self.filedb_roi_offset = (0, 0, 0)
 
         else:
-
             total_roi = affs.roi.grow(self.context, self.context)
             read_roi = daisy.Roi((0,)*affs.roi.dims(), self.block_size).grow(self.context, self.context)
             write_roi = daisy.Roi((0,)*affs.roi.dims(), self.block_size)
+            if self.filedb_roi_offset is None:
+                self.filedb_roi_offset = affs.roi.get_begin()
+
+        if self.db_file is None:
+            self.db_file = self.fragments_file
+
+        # open RAG DB
+        if self.db_file_name is not None:
+            assert self.fragments_block_size is not None
+            self.rag_provider = daisy.persistence.FileGraphProvider(
+                directory=os.path.join(self.db_file, self.db_file_name),
+                chunk_size=self.fragments_block_size,
+                mode='r+',
+                directed=False,
+                position_attribute=['center_z', 'center_y', 'center_x'],
+                save_attributes_as_single_file=True,
+                roi_offset=self.filedb_roi_offset,
+                )
+        else:
+            self.rag_provider = daisy.persistence.MongoDbGraphProvider(
+                self.db_name,
+                host=self.db_host,
+                mode='r+',
+                directed=False,
+                edges_collection='edges_' + self.merge_function,
+                position_attribute=['center_z', 'center_y', 'center_x'],
+                indexing_block_size=self.indexing_block_size,
+            )
 
         config = {
             'affs_file': self.affs_file,
@@ -137,6 +156,10 @@ class AgglomerateTask(task_helper.SlurmTask):
             'merge_function': self.merge_function,
             'threshold': self.threshold,
             'indexing_block_size': self.indexing_block_size,
+            'db_file': self.db_file,
+            'db_file_name': self.db_file_name,
+            'fragments_block_size': self.fragments_block_size,
+            'filedb_roi_offset': self.filedb_roi_offset,
         }
         self.slurmSetup(config, 'actor_agglomerate.py')
 

@@ -1,6 +1,7 @@
 import json
 import logging
 import sys
+
 import daisy
 import time
 import os
@@ -131,16 +132,27 @@ def find_segments(
 
     '''
 
-    graph_provider = daisy.persistence.MongoDbGraphProvider(
-        db_name,
-        db_host,
-        edges_collection=edges_collection,
-        position_attribute=[
-            'center_z',
-            'center_y',
-            'center_x'],
-        indexing_block_size=indexing_block_size,
-        )
+    if db_file_name is not None:
+        graph_provider = daisy.persistence.FileGraphProvider(
+            directory=os.path.join(db_file, db_file_name),
+            chunk_size=fragments_block_size,
+            mode='r+',
+            directed=False,
+            position_attribute=['center_z', 'center_y', 'center_x'],
+            save_attributes_as_single_file=True,
+            roi_offset=filedb_roi_offset
+            )
+    else:
+        graph_provider = daisy.persistence.MongoDbGraphProvider(
+            db_name,
+            db_host,
+            edges_collection=edges_collection,
+            position_attribute=[
+                'center_z',
+                'center_y',
+                'center_x'],
+            indexing_block_size=indexing_block_size,
+            )
 
     res = read_block(graph_provider, block)
 

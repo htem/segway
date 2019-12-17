@@ -26,6 +26,11 @@ class FindSegmentsBlockwiseTask(task_helper.SlurmTask):
     num_workers = daisy.Parameter()
     lut_dir = daisy.Parameter()
 
+    db_file = daisy.Parameter(None)
+    db_file_name = daisy.Parameter(None)
+    filedb_roi_offset = daisy.Parameter(None)
+    fragments_block_size = daisy.Parameter(None)
+
     sub_roi_offset = daisy.Parameter(None)
     sub_roi_shape = daisy.Parameter(None)
 
@@ -43,10 +48,17 @@ class FindSegmentsBlockwiseTask(task_helper.SlurmTask):
         if self.sub_roi_offset is not None and self.sub_roi_shape is not None:
             total_roi = daisy.Roi(
                 tuple(self.sub_roi_offset), tuple(self.sub_roi_shape))
+            if self.filedb_roi_offset is None:
+                self.filedb_roi_offset = (0, 0, 0)
         else:
             total_roi = fragments.roi
+            if self.filedb_roi_offset is None:
+                self.filedb_roi_offset = fragments.roi.get_begin()
 
         assert fragments.roi.contains(total_roi)
+
+        if self.db_file is None:
+            self.db_file = self.fragments_file
 
         read_roi = daisy.Roi((0,)*total_roi.dims(), self.block_size)
         write_roi = read_roi
@@ -73,6 +85,10 @@ class FindSegmentsBlockwiseTask(task_helper.SlurmTask):
             'thresholds': self.thresholds,
             'indexing_block_size': self.indexing_block_size,
             'ignore_degenerates': self.ignore_degenerates,
+            'db_file': self.db_file,
+            'db_file_name': self.db_file_name,
+            'fragments_block_size': self.fragments_block_size,
+            'filedb_roi_offset': self.filedb_roi_offset,
         }
         self.slurmSetup(
             config,

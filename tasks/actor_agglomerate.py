@@ -4,14 +4,14 @@ import logging
 import numpy as np
 import sys
 
-# sys.path.insert(0, '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/daisy')
 import daisy
-import lsd
+# import lsd
 from lsd.parallel_aff_agglomerate import agglomerate_in_block
 import pymongo
 
 logging.basicConfig(level=logging.INFO)
 
+# logging.getLogger('daisy.persistence.file_graph_provider').setLevel(logging.DEBUG)
 
 if __name__ == "__main__":
 
@@ -50,15 +50,26 @@ if __name__ == "__main__":
     fragments = daisy.open_ds(fragments_file, fragments_dataset, mode='r')
 
     # open RAG DB
-    rag_provider = daisy.persistence.MongoDbGraphProvider(
-        db_name,
-        host=db_host,
-        mode='r+',
-        directed=False,
-        edges_collection='edges_' + merge_function,
-        position_attribute=['center_z', 'center_y', 'center_x'],
-        indexing_block_size=indexing_block_size,
-        )
+    if db_file_name is not None:
+        rag_provider = daisy.persistence.FileGraphProvider(
+            directory=os.path.join(db_file, db_file_name),
+            chunk_size=fragments_block_size,
+            mode='r+',
+            directed=False,
+            position_attribute=['center_z', 'center_y', 'center_x'],
+            save_attributes_as_single_file=True,
+            roi_offset=filedb_roi_offset,
+            )
+    else:
+        rag_provider = daisy.persistence.MongoDbGraphProvider(
+            db_name,
+            host=db_host,
+            mode='r+',
+            directed=False,
+            edges_collection='edges_' + merge_function,
+            position_attribute=['center_z', 'center_y', 'center_x'],
+            indexing_block_size=indexing_block_size,
+            )
 
     assert fragments.data.dtype == np.uint64
 

@@ -506,6 +506,7 @@ def aggregateConfigs(configs):
         copyParameter(input_config, config, 'raw_dataset')
         copyParameter(input_config, config, 'overwrite_sections')
         copyParameter(input_config, config, 'overwrite_mask_f')
+        copyParameter(input_config, config, 'db_file_name')
 
     if "AgglomerateTask" in configs:
         config = configs["AgglomerateTask"]
@@ -518,44 +519,45 @@ def aggregateConfigs(configs):
         copyParameter(input_config, config, 'overwrite_sections')
         copyParameter(input_config, config, 'overwrite_mask_f')
         config['edges_collection'] = "edges_" + merge_function
+        copyParameter(input_config, config, 'db_file_name')
 
-    if "SegmentationTask" in configs:
-        config = configs["SegmentationTask"]
-        config['fragments_file'] = input_config['output_file']
-        if 'out_file' not in config:
-            config['out_file'] = input_config['output_file']
-        config['edges_collection'] = "edges_" + merge_function
+    # if "SegmentationTask" in configs:
+    #     config = configs["SegmentationTask"]
+    #     config['fragments_file'] = input_config['output_file']
+    #     if 'out_file' not in config:
+    #         config['out_file'] = input_config['output_file']
+    #     config['edges_collection'] = "edges_" + merge_function
 
-    if "GrowSegmentationTask" in configs:
-        config = configs["GrowSegmentationTask"]
-        config['fragments_file'] = input_config['output_file']
-        config['out_file'] = input_config['output_file']
+    # if "GrowSegmentationTask" in configs:
+    #     config = configs["GrowSegmentationTask"]
+    #     config['fragments_file'] = input_config['output_file']
+    #     config['out_file'] = input_config['output_file']
 
-    if "SparseSegmentationServer" in configs:
-        config = configs["SparseSegmentationServer"]
-        config['fragments_file'] = input_config['output_file']
-        config['segment_file'] = input_config['output_file']
+    # if "SparseSegmentationServer" in configs:
+    #     config = configs["SparseSegmentationServer"]
+    #     config['fragments_file'] = input_config['output_file']
+    #     config['segment_file'] = input_config['output_file']
 
-    if "BlockwiseSegmentationTask" in configs:
-        config = configs["BlockwiseSegmentationTask"]
-        config['fragments_file'] = input_config['output_file']
-        config['out_file'] = input_config['output_file']
+    # if "BlockwiseSegmentationTask" in configs:
+    #     config = configs["BlockwiseSegmentationTask"]
+    #     config['fragments_file'] = input_config['output_file']
+    #     config['out_file'] = input_config['output_file']
 
-    if "SplitFixTask" in configs:
-        config = configs["SplitFixTask"]
-        config['fragments_file'] = input_config['output_file']
-        config['segment_file'] = input_config['output_file']
-        config['out_file'] = input_config['output_file']
+    # if "SplitFixTask" in configs:
+    #     config = configs["SplitFixTask"]
+    #     config['fragments_file'] = input_config['output_file']
+    #     config['segment_file'] = input_config['output_file']
+    #     config['out_file'] = input_config['output_file']
 
-    if "FixMergeTask" in configs:
-        config = configs["FixMergeTask"]
-        config['fragments_file'] = input_config['output_file']
-        config['segment_file'] = input_config['output_file']
-        # config['out_file'] = input_config['output_file']
+    # if "FixMergeTask" in configs:
+    #     config = configs["FixMergeTask"]
+    #     config['fragments_file'] = input_config['output_file']
+    #     config['segment_file'] = input_config['output_file']
+    #     # config['out_file'] = input_config['output_file']
 
-    if "FindSegmentTask" in configs:
-        config = configs["FindSegmentTask"]
-        copyParameter(input_config, config, 'output_file', 'fragments_file')
+    # if "FindSegmentTask" in configs:
+    #     config = configs["FindSegmentTask"]
+    #     copyParameter(input_config, config, 'output_file', 'fragments_file')
 
     if "FindSegmentsBlockwiseTask" in configs:
         config = configs["FindSegmentsBlockwiseTask"]
@@ -564,6 +566,7 @@ def aggregateConfigs(configs):
         config['edges_collection'] = "edges_" + merge_function
         if 'thresholds' not in config:
             config['thresholds'] = thresholds_lut
+        copyParameter(input_config, config, 'db_file_name')
 
     if "FindSegmentsBlockwiseTask2" in configs:
         config = configs["FindSegmentsBlockwiseTask2"]

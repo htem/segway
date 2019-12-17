@@ -4,7 +4,6 @@ import logging
 import numpy as np
 import sys
 
-# sys.path.insert(0, '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/daisy')
 import daisy
 from lsd.parallel_fragments import watershed_in_block
 import pymongo
@@ -60,16 +59,25 @@ if __name__ == "__main__":
         filter_masks.append(capillary_pred_ds)
 
     # open RAG DB
-    logging.info("Opening RAG DB...")
-    rag_provider = daisy.persistence.MongoDbGraphProvider(
-        db_name,
-        host=db_host,
-        mode='r+',
-        directed=False,
-        position_attribute=['center_z', 'center_y', 'center_x'],
-        indexing_block_size=indexing_block_size,
-        )
-    logging.info("RAG DB opened")
+    if db_file_name is not None:
+        rag_provider = daisy.persistence.FileGraphProvider(
+            directory=os.path.join(db_file, db_file_name),
+            chunk_size=block_size,
+            mode='r+',
+            directed=False,
+            position_attribute=['center_z', 'center_y', 'center_x'],
+            save_attributes_as_single_file=True,
+            roi_offset=filedb_roi_offset,
+            )
+    else:
+        rag_provider = daisy.persistence.MongoDbGraphProvider(
+            db_name,
+            host=db_host,
+            mode='r+',
+            directed=False,
+            position_attribute=['center_z', 'center_y', 'center_x'],
+            indexing_block_size=indexing_block_size,
+            )
 
     assert fragments_out.data.dtype == np.uint64
 

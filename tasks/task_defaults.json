@@ -78,6 +78,7 @@
             "merge_function": "hist_quant_50",
             "block_size": [8960, 8192, 8192],
             "context": [1280, 1024, 1024],
+            "fragments_block_size": [1000, 2048, 2048],
             "num_workers": 2,
             "cpu_mem": 32,
             "cpu_time": 0,
@@ -99,7 +100,8 @@
             "lut_dir": "luts/fragment_segment",
             "fragments_dataset": "/volumes/fragments",
             "num_workers": 4,
-            "block_size": [4000, 4096, 4096]
+            "block_size": [4000, 4096, 4096],
+            "fragments_block_size": [1000, 2048, 2048]
         },
 
     "FindSegmentsBlockwiseTask2":

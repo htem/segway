@@ -1,19 +1,15 @@
 # import json
 import logging
 import numpy as np
-# import os
+import os
 import sys
 
-# sys.path.insert(0, '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/daisy')
 import daisy
-import lsd
+# import lsd
 
 import task_helper2 as task_helper
 from task_01_predict_blockwise import PredictTask
 
-
-# logging.getLogger('lsd.parallel_fragments').setLevel(logging.DEBUG)
-# logging.getLogger('lsd.persistence.sqlite_rag_provider').setLevel(logging.DEBUG)
 
 logger = logging.getLogger(__name__)
 
@@ -64,10 +60,13 @@ class ExtractFragmentTask(task_helper.SlurmTask):
     affs_file = daisy.Parameter()
     affs_dataset = daisy.Parameter()
     block_size = daisy.Parameter()
-    indexing_block_size = daisy.Parameter()
+    indexing_block_size = daisy.Parameter(None)
     context = daisy.Parameter()
     db_host = daisy.Parameter()
     db_name = daisy.Parameter()
+    db_file = daisy.Parameter(None)
+    db_file_name = daisy.Parameter(None)
+    filedb_roi_offset = daisy.Parameter(None)
     num_workers = daisy.Parameter()
 
     # sub_roi is used to specify the region of interest while still allocating
@@ -118,15 +117,6 @@ class ExtractFragmentTask(task_helper.SlurmTask):
         else:
             self.mask = None
 
-        self.rag_provider = daisy.persistence.MongoDbGraphProvider(
-            self.db_name,
-            host=self.db_host,
-            mode='r+',
-            directed=False,
-            position_attribute=['center_z', 'center_y', 'center_x'],
-            indexing_block_size=self.indexing_block_size,
-            )
-
         delete_ds = False
         if self.overwrite:
             delete_ds = True
@@ -144,7 +134,6 @@ class ExtractFragmentTask(task_helper.SlurmTask):
             self.context = tuple(self.context)
 
         if self.sub_roi_offset is not None and self.sub_roi_shape is not None:
-
             # get ROI of source
             assert self.raw_file is not None and self.raw_dataset is not None
             source = daisy.open_ds(self.raw_file, self.raw_dataset)
@@ -153,10 +142,15 @@ class ExtractFragmentTask(task_helper.SlurmTask):
                 tuple(self.sub_roi_offset), tuple(self.sub_roi_shape))
             total_roi = total_roi.grow(self.context, self.context)
 
-        else:
+            if self.filedb_roi_offset is None:
+                self.filedb_roi_offset = (0, 0, 0)
 
+        else:
             dataset_roi = self.affs.roi
             total_roi = self.affs.roi.grow(self.context, self.context)
+
+            if self.filedb_roi_offset is None:
+                self.filedb_roi_offset = dataset_roi.get_begin()
 
         read_roi = daisy.Roi((0,)*total_roi.dims(),
                              self.block_size).grow(self.context, self.context)
@@ -164,9 +158,6 @@ class ExtractFragmentTask(task_helper.SlurmTask):
 
         # prepare fragments dataset
         voxel_size = self.affs.voxel_size
-        print("ROI:", dataset_roi)
-        print("Voxel size:", voxel_size)
-        print("Block size:", self.block_size)
         self.fragments_out = daisy.prepare_ds(
             self.fragments_file,
             self.fragments_dataset,
@@ -179,6 +170,28 @@ class ExtractFragmentTask(task_helper.SlurmTask):
             compressor={'id': 'zlib', 'level': 5},
             delete=delete_ds,
             )
+
+        if self.db_file is None:
+            self.db_file = self.fragments_file
+
+        if self.db_file_name is not None:
+            self.rag_provider = daisy.persistence.FileGraphProvider(
+                directory=os.path.join(self.db_file, self.db_file_name),
+                chunk_size=self.block_size,
+                mode='r+',
+                directed=False,
+                position_attribute=['center_z', 'center_y', 'center_x'],
+                roi_offset=self.filedb_roi_offset,
+                )
+        else:
+            self.rag_provider = daisy.persistence.MongoDbGraphProvider(
+                self.db_name,
+                host=self.db_host,
+                mode='r+',
+                directed=False,
+                position_attribute=['center_z', 'center_y', 'center_x'],
+                indexing_block_size=self.indexing_block_size,
+                )
 
         self.overwrite_mask = None
         if self.overwrite_mask_f:
@@ -246,6 +259,9 @@ class ExtractFragmentTask(task_helper.SlurmTask):
             'capillary_pred_file': self.capillary_pred_file,
             'capillary_pred_dataset': self.capillary_pred_dataset,
             'filter_fragments': self.filter_fragments,
+            'db_file': self.db_file,
+            'db_file_name': self.db_file_name,
+            'filedb_roi_offset': self.filedb_roi_offset,
         }
 
         self.slurmSetup(config, 'actor_fragment_extract.py')
