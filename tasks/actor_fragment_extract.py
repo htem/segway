@@ -62,12 +62,13 @@ if __name__ == "__main__":
     if db_file_name is not None:
         rag_provider = daisy.persistence.FileGraphProvider(
             directory=os.path.join(db_file, db_file_name),
-            chunk_size=block_size,
+            chunk_size=database_blocksize,
             mode='r+',
             directed=False,
             position_attribute=['center_z', 'center_y', 'center_x'],
             save_attributes_as_single_file=True,
             roi_offset=filedb_roi_offset,
+            nodes_chunk_size=database_blocksize,
             )
     else:
         rag_provider = daisy.persistence.MongoDbGraphProvider(
@@ -95,24 +96,67 @@ if __name__ == "__main__":
 
         logging.info("Running fragment extraction for block %s" % block)
 
-        watershed_in_block(affs,
-                           block,
-                           rag_provider,
-                           fragments_out,
-                           fragments_in_xy,
-                           epsilon_agglomerate,
-                           mask,
-                           filter_fragments=filter_fragments,
-                           min_seed_distance=min_seed_distance,
-                           filter_masks=filter_masks,
-                           )
+        write_roi = block.write_roi
+        # read_roi = block.read_roi
+
+        fragments_out_buffer = daisy.Array(
+            np.zeros(
+                write_roi.get_shape()/fragments_out.voxel_size,
+                fragments_out.dtype),
+            write_roi,
+            fragments_out.voxel_size)
+
+        # fragments_out_buffer = fragments_out[write_roi]
+        # print("write_roi:", write_roi)
+        # print("write_roi.get_shape():", write_roi.get_shape())
+        # print("fragments_out.voxel_size:", fragments_out.voxel_size)
+        # print("data_shape:", write_roi.get_shape()/fragments_out.voxel_size)
+        # fragments_out_buffer.data = np.zeros(write_roi.get_shape()/fragments_out.voxel_size, fragments_out.dtype)
+
+        for chunk in daisy.Block.get_chunks(
+                block,
+                chunk_div=None,
+                chunk_shape=block_size_original
+                ):
+
+            logging.info("Chunk %s" % chunk)
+
+            # print(fragments_out_buffer[chunk.write_roi])
+
+            # fragments_out_buffer[chunk.write_roi] = np.zeros(chunk.write_roi.get_shape()/fragments_out.voxel_size, fragments_out.dtype)
+
+
+            watershed_in_block(affs,
+                               chunk,
+                               rag_provider,
+                               fragments_out_buffer,
+                               fragments_in_xy,
+                               epsilon_agglomerate,
+                               mask,
+                               filter_fragments=filter_fragments,
+                               min_seed_distance=min_seed_distance,
+                               filter_masks=filter_masks,
+                               )
+
+            # watershed_in_block(affs,
+            #                    block,
+            #                    rag_provider,
+            #                    fragments_out,
+            #                    fragments_in_xy,
+            #                    epsilon_agglomerate,
+            #                    mask,
+            #                    filter_fragments=filter_fragments,
+            #                    min_seed_distance=min_seed_distance,
+            #                    filter_masks=filter_masks,
+            #                    )
+
+        print("write_roi:", write_roi)
+        fragments_out[write_roi] = fragments_out_buffer[write_roi]
 
         # recording block done in the database
         document = dict()
         document.update({
             'block_id': block.block_id,
-            # 'read_roi': (block.read_roi.get_begin(), block.read_roi.get_shape()),
-            # 'write_roi': (block.write_roi.get_begin(), block.write_roi.get_shape()),
         })
         completion_db.insert(document)
 

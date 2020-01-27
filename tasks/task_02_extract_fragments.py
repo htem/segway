@@ -11,6 +11,7 @@ import task_helper2 as task_helper
 from task_01_predict_blockwise import PredictTask
 
 
+# logging.getLogger('daisy.persistence.file_graph_provider').setLevel(logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 
@@ -103,6 +104,13 @@ class ExtractFragmentTask(task_helper.SlurmTask):
 
     filter_fragments = daisy.Parameter(0.3)
 
+    scheduling_chunks = daisy.Parameter([1, 1, 1])
+    dataset_chunks = daisy.Parameter([1, 1, 1])
+    database_chunks = daisy.Parameter([1, 1, 1])
+
+    precheck_use_db = daisy.Parameter(False)
+    precheck_use_affs = daisy.Parameter(False)
+
     def prepare(self):
         '''Daisy calls `prepare` for each task prior to scheduling
         any block.'''
@@ -152,9 +160,15 @@ class ExtractFragmentTask(task_helper.SlurmTask):
             if self.filedb_roi_offset is None:
                 self.filedb_roi_offset = dataset_roi.get_begin()
 
-        read_roi = daisy.Roi((0,)*total_roi.dims(),
-                             self.block_size).grow(self.context, self.context)
-        write_roi = daisy.Roi((0,)*total_roi.dims(), self.block_size)
+        self.block_size_original = self.block_size
+        self.scheduling_chunks = daisy.Coordinate(self.scheduling_chunks)
+        self.dataset_chunks = daisy.Coordinate(self.dataset_chunks)
+
+        assert self.database_chunks == [1, 1, 1], "Unsupported for now"
+        self.database_chunks = daisy.Coordinate(self.database_chunks)
+
+        dataset_blocksize = daisy.Coordinate(self.block_size)*self.dataset_chunks
+        database_blocksize = daisy.Coordinate(self.block_size)*self.database_chunks
 
         # prepare fragments dataset
         voxel_size = self.affs.voxel_size
@@ -165,7 +179,7 @@ class ExtractFragmentTask(task_helper.SlurmTask):
             voxel_size,
             np.uint64,
             # daisy.Roi((0, 0, 0), self.block_size),
-            write_size=tuple(self.block_size),
+            write_size=tuple(dataset_blocksize),
             force_exact_write_size=self.force_exact_write_size,
             compressor={'id': 'zlib', 'level': 5},
             delete=delete_ds,
@@ -177,11 +191,13 @@ class ExtractFragmentTask(task_helper.SlurmTask):
         if self.db_file_name is not None:
             self.rag_provider = daisy.persistence.FileGraphProvider(
                 directory=os.path.join(self.db_file, self.db_file_name),
-                chunk_size=self.block_size,
+                chunk_size=database_blocksize,
                 mode='r+',
                 directed=False,
                 position_attribute=['center_z', 'center_y', 'center_x'],
+                save_attributes_as_single_file=True,
                 roi_offset=self.filedb_roi_offset,
+                nodes_chunk_size=database_blocksize,
                 )
         else:
             self.rag_provider = daisy.persistence.MongoDbGraphProvider(
@@ -212,10 +228,6 @@ class ExtractFragmentTask(task_helper.SlurmTask):
 
             self.overwrite_sections = rois
 
-        # print("total_roi: ", total_roi)
-        # print("read_roi: ", read_roi)
-        # print("write_roi: ", write_roi)
-
         if (self.capillary_pred_file is not None or
                 self.capillary_pred_dataset is not None):
             assert self.capillary_pred_file is not None, \
@@ -244,6 +256,8 @@ class ExtractFragmentTask(task_helper.SlurmTask):
             'mask_file': self.mask_file,
             'mask_dataset': self.mask_dataset,
             'block_size': self.block_size,
+            'block_size_original': self.block_size_original,
+            'scheduling_chunks': self.scheduling_chunks,
             'indexing_block_size': self.indexing_block_size,
             'context': self.context,
             'db_host': self.db_host,
@@ -262,19 +276,22 @@ class ExtractFragmentTask(task_helper.SlurmTask):
             'db_file': self.db_file,
             'db_file_name': self.db_file_name,
             'filedb_roi_offset': self.filedb_roi_offset,
+            'database_blocksize': database_blocksize,
         }
 
         self.slurmSetup(config, 'actor_fragment_extract.py')
 
-        # check_function = (self.check, lambda b: True)
-        # if self.overwrite:
-        #     check_function = None
         check_function = (
                 lambda b: self.check(b, precheck=True),
                 lambda b: self.check(b, precheck=False)
                 )
         if self.overwrite:
             check_function = None
+
+        scheduling_block_size = daisy.Coordinate(self.block_size)*self.scheduling_chunks
+        read_roi = daisy.Roi((0,)*total_roi.dims(),
+                             scheduling_block_size).grow(self.context, self.context)
+        write_roi = daisy.Roi((0,)*total_roi.dims(), scheduling_block_size)
 
         self.schedule(
             total_roi=total_roi,
@@ -289,7 +306,8 @@ class ExtractFragmentTask(task_helper.SlurmTask):
     def check(self, block, precheck):
 
         # write_roi = block.write_roi
-
+        # precheck_use_db
+        # precheck_use_affs
         if precheck and self.overwrite_sections is not None:
             read_roi_mask = self.overwrite_mask.roi.intersect(block.read_roi)
             for roi in self.overwrite_sections:
@@ -308,6 +326,24 @@ class ExtractFragmentTask(task_helper.SlurmTask):
                 except:
                     return False
 
+        if self.precheck_use_db:
+            # print("block.write_roi:", block.write_roi)
+            center = (block.write_roi.get_begin() + block.write_roi.get_end()) / 2
+            # shrinked_roi = shrink_roi(block.write_roi, .95)
+            shrinked_roi = daisy.Roi(center, (1, 1, 1))
+            # print("shrinked_roi:", shrinked_roi)
+            shrinked_roi = shrinked_roi.snap_to_grid(self.block_size_original)
+            # print("shrinked_roi:", shrinked_roi)
+
+            if self.rag_provider.num_nodes(shrinked_roi):
+                # self.recording_block_done(block)
+                return True
+            elif self.rag_provider.num_nodes(block.write_roi):
+                # just making sure and check the entire block
+                return True
+            else:
+                return False
+
         if self.completion_db.count({'block_id': block.block_id}) >= 1:
             logger.debug("Skipping block with db check")
             return True
@@ -317,6 +353,8 @@ class ExtractFragmentTask(task_helper.SlurmTask):
         # if done:
         #     self.recording_block_done(block)
         #     return True
+
+        return False
 
     def requires(self):
         if self.no_check_dependency:
