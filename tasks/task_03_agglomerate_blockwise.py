@@ -70,13 +70,15 @@ class AgglomerateTask(task_helper.SlurmTask):
     fragments_dataset = daisy.Parameter()
     indexing_block_size = daisy.Parameter(None)
     block_size = daisy.Parameter()
-    fragments_block_size = daisy.Parameter(None)
+    filedb_nodes_chunk_size = daisy.Parameter(None)
+    filedb_edges_chunk_size = daisy.Parameter(None)
     context = daisy.Parameter()
     db_host = daisy.Parameter()
     db_name = daisy.Parameter()
     db_file = daisy.Parameter(None)
     db_file_name = daisy.Parameter(None)
     filedb_roi_offset = daisy.Parameter(None)
+    filedb_edges_roi_offset = daisy.Parameter(None)
     num_workers = daisy.Parameter()
     merge_function = daisy.Parameter()
     threshold = daisy.Parameter(default=1.0)
@@ -120,17 +122,23 @@ class AgglomerateTask(task_helper.SlurmTask):
         if self.db_file is None:
             self.db_file = self.fragments_file
 
+        if self.filedb_edges_roi_offset is None:
+            self.filedb_edges_roi_offset = self.filedb_roi_offset
+
         # open RAG DB
         if self.db_file_name is not None:
-            assert self.fragments_block_size is not None
+            # assert self.fragments_block_size is not None
             self.rag_provider = daisy.persistence.FileGraphProvider(
                 directory=os.path.join(self.db_file, self.db_file_name),
-                chunk_size=self.fragments_block_size,
+                chunk_size=None,
                 mode='r+',
                 directed=False,
                 position_attribute=['center_z', 'center_y', 'center_x'],
                 save_attributes_as_single_file=True,
                 roi_offset=self.filedb_roi_offset,
+                nodes_chunk_size=self.filedb_nodes_chunk_size,
+                edges_chunk_size=self.filedb_edges_chunk_size,
+                edges_roi_offset=self.filedb_edges_roi_offset,
                 )
         else:
             self.rag_provider = daisy.persistence.MongoDbGraphProvider(
@@ -158,8 +166,10 @@ class AgglomerateTask(task_helper.SlurmTask):
             'indexing_block_size': self.indexing_block_size,
             'db_file': self.db_file,
             'db_file_name': self.db_file_name,
-            'fragments_block_size': self.fragments_block_size,
+            'filedb_nodes_chunk_size': self.filedb_nodes_chunk_size,
+            'filedb_edges_chunk_size': self.filedb_edges_chunk_size,
             'filedb_roi_offset': self.filedb_roi_offset,
+            'filedb_edges_roi_offset': self.filedb_edges_roi_offset,
         }
         self.slurmSetup(config, 'actor_agglomerate.py')
 

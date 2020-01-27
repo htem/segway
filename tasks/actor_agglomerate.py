@@ -53,12 +53,15 @@ if __name__ == "__main__":
     if db_file_name is not None:
         rag_provider = daisy.persistence.FileGraphProvider(
             directory=os.path.join(db_file, db_file_name),
-            chunk_size=fragments_block_size,
+            chunk_size=None,
             mode='r+',
             directed=False,
             position_attribute=['center_z', 'center_y', 'center_x'],
             save_attributes_as_single_file=True,
             roi_offset=filedb_roi_offset,
+            nodes_chunk_size=filedb_nodes_chunk_size,
+            edges_chunk_size=filedb_edges_chunk_size,
+            edges_roi_offset=filedb_edges_roi_offset,
             )
     else:
         rag_provider = daisy.persistence.MongoDbGraphProvider(
