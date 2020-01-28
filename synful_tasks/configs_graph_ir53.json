@@ -1,0 +1,155 @@
+{
+
+   "db_host" : "mongodb://10.117.28.250:27018/",
+   "db_name" : "production_200107_cb2_v4_synapse_setup09_synapsedb",
+   "db_name_n" : "neurondb_cb2_v4" ,
+
+   "input_method" : "user_list",
+   "input_roi_offset" : [0, 0, 0],
+   "input_roi_size" : [4, 4, 4],
+
+   "voxel_size_xyz" : [4, 4, 40],
+
+   "syn_score_threshold" : 0.60,
+   "mode_weights" : "count",
+   "weights_with_dist" : 0,
+   
+
+   "input_neurons_list": 
+                  [
+                    "interneuron_41",
+                    "interneuron_51", 
+                    "interneuron_68",
+                    "interneuron_55",
+                    "interneuron_64",
+                    "interneuron_31",
+                    "interneuron_95",
+                    "interneuron_96",
+                    "interneuron_97",
+                    "interneuron_98",
+                    "interneuron_99",
+                    "interneuron_100",
+                    "interneuron_101",
+                    "interneuron_102",
+                    "interneuron_103",
+                    "interneuron_104",
+                    "interneuron_21",
+                    "interneuron_22",
+                    "interneuron_105",
+                    "interneuron_106",
+                    "interneuron_107",
+                    "interneuron_108",
+                    "interneuron_109",
+                    "interneuron_8",
+                    "interneuron_111",
+                    "interneuron_54",
+                    "interneuron_84",
+                    "interneuron_145",
+                    "interneuron_146",
+                    "interneuron_147",
+                    "interneuron_148",
+                    "interneuron_149",
+                    "purkinje_0",
+                    "pc_0",
+                    "pc_1",
+                    "purkinje_1",
+                    "pc_2",
+                    "pc_4",
+                    "pc_5",
+                    "pc_6",
+                    "pc_7",
+                    "pc_8",
+                    "pc_9",
+                    "pc_3",
+                    "pc_10",
+                    "pc_11",
+                    "pc_12",
+                    "pc_15",
+                    "pc_16"
+                 ],
+
+   "add_edge_list" : [],
+
+   "exclude_neurons": [],
+   "tags_to_exclude" : [["pc", "oob_dendrite"],
+                        ["basket", "oob_axon"], 
+                        ["stellate", "oob_axon"],
+                        ["cc", "oob_axon"],
+                        ["interneuron", "oob_axon"]],
+   
+   "exclude_edges" : [],
+
+   "debug_edges" : 0,
+   "debug_edges_list": [["interneuron_100", "purkinje_1"], 
+                        ["purkinje_1", "interneuron_104"]],
+
+   "output_debug_edges" : "/n/groups/htem/Segmentation/shared-dev/cb2_segmentation/segway/synful_tasks/g_outputs/output_debug_edges.csv",
+
+   "rename_rules": [["interneuron_", "basket_", {"cell_type": "basket"}],
+                    ["interneuron_", "stellate_", {"cell_type" : "stellate"}],               
+                    ["interneuron_", "f_interneuron_", {"finished": true, "cell_type" : "interneuron"}],  
+                    ["purkinje_0", "pc_88", {}],
+                    ["purkinje_1", "pc_99", {}] 
+                   ],
+
+   "excitatoy_neurons" : [],
+   "inhibitory_neurons" : [],
+
+   "overwrite" : 0,
+   "output_edges" : "/n/groups/htem/Segmentation/shared-dev/cb2_segmentation/segway/synful_tasks/g_outputs/output_edges.csv",
+   "output_graph" : "/n/groups/htem/Segmentation/shared-dev/cb2_segmentation/segway/synful_tasks/g_outputs/output_graph.gpickle",
+   "output_graph_pp" : "/n/groups/htem/Segmentation/shared-dev/cb2_segmentation/segway/synful_tasks/g_outputs/output_graph_pp.gpickle",
+
+   "adj_plot_all" : 1,
+   "adj_all" : "/n/groups/htem/Segmentation/shared-dev/cb2_segmentation/segway/synful_tasks/figures/graphs/Adj_mat.png",
+   
+   "adj_plot_pre": 1,
+   "list_posts" : ["stellate_100", 
+                   "stellate_101",
+                   "stellate_22",
+                   "basket_102",
+                   "basket_104",
+                   "basket_106",
+                   "pc_15",
+                   "pc_16",
+                   "pc_7",
+                   "pc_9",
+                   "pc_88"
+                  ],
+   "adj_pre" : "/n/groups/htem/Segmentation/shared-dev/cb2_segmentation/segway/synful_tasks/figures/graphs/Adj_mat_pre.png",
+   
+   "adj_plot_post": 1,  
+   "list_pres" : ["stellate_100", 
+                  "stellate_101",
+                  "stellate_22",
+                  "basket_102",
+                  "basket_104",
+                  "basket_106",
+                  "pc_15",
+                  "pc_16",
+                  "pc_7",
+                  "pc_9",
+                  "pc_88"
+                 ],
+   "adj_post" : "/n/groups/htem/Segmentation/shared-dev/cb2_segmentation/segway/synful_tasks/figures/graphs/Adj_mat_post.png",
+   
+   "adj_plot_some" : 1,
+   "adj_plot_list" : ["stellate_100", 
+                      "stellate_101",
+                      "stellate_22",
+                      "basket_102",
+                      "basket_104",
+                      "basket_106",
+                      "pc_15",
+                      "pc_16",
+                      "pc_7",
+                      "pc_9",
+                      "pc_88"
+                     ],
+
+   "adj_small_list" : "/n/groups/htem/Segmentation/shared-dev/cb2_segmentation/segway/synful_tasks/figures/graphs/Adj_mat_small.png",
+
+   "weights_threshold" : 1,
+   "adj_plot_thresh": 1
+
+}
