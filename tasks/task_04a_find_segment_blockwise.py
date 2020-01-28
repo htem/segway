@@ -29,7 +29,9 @@ class FindSegmentsBlockwiseTask(task_helper.SlurmTask):
     db_file = daisy.Parameter(None)
     db_file_name = daisy.Parameter(None)
     filedb_roi_offset = daisy.Parameter(None)
-    fragments_block_size = daisy.Parameter(None)
+    filedb_edges_roi_offset = daisy.Parameter(None)
+    filedb_nodes_chunk_size = daisy.Parameter(None)
+    filedb_edges_chunk_size = daisy.Parameter(None)
 
     sub_roi_offset = daisy.Parameter(None)
     sub_roi_shape = daisy.Parameter(None)
@@ -87,8 +89,10 @@ class FindSegmentsBlockwiseTask(task_helper.SlurmTask):
             'ignore_degenerates': self.ignore_degenerates,
             'db_file': self.db_file,
             'db_file_name': self.db_file_name,
-            'fragments_block_size': self.fragments_block_size,
+            'filedb_nodes_chunk_size': self.filedb_nodes_chunk_size,
+            'filedb_edges_chunk_size': self.filedb_edges_chunk_size,
             'filedb_roi_offset': self.filedb_roi_offset,
+            'filedb_edges_roi_offset': self.filedb_edges_roi_offset,
         }
         self.slurmSetup(
             config,
