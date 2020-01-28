@@ -1,7 +1,5 @@
 import numpy as np
 import networkx as nx
-import igraph as ig
-from graph_tool.all import *
 from database_synapses import SynapseDatabase
 from database_superfragments import SuperFragmentDatabase
 import os
@@ -36,22 +34,22 @@ def plot_adj_mat(A, configs):
         A[A<=configs['threshold']] = 0
 
     if 'full' in configs.keys():
-        fig = plt.figure(figsize=(16,13))
+        fig = plt.figure(figsize=(16,15))
         ax = fig.add_subplot(111)
         i = ax.imshow(A)
         ax.set_xticks(np.arange(len(A)))
-        ax.set_xticklabels(configs['full_list'], rotation=45)
+        ax.set_xticklabels(configs['full_list'], rotation=75)
         ax.set_yticks(np.arange(len(A)))
         ax.set_yticklabels(configs['full_list'])
         plt.colorbar(i, ax=ax)
         fig.savefig(configs['full'])
 
     if 'some' in configs.keys():
-        fig = plt.figure(figsize=(16,13))
+        fig = plt.figure(figsize=(16,15))
         ax = fig.add_subplot(111)
         i = ax.imshow(adj_configs['small_adj'])
         ax.set_xticks(np.arange(len(adj_configs['small_adj'])))
-        ax.set_xticklabels(configs['small_list'], rotation=45)
+        ax.set_xticklabels(configs['small_list'], rotation=75)
         ax.set_yticks(np.arange(len(adj_configs['small_adj'])))
         ax.set_yticklabels(configs['small_list'])
         plt.colorbar(i, ax=ax)
@@ -61,11 +59,11 @@ def plot_adj_mat(A, configs):
         # shrink the adjency matrix
         mat = A[:,[configs['full_list'].index(i) for i in configs['list_posts']]]
 
-        fig = plt.figure(figsize=(16,13))
+        fig = plt.figure(figsize=(16,15))
         ax = fig.add_subplot(111)
         i = ax.imshow(mat)
         ax.set_xticks(np.arange(mat.shape[1]))
-        ax.set_xticklabels(configs['list_posts'], rotation=45)
+        ax.set_xticklabels(configs['list_posts'], rotation=75)
         ax.set_yticks(np.arange(mat.shape[0]))
         ax.set_yticklabels(configs['full_list'])
         plt.colorbar(i, ax=ax)
@@ -75,11 +73,11 @@ def plot_adj_mat(A, configs):
         # shrink the adjency matrix
         mat = A[[configs['full_list'].index(i) for i in configs['list_pres']],:]
 
-        fig = plt.figure(figsize=(16,13))
+        fig = plt.figure(figsize=(16,15))
         ax = fig.add_subplot(111)
         i = ax.imshow(mat)
         ax.set_xticks(np.arange(mat.shape[1]))
-        ax.set_xticklabels(configs['full_list'], rotation=45)
+        ax.set_xticklabels(configs['full_list'], rotation=75)
         ax.set_yticks(np.arange(mat.shape[0]))
         ax.set_yticklabels(configs['list_pres'])
         plt.colorbar(i, ax=ax)
