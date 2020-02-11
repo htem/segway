@@ -160,7 +160,6 @@ def save_edges(edge_list,
 
 
 def compute_weights(edge_list,
-                    synapse_list,
                     syns_dict,
                     g,
                     sf_to_neurons,
@@ -182,13 +181,6 @@ def compute_weights(edge_list,
     start = time.time()
 
     syn_weights = defaultdict(float)
-    # syn_weights = dict()
-
-    # get synapse attributes
-    # query = {'$and': [{'id': {'$in': list(synapse_list)}}, {'score': {'$gt': score_threshold}}]}
-
-    # query = {'id' : { '$in' : list(synapse_list) }}
-    # synapses_query = syn_db.synapses.find(query)
     synapses_dict = defaultdict(list)
 
     for k, syn in syns_dict.items():
@@ -496,7 +488,6 @@ if __name__ == "__main__":
                 syns_dict.pop(k)
 
         weights, edge_list, syns_locs = compute_weights(edge_list,
-                                                        synapse_list,
                                                         syns_dict,
                                                         g,
                                                         sf_to_neurons,
