@@ -433,17 +433,6 @@ if __name__ == "__main__":
     output_graph_pp_path = directory + '/' + output_graph_pp
     output_debug_edges_path = directory + '/' + output_debug_edges
 
-    if input_method == 'user_list':
-        neurons_list = sorted(list(set(input_neurons_list)))
-    elif input_method == 'all':
-        # WARNING : in 'neuron_db_server.py' there is the limit of 100 neurons
-        # so only 100 neurons will be queried
-        neuron_list = neuron_db.find_neuron({})
-    elif input_method == 'roi':
-        # query neurons if roi.contains(Coordinate(soma_loc))
-        # TO IMPLEMENT ...
-        pass
-
     # access the database and generate graph characteristics if it was not
     # already existing or if it was existing but overwrite option is True
     if not os.path.exists(output_graph_path) or (os.path.exists(output_graph_path) and
@@ -456,6 +445,17 @@ if __name__ == "__main__":
                                                 db_name,
                                                 db_name_n
                                                 )
+
+        if input_method == 'user_list':
+            neurons_list = sorted(list(set(input_neurons_list)))
+        elif input_method == 'all':
+            # WARNING : in 'neuron_db_server.py' there is the limit of 100 neurons
+            # so only 100 neurons will be queried
+            neurons_list = neuron_db.find_neuron({})
+        elif input_method == 'roi':
+            # query neurons if roi.contains(Coordinate(soma_loc))
+            # TO IMPLEMENT ...
+            pass
 
         nodes_attr = _get_neurons_info_db(neurons_list, neuron_db)
         g = create_nodes_graph(neurons_list, nodes_attr)
