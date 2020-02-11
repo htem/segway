@@ -12,28 +12,26 @@ import segwaytool.proofreading
 import segwaytool.proofreading.neuron_db_server
 import time
 import matplotlib.pyplot as plt
-import itertools
 from collections import defaultdict
-import scipy.sparse
-import csv
 import pandas as pd
-from daisy import Coordinate
+# from daisy import Coordinate
 
 global edge_list_df
 global directory
 
+
 def save_debug_edges(small_list,
                      full_list,
                      output_debug_edges_path,
-                     an_type = []):
+                     an_type=[]):
     """
     Save debug edges.
+
     If an_type is empty, the small list is already a edge list specified in config.
     If an_type = "pres", it means that all pres are considered and small list will
     be the list of posts.
     If an_type = "posts", the other way around.
     """
-
     if an_type == "pres":
         edge_list = [[pre, post] for pre in full_list for post in small_list]
         print("### Info: Saving debug edges pre partners...")
@@ -273,7 +271,6 @@ def create_syns_dict(syn_db,
                         'sf_post': syn['id_superfrag_post']
                         }
 
-
     print("Synapses query and dict creation took %f s" % (time.time() - start))
 
     return syns_dict
@@ -430,12 +427,11 @@ if __name__ == "__main__":
             if key != 'general_params' and key != 'plots':
                 vars()[key] = item
 
-
     # generate output paths
-    output_graph_path = directory+'/'+output_graph
-    output_edges_path = directory+'/'+output_edges
-    output_graph_pp_path = directory+'/'+output_graph_pp
-    output_debug_edges_path = directory+'/'+output_debug_edges
+    output_graph_path = directory + '/' + output_graph
+    output_edges_path = directory + '/' + output_edges
+    output_graph_pp_path = directory + '/' + output_graph_pp
+    output_debug_edges_path = directory + '/' + output_debug_edges
 
     if input_method == 'user_list':
         neurons_list = sorted(list(set(input_neurons_list)))
@@ -450,7 +446,8 @@ if __name__ == "__main__":
 
     # access the database and generate graph characteristics if it was not
     # already existing or if it was existing but overwrite option is True
-    if not os.path.exists(output_graph_path) or (os.path.exists(output_graph_path) and overwrite==1) :
+    if not os.path.exists(output_graph_path) or (os.path.exists(output_graph_path) and
+    overwrite == 1):
         # assuming that if there is no output_graph there is no edge_list and
         # adjacency matrix saved either
 
@@ -498,13 +495,12 @@ if __name__ == "__main__":
             for k, v in to_del.items():
                 syns_dict.pop(k)
 
-
         weights, edge_list, syns_locs = compute_weights(edge_list,
                                                         synapse_list,
                                                         syns_dict,
                                                         g,
                                                         sf_to_neurons,
-                                                        mode=mode_weights, # mode
+                                                        mode=mode_weights,  # mode
                                                         dist=compute_distance,
                                                         )
 
@@ -535,7 +531,7 @@ if __name__ == "__main__":
     if not os.path.exists(output_graph_pp_path) or (os.path.exists(output_graph_pp_path) and overwrite == 1) :
 
         # Preprocessing the graph, given specifications in the config file
-        pre_proc = len(exclude_neurons) > 0 or len(tags_to_exclude)>0 or len(exclude_edges) > 0
+        pre_proc = len(exclude_neurons) > 0 or len(tags_to_exclude) > 0 or len(exclude_edges) > 0
         if pre_proc:
 
             g.remove_nodes_from(exclude_neurons)
@@ -603,27 +599,3 @@ if __name__ == "__main__":
 
     for plot in params['plots']:
         plot_adj_mat(A, plot, g)
-
-
-    # # ['full', 'some', 'pre_list', 'post_list']
-    # adj_configs = dict()
-    # # full list of neurons is usefull in all the cases (out of if condition)
-    # adj_configs['full_list'] = list(g.nodes())
-    # if adj_plot_thresh == 1:
-    #     adj_configs['threshold'] = weights_threshold
-    # if adj_plot_all == 1:
-    #     adj_configs['full'] = adj_all
-    # if adj_plot_pre == 1:
-    #     # all the pre syn partners -> list of posts (column chunk of A)
-    #     adj_configs['pre'] = adj_pre
-    #     adj_configs['list_posts'] = list_posts
-    # if adj_plot_post == 1:
-    #     # all the post syn partners -> list of pres (row chunk of A)
-    #     adj_configs['post'] = adj_post
-    #     adj_configs['list_pres'] = list_pres
-    # if adj_plot_some == 1:
-    #     adj_configs['some'] = adj_small_list
-    #     adj_configs['small_list'] = adj_plot_list
-    #     adj_configs['small_adj'] = nx.to_numpy_matrix(g, nodelist=adj_plot_list)
-
-    # plot_adj_mat(A, adj_configs)
