@@ -7,8 +7,9 @@ import sys
 import daisy
 import pymongo
 import time
-import math
-import synapse, detection
+# import math
+import synapse
+import detection
 from database_synapses import SynapseDatabase
 from database_superfragments import SuperFragmentDatabase, SuperFragment
 from daisy import Coordinate
@@ -16,6 +17,7 @@ from daisy import Coordinate
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 def __create_unique_syn_id(zyx):
 
@@ -53,7 +55,7 @@ def __create_syn_locations(predicted_syns, target_sites):
            
 def extract_synapses(ind_pred_ds,
                      dir_pred_ds,
-                     sup_ds,
+                     segment_ds,
                      parameters,
                      block,
                      prediction_post_to_pre=True,
@@ -110,7 +112,7 @@ def extract_synapses(ind_pred_ds,
                 np.max(dirmap)))
 
     target_sites = detection.find_targets(predicted_syns, dirmap,
-                                      voxel_size=voxel_size)
+                                          voxel_size=voxel_size)
     # Synapses need to be shifted to the global ROI
     # (currently aligned with block.roi)
     for loc in predicted_syns:
@@ -121,9 +123,14 @@ def extract_synapses(ind_pred_ds,
     # Filter post synaptic location not incuded in the block: do not compute syynapses
     post_syns = []
     filt_ind = []
-    for i, loc in enumerate(predicted_syns):
-        if block.write_roi.contains(loc):
-            post_syns.append(loc)
+    for i, (pred_loc, target_loc) in enumerate(zip(predicted_syns, target_sites)):
+        if block.write_roi.contains(pred_loc) and \
+                pred_roi.contains(target_loc):
+            # note: ideally target_loc should have been contained in read_roi
+            # (if not, context should be increased)
+            # but corner cases where the block_roi is at the end of the volume
+            # can give rise to errors
+            post_syns.append(pred_loc)
             filt_ind.append(i)
 
     pre_syns = list(np.array(target_sites)[filt_ind])
@@ -134,15 +141,14 @@ def extract_synapses(ind_pred_ds,
         pre_syns = copy.deepcopy(post_syns)
         post_syns = copy.deepcopy(pre_syns_tmp)
 
-    sup_ds = sup_ds[pred_roi]
-    sup_ds.materialize()
-    # print("sup_ds.roi:", sup_ds.roi)
+    segment_ds = segment_ds[pred_roi]
+    segment_ds.materialize()
 
     # Superfragments IDs
     ids_sf_pre = []
     for pre_syn in pre_syns:
         pre_syn = Coordinate(pre_syn)
-        pre_super_fragment_id = sup_ds[pre_syn]
+        pre_super_fragment_id = segment_ds[pre_syn]
         assert pre_super_fragment_id is not None
         ids_sf_pre.append(pre_super_fragment_id)
     # print("Pre super fragment ID: ", ids_sf_pre)
@@ -150,7 +156,7 @@ def extract_synapses(ind_pred_ds,
     ids_sf_post = []
     for post_syn in post_syns:
         post_syn = Coordinate(post_syn)
-        post_super_fragment_id = sup_ds[post_syn]
+        post_super_fragment_id = segment_ds[post_syn]
         assert post_super_fragment_id is not None
         ids_sf_post.append(post_super_fragment_id)
     # print("Post super fragment ID: ", ids_sf_post)
@@ -283,7 +289,7 @@ if __name__ == "__main__":
                  mode='r+')
     ind_pred_ds = daisy.open_ds(syn_indicator_file, syn_indicator_dataset, 'r') 
     dir_pred_ds = daisy.open_ds(syn_dir_file, syn_dir_dataset, 'r')
-    sup_ds = daisy.open_ds(super_fragments_file, super_fragments_dataset, 'r')
+    segment_ds = daisy.open_ds(super_fragments_file, super_fragments_dataset, 'r')
 
     while True:
         block = client_scheduler.acquire_block()
@@ -294,7 +300,7 @@ if __name__ == "__main__":
 
         synapses = extract_synapses(ind_pred_ds,
                                     dir_pred_ds,
-                                    sup_ds,
+                                    segment_ds,
                                     parameters,
                                     block)
 
