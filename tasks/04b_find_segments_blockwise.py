@@ -24,9 +24,9 @@ def replace_fragment_ids(
         roi_shape,
         total_roi,
         thresholds,
-        run_type=None,
-        block_id=None,
-        **kwargs):
+        block_id,
+        ):
+    '''Compute local2local edges from local2frags edges and frags2local LUT (step 04a)'''
 
     lut_dir = os.path.join(
         fragments_file,

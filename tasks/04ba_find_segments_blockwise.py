@@ -20,12 +20,13 @@ def get_chunkwise_lut(
         block,
         super_block_size,
         total_roi,
-        lut_dir_src,
-        lut_dir_out,
+        lut_dir_local,
+        lut_dir_subseg,
         merge_function,
         thresholds,
         super_chunk_size
         ):
+    '''Compute sugsegment edges (to local) and nodes'''
 
     print("block:", block)
     # print("super_block_size:", super_block_size)
@@ -34,16 +35,16 @@ def get_chunkwise_lut(
     blocks = enumerate_blocks_in_chunks(
         block, super_block_size, super_chunk_size, total_roi)
 
-    base_lut_dir_out = lut_dir_out
+    base_lut_dir_out = lut_dir_subseg
     for threshold in thresholds:
-        lut_dir_out = base_lut_dir_out + '_%d' % int(threshold*100)
+        lut_dir_subseg = base_lut_dir_out + '_%d' % int(threshold*100)
 
         local_nodes_list = []
         for b in blocks:
             # print("Loading", b)
             nodes_file = 'nodes_%s_%d/%d.npz' % (
                 merge_function, int(threshold*100), b.block_id)
-            nodes_file = os.path.join(lut_dir_src, nodes_file)
+            nodes_file = os.path.join(lut_dir_local, nodes_file)
             try:
                 local_nodes_list.append(np.load(nodes_file)['nodes'])
             except:
@@ -57,7 +58,7 @@ def get_chunkwise_lut(
         for b in blocks:
             edges_file = 'edges_local2local_%s_%d/%d.npz' % (
                 merge_function, int(threshold*100), b.block_id)
-            edges_file = os.path.join(lut_dir_src, edges_file)
+            edges_file = os.path.join(lut_dir_local, edges_file)
             try:
                 local_edges_list.append(np.load(edges_file)['edges'])
             except:
@@ -82,12 +83,12 @@ def get_chunkwise_lut(
 
         seg_local2super = np.array([nodes, components])
         # print("Storing seg_local2super LUT for threshold %.3f..." % threshold)
-        lut_file = os.path.join(lut_dir_out, 'seg_local2super', str(block.block_id))
+        lut_file = os.path.join(lut_dir_subseg, 'seg_local2super', str(block.block_id))
         np.savez_compressed(lut_file, seg=seg_local2super)
 
         nodes_super = np.unique(components)
         # print("Storing nodes_super LUT for threshold %.3f..." % threshold)
-        lut_file = os.path.join(lut_dir_out, 'nodes_super', str(block.block_id))
+        lut_file = os.path.join(lut_dir_subseg, 'nodes_super', str(block.block_id))
         np.savez_compressed(lut_file, nodes=nodes_super)
 
         # filter for only outward edges
@@ -111,7 +112,7 @@ def get_chunkwise_lut(
             edges = np.unique(edges, axis=0)
 
         # print("Storing edges_super2local LUT for threshold %.3f..." % threshold)
-        lut_file = os.path.join(lut_dir_out, 'edges_super2local', str(block.block_id))
+        lut_file = os.path.join(lut_dir_subseg, 'edges_super2local', str(block.block_id))
         np.savez_compressed(lut_file, edges=edges)
 
 
@@ -147,8 +148,8 @@ if __name__ == "__main__":
                 block,
                 super_block_size,
                 total_roi,
-                lut_dir_src,
-                lut_dir_out,
+                lut_dir_local,
+                lut_dir_subseg,
                 merge_function,
                 thresholds,
                 super_chunk_size
