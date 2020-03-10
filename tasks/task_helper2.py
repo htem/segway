@@ -33,6 +33,8 @@ class SlurmTask(daisy.Task):
     db_host = daisy.Parameter()
     db_name = daisy.Parameter()
 
+    num_workers = daisy.Parameter(1)
+
     timeout = daisy.Parameter(None)
     completion_db_class_name = daisy.Parameter(None)
 
@@ -567,6 +569,12 @@ def aggregateConfigs(configs):
         if 'thresholds' not in config:
             config['thresholds'] = thresholds_lut
         copyParameter(input_config, config, 'db_file_name')
+
+    if "MakeInterThresholdMappingTask" in configs:
+        config = configs["MakeInterThresholdMappingTask"]
+        copyParameter(input_config, config, 'output_file', 'fragments_file')
+        config['merge_function'] = merge_function
+        config['edges_collection'] = "edges_" + merge_function
 
     if "FindSegmentsBlockwiseTask2" in configs:
         config = configs["FindSegmentsBlockwiseTask2"]
