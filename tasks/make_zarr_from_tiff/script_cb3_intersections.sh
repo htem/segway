@@ -34,7 +34,7 @@
 # done
 
 aligned_dir_path="/n/groups/htem/temcagt/datasets/cb3/cb3_intersections_std_dir_structure"
-output_file='/n/vast/htem/temcagt/datasets/cb3/zarr/cb3.zarr'
+output_file='/n/groups/htem/temcagt/datasets/cb3/zarr/cb3.zarr'
 output_dataset="volumes/raw"
 voxel_size='40 4 4'
 write_size='16 256 256'
