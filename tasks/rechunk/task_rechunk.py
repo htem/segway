@@ -43,15 +43,6 @@ class RechunkTask(LaunchableDaisyTask):
 
         self.worker_script_file = os.path.realpath(__file__)
 
-        self.input_file = config['input_file']
-        self.input_dataset = config['input_dataset']
-        self.output_file = config['output_file']
-        self.output_dataset = config['output_dataset']
-        self.write_size = config['write_size']
-        self.max_voxel_count = config['max_voxel_count']
-        self.roi_offset = config['roi_offset']
-        self.roi_shape = config['roi_shape']
-
         self.input_ds = daisy.open_ds(self.input_file, self.input_dataset)
 
         if self.roi_offset is not None or self.roi_shape is not None:
@@ -74,6 +65,11 @@ class RechunkTask(LaunchableDaisyTask):
         self.roi = self.roi.snap_to_grid(self.voxel_size, 'grow')
 
         ds_roi = self.input_ds.roi.snap_to_grid(self.chunk_size, 'grow')
+
+        scheduling_block_size = self.chunk_size
+        if self.scheduling_block_size_mult is not None:
+            scheduling_block_size = scheduling_block_size * tuple(self.scheduling_block_size_mult)
+        self.write_roi = daisy.Roi((0, 0, 0), scheduling_block_size)
 
         n_channels = 1
         multiple_channels = self.input_ds.n_channel_dims
@@ -98,11 +94,12 @@ class RechunkTask(LaunchableDaisyTask):
 
         assert len(self.chunk_size) == 3
 
-        logger.info("Rechunking %s/%s to %s/%s with write_size %s (chunk_size %s)"
-            % (self.input_file, self.input_dataset, self.output_file, self.output_dataset, self.chunk_size, self.write_size))
+        logger.info("Rechunking %s/%s to %s/%s with write_size %s (chunk_size %s, bs %s)"
+            % (self.input_file, self.input_dataset, self.output_file, self.output_dataset, self.chunk_size, self.write_size, self.write_roi))
         logger.info("ROI: %s" % self.roi)
 
-        write_roi = daisy.Roi((0, 0, 0), self.chunk_size)
+        # write_roi = daisy.Roi((0, 0, 0), self.chunk_size)
+        write_roi = self.write_roi
         read_roi = write_roi
         total_roi = self.roi
 
@@ -124,6 +121,7 @@ class RechunkTask(LaunchableDaisyTask):
             read_roi=read_roi,
             write_roi=write_roi,
             check_fn=lambda b: self.check_fn(b),
+            fit='shrink',
             )
 
     def worker_function(self, block):
@@ -154,6 +152,10 @@ if __name__ == "__main__":
         ap.add_argument("output_dataset", type=str, help='')
         ap.add_argument(
             "--write_size", type=int, help='zyx size in pixel',
+            nargs='+', default=None)
+        ap.add_argument(
+            "--scheduling_block_size_mult", type=int,
+            help='zyx size in pixel, must be multiples of write_size',
             nargs='+', default=None)
         ap.add_argument(
             "--max_voxel_count", type=int, help='zyx size in pixel',
