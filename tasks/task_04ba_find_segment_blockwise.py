@@ -32,9 +32,6 @@ class FindSegmentsBlockwiseTask2a(task_helper.SlurmTask):
         '''Daisy calls `prepare` for each task prior to scheduling
         any block.'''
 
-        super_block_size = (
-            daisy.Coordinate(self.block_size) * tuple(self.super_chunk_size))
-
         fragments = daisy.open_ds(self.fragments_file, self.fragments_dataset)
         if self.sub_roi_offset is not None and self.sub_roi_shape is not None:
             total_roi = daisy.Roi(
@@ -43,33 +40,34 @@ class FindSegmentsBlockwiseTask2a(task_helper.SlurmTask):
             total_roi = fragments.roi
         assert fragments.roi.contains(total_roi)
 
+        super_block_size = (
+            daisy.Coordinate(self.block_size) * tuple(self.super_chunk_size))
         read_roi = daisy.Roi((0,)*total_roi.dims(), super_block_size)
         write_roi = read_roi
 
-        # lut_dir_src = self.lut_dir
-        lut_dir_out = os.path.join(self.fragments_file, self.lut_dir)
-        lut_dir_src = lut_dir_out
+        lut_dir_subseg = os.path.join(self.fragments_file, self.lut_dir)
+        lut_dir_local = lut_dir_subseg
         super_lut_dir = 'super_%dx%dx%d_%s' % (
             self.super_chunk_size[0], self.super_chunk_size[1], self.super_chunk_size[2],
             self.merge_function)
-        lut_dir_out = os.path.join(lut_dir_out, super_lut_dir)
+        lut_dir_subseg = os.path.join(lut_dir_subseg, super_lut_dir)
 
         for threshold in self.thresholds:
-            threshold_dir = lut_dir_out + '_%d' % int(threshold*100)
+            threshold_dir = lut_dir_subseg + '_%d' % int(threshold*100)
             os.makedirs(os.path.join(threshold_dir, "seg_local2super"), exist_ok=True)
             os.makedirs(os.path.join(threshold_dir, "nodes_super"), exist_ok=True)
             os.makedirs(os.path.join(threshold_dir, "edges_super2local"), exist_ok=True)
 
         self.last_threshold = self.thresholds[-1]
-        self.lut_dir_out = lut_dir_out
+        self.lut_dir_subseg = lut_dir_subseg
         # global_roi = fragments.roi
 
         config = {
             'db_host': self.db_host,
             'db_name': self.db_name,
             # 'fragments_file': self.fragments_file,
-            'lut_dir_out': self.lut_dir_out,
-            'lut_dir_src': lut_dir_src,
+            'lut_dir_subseg': self.lut_dir_subseg,
+            'lut_dir_local': lut_dir_local,
             'merge_function': self.merge_function,
             # 'edges_collection': self.edges_collection,
             'super_chunk_size': self.super_chunk_size,
@@ -103,7 +101,7 @@ class FindSegmentsBlockwiseTask2a(task_helper.SlurmTask):
 
     def block_done(self, block):
 
-        lut_dir = self.lut_dir_out + '_%d' % int(self.last_threshold*100)
+        lut_dir = self.lut_dir_subseg + '_%d' % int(self.last_threshold*100)
         lookup = 'edges_super2local/%d.npz' % block.block_id
         out_file = os.path.join(lut_dir, lookup)
         logger.debug("Checking %s" % out_file)

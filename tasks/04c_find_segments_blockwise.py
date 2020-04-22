@@ -28,6 +28,7 @@ def find_segments(
         # total_roi,
         thresholds,
         **kwargs):
+    '''Computing the global connected component LUTs'''
 
     lut_dir = os.path.join(
         fragments_file,

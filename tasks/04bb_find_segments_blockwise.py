@@ -27,6 +27,7 @@ def replace_fragment_ids(
         run_type=None,
         block_id=None,
         **kwargs):
+    '''Compute subsegment2subsegment edges'''
 
     base_lut_dir_out = lut_dir
 

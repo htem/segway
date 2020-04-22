@@ -14,6 +14,12 @@ try:
     f = global_config["Input"]["output_file"]
     raw_file = global_config["Input"]["raw_file"]
 
+    if "ExtractFragmentTask" in global_config and \
+        "affs_file" in global_config["ExtractFragmentTask"]:
+            affs_file = global_config["ExtractFragmentTask"]["affs_file"]
+    else:
+        affs_file = f
+
 except Exception as e:
 
     print(e)
@@ -120,7 +126,7 @@ with viewer.txn() as s:
 
     add_layer(s, raw, 'raw')
 
-    add_layer(s, daisy.open_ds(f, 'volumes/affs'), 'affs', shader='rgb')
+    add_layer(s, daisy.open_ds(affs_file, 'volumes/affs'), 'affs', shader='rgb')
     try: add_layer(s, daisy.open_ds(f, 'volumes/myelin'), 'myelin', visible=False)
     except: pass
     add_layer(s, daisy.open_ds(f, 'volumes/fragments'), 'frag', visible=False)

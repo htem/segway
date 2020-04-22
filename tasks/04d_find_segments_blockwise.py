@@ -25,6 +25,8 @@ def remap_in_block(
         threshold,
         global_lut=None,
         chunk_size=None):
+    '''Remap local subsegment IDs to global segment IDs using the global
+    connected component LUTs computed in step 04c'''
 
     logging.info("Received block %s" % block)
 
