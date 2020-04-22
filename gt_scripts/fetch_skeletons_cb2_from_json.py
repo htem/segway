@@ -100,6 +100,12 @@ if __name__ == "__main__":
     project_id = 2  # CB2 main project ID
     script_name = config["script_name"]
 
+    if "skeleton_url" in config and "catmaid_key" in config:
+        client = catpy.CatmaidClient(
+            config["skeleton_url"],
+            config["catmaid_key"]
+        )
+
     if "skeleton_project_id" in config:
         project_id = config["skeleton_project_id"]
         print("Fetching skeletons for %s" % script_name)

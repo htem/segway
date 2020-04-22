@@ -15,7 +15,10 @@ script_name = script_name.split(".")[0]
 try:
     cutout_ds = daisy.open_ds(config["raw_file"], config["raw_ds"])
 except:
-    path = config["zarr"]["dir"] + "/" + script_name + ".zarr"
+    path = os.path.join(
+        os.path.split(config_f)[0],
+        config["zarr"]["dir"],
+        script_name + ".zarr")
     print(path)
     cutout_ds = daisy.open_ds(
         path, "volumes/raw")

@@ -21,6 +21,7 @@ viewer = gt_tools.make_ng_viewer()
 with viewer.txn() as s:
 
     add_layer(s, raw, 'raw')
+    add_layer(s, daisy.open_ds(f, 'volumes/affs'), 'affs', visible=True)
     add_layer(s, daisy.open_ds(f, config['segment_ds']), 'original_seg', visible=False)
     add_layer(s, daisy.open_ds(f, config['segmentation_skeleton_ds']), 'corrected_seg')
     add_layer(s, daisy.open_ds(f, 'volumes/fragments'), 'fragments', visible=False)
