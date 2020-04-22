@@ -57,7 +57,9 @@ class FindSegmentsBlockwiseTask(task_helper.SlurmTask):
             if self.filedb_roi_offset is None:
                 self.filedb_roi_offset = fragments.roi.get_begin()
 
-        assert fragments.roi.contains(total_roi)
+        assert fragments.roi.contains(total_roi), (
+                "fragments.roi %s does not contain total_roi %s" % (
+                    fragments.roi, total_roi))
 
         if self.db_file is None:
             self.db_file = self.fragments_file
