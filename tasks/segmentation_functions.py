@@ -113,13 +113,16 @@ def get_segmentation(rag, threshold, fragments):
     # relabel fragments of the same connected components to match merged RAG
     get_segmentation_relabel(fragments, components, segments)
 
+
 def agglomerate_in_block(
         affs,
         fragments,
         roi,
         rag,
         merge_function="hist_quant_50",
-        threshold=1.0):
+        threshold=1.0,
+        unmerge_list=None,
+        ):
 
     # logger.info(
     #     "Agglomerating in block %s with context of %s",
@@ -144,9 +147,20 @@ def agglomerate_in_block(
 
     # waterz uses memory proportional to the max label in fragments, therefore
     # we relabel them here and use those
-    fragments_relabelled, n, fragment_relabel_map = relabel(
+    fragments_relabelled, n, fragment_relabel_map, forward_relabel_map = relabel(
         fragments,
-        return_backwards_map=True)
+        return_backwards_map=True,
+        return_forward_map=True)
+
+    # print(forward_relabel_map); exit()
+
+    if unmerge_list:
+        for group_tuple in unmerge_list:
+            for group in group_tuple:
+                for i in range(len(group)):
+                    group[i] = forward_relabel_map[group[i]]
+
+    # print(unmerge_list); exit()
 
     logger.debug("affs shape: %s", affs.shape)
     logger.debug("fragments shape: %s", fragments.shape)
@@ -171,7 +185,8 @@ def agglomerate_in_block(
             scoring_function=merge_function,
             discretize_queue=256,
             return_merge_history=True,
-            return_region_graph=True)
+            return_region_graph=True,
+            unmerge_group_list_tuple_list=unmerge_list)
 
     # add edges to RAG
     _, _, initial_rag = next(generator)
@@ -219,9 +234,8 @@ def segment(
         segmentation_dss
         ):
 
-    total_roi = roi
-    logging.info("Reading fragments and RAG in %s" % total_roi)
-    fragments = fragments[total_roi]
+    logging.info("Reading fragments and RAG in %s" % roi)
+    fragments = fragments[roi]
     logging.info("Number of nodes in RAG: %d" % (len(rag.nodes())))
     logging.info("Number of edges in RAG: %d" % (len(rag.edges())))
 
@@ -240,7 +254,7 @@ def segment(
             "%s: merged" % datetime.datetime.now()
             )
         logging.info("Writing segmentation for threshold %f..." % threshold)
-        segmentation[total_roi] = segmentation_data
+        segmentation[roi] = segmentation_data
 
 
 def pooling(mat, ksize, method, pad=False):
