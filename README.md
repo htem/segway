@@ -14,7 +14,7 @@ Add these to your ~/.bashrc:
 
 ### On Lee Lab's local computers (gpu0/gpu1/dwalin/balin):
 
-`alias activatedaisy='source /home/tmn7/daisy/bin/activate'`
+`alias activatedaisy='source /n/groups/htem/users/tmn7/envs/ubuntu180402/bin/activate'`
 
 
 ## Manual setup for a new python virtual environment
