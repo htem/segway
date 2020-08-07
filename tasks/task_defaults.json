@@ -12,7 +12,10 @@
 
     "SynfulNetwork":
         {
-            "name": "dummy_synful_network"
+            "name": "dummy_synful_network",
+            "iteration": 100000,
+            "name1": "dummy_synful_network",
+            "iteration1": 100000
         },
 
     "Network":

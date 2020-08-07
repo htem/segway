@@ -131,10 +131,10 @@ with viewer.txn() as s:
 
     add_layer(s, raw, 'raw')
 
-    add_layer(s, daisy.open_ds(synful_f, 'volumes/pred_syn_indicator'), 'syn_indicator')
+    add_layer(s, daisy.open_ds(synful_f, 'volumes/pred_dcv_indicator'), 'syn_indicator')
     # try: add_layer(s, daisy.open_ds(f, 'volumes/pred_partner_vectors'), 'vector')
     # except: pass
-    segment = daisy.open_ds(synful_f, 'volumes/pred_syn_indicator')
+    segment = daisy.open_ds(synful_f, 'volumes/pred_dcv_indicator')
     s.navigation.position.voxelCoordinates = np.flip(
         ((segment.roi.get_begin() + segment.roi.get_end()) / 2 / segment.voxel_size))
 

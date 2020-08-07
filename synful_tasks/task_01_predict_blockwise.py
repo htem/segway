@@ -1,15 +1,9 @@
-# from funlib.run import run
-# import hashlib
 import json
 import logging
 import os
 import sys
-# import time
-# import glob
 
 import daisy
-# import numpy as np
-# import pymongo
 
 from segway.tasks import task_helper2 as task_helper
 

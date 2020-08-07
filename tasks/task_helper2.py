@@ -1,3 +1,4 @@
+import copy
 import datetime
 import json
 import logging
@@ -370,11 +371,18 @@ def aggregateConfigs(configs):
     parameters['month'] = '%02d' % today.month
     parameters['day'] = '%02d' % today.day
     parameters['network'] = network_config['name']
-    parameters['synapse_network'] = synapse_network_config['name']
+    parameters['synful_network'] = synapse_network_config['name']
+    parameters['synful_network1'] = synapse_network_config['name1']
     parameters['iteration'] = network_config['iteration']
+    parameters['synful_iteration'] = synapse_network_config['iteration']
+    parameters['synful_iteration1'] = synapse_network_config['iteration1']
     config_filename = input_config['config_filename']
-    # proj is just the last folder in the config path
-    parameters['proj'] = config_filename.split('/')[-2]
+
+    parameters['proj'] = input_config.get('proj', '')
+    if parameters['proj'] == '':
+        # proj is just the last folder in the config path
+        parameters['proj'] = config_filename.split('/')[-2]
+
     script_name = config_filename.split('/')[-1].split('.')
     if len(script_name) > 2:
         raise RuntimeError("script_name name %s cannot have more than two `.`")
@@ -388,20 +396,43 @@ def aggregateConfigs(configs):
     input_config["experiment"] = input_config["experiment"].format(**parameters)
     parameters['experiment'] = input_config["experiment"]
 
-    input_config["output_file"] = input_config["output_file"].format(**parameters)
+    # input_config["output_file"] = input_config["output_file"].format(**parameters)
 
-    output_path = input_config["output_file"]
-    if not os.path.exists(output_path):
-        output_path = os.path.join(script_dir, output_path)
-    output_path = os.path.abspath(output_path)
-    # print(output_path); exit(0)
-    if output_path.startswith("/mnt/orchestra_nfs/"):
-        output_path = output_path[len("/mnt/orchestra_nfs/"):]
-        output_path = "/n/groups/htem/" + output_path
+    input_config_synful = copy.deepcopy(input_config)
+    input_config_synful1 = copy.deepcopy(input_config)
+    parameters_synful = copy.deepcopy(parameters)
+    parameters_synful['network'] = parameters_synful['synful_network']
+    parameters_synful['iteration'] = parameters_synful['synful_iteration']
+    parameters_synful1 = copy.deepcopy(parameters)
+    parameters_synful1['network'] = parameters_synful1['synful_network1']
+    parameters_synful1['iteration'] = parameters_synful1['synful_iteration1']
 
     for config in input_config:
         if isinstance(input_config[config], str):
             input_config[config] = input_config[config].format(**parameters)
+    # print(input_config_synful); exit()
+    # print(parameters_synful); exit()
+    for config in input_config_synful:
+        if isinstance(input_config_synful[config], str):
+            input_config_synful[config] = input_config_synful[config].format(**parameters_synful)
+    # print(input_config_synful); exit()
+    for config in input_config_synful1:
+        if isinstance(input_config_synful1[config], str):
+            input_config_synful1[config] = input_config_synful1[config].format(**parameters_synful1)
+
+    configs["output_file"] = input_config["output_file"]
+    configs["synful_output_file"] = input_config_synful["output_file"]
+    configs["synful_output_file1"] = input_config_synful1["output_file"]
+
+    for path_name in ["output_file", "synful_output_file", "synful_output_file1"]:
+
+        output_path = configs[path_name]
+        if not os.path.exists(output_path):
+            output_path = os.path.join(script_dir, output_path)
+        output_path = os.path.abspath(output_path)
+        if output_path.startswith("/mnt/orchestra_nfs/"):
+            output_path = output_path[len("/mnt/orchestra_nfs/"):]
+            output_path = "/n/groups/htem/" + output_path
 
     os.makedirs(input_config['log_dir'], exist_ok=True)
 
@@ -417,8 +448,6 @@ def aggregateConfigs(configs):
         if "Task" not in config:
             # print("Skipping %s" % config)
             continue
-
-        # print("Copying defaults for ", config)
 
         config = configs[config]
         copyParameter(input_config, config, 'db_name')
@@ -523,44 +552,6 @@ def aggregateConfigs(configs):
         config['edges_collection'] = "edges_" + merge_function
         copyParameter(input_config, config, 'db_file_name')
 
-    # if "SegmentationTask" in configs:
-    #     config = configs["SegmentationTask"]
-    #     config['fragments_file'] = input_config['output_file']
-    #     if 'out_file' not in config:
-    #         config['out_file'] = input_config['output_file']
-    #     config['edges_collection'] = "edges_" + merge_function
-
-    # if "GrowSegmentationTask" in configs:
-    #     config = configs["GrowSegmentationTask"]
-    #     config['fragments_file'] = input_config['output_file']
-    #     config['out_file'] = input_config['output_file']
-
-    # if "SparseSegmentationServer" in configs:
-    #     config = configs["SparseSegmentationServer"]
-    #     config['fragments_file'] = input_config['output_file']
-    #     config['segment_file'] = input_config['output_file']
-
-    # if "BlockwiseSegmentationTask" in configs:
-    #     config = configs["BlockwiseSegmentationTask"]
-    #     config['fragments_file'] = input_config['output_file']
-    #     config['out_file'] = input_config['output_file']
-
-    # if "SplitFixTask" in configs:
-    #     config = configs["SplitFixTask"]
-    #     config['fragments_file'] = input_config['output_file']
-    #     config['segment_file'] = input_config['output_file']
-    #     config['out_file'] = input_config['output_file']
-
-    # if "FixMergeTask" in configs:
-    #     config = configs["FixMergeTask"]
-    #     config['fragments_file'] = input_config['output_file']
-    #     config['segment_file'] = input_config['output_file']
-    #     # config['out_file'] = input_config['output_file']
-
-    # if "FindSegmentTask" in configs:
-    #     config = configs["FindSegmentTask"]
-    #     copyParameter(input_config, config, 'output_file', 'fragments_file')
-
     if "FindSegmentsBlockwiseTask" in configs:
         config = configs["FindSegmentsBlockwiseTask"]
         copyParameter(input_config, config, 'output_file', 'fragments_file')
@@ -632,26 +623,29 @@ def aggregateConfigs(configs):
 
     if "PredictSynapseTask" in configs:
         config = configs["PredictSynapseTask"]
-        config['raw_file'] = input_config['raw_file']
-        config['raw_dataset'] = input_config['raw_dataset']
+        os.makedirs(input_config_synful['log_dir'], exist_ok=True)
+        # print(input_config_synful); exit()
+        config['raw_file'] = input_config_synful['raw_file']
+        config['raw_dataset'] = input_config_synful['raw_dataset']
         if 'out_file' not in config:
-            config['out_file'] = input_config['output_file']
+            config['out_file'] = input_config_synful['output_file']
         copyParameter(network_config, config, 'train_dir')
         copyParameter(network_config, config, 'iteration')
-        config['log_dir'] = input_config['log_dir']
+        config['log_dir'] = input_config_synful['log_dir']
         copyParameter(network_config, config, 'net_voxel_size')
-        config['predict_file'] = 'segway/synful_tasks/predict.py'
+        config['predict_file'] = network_config.get(
+            'predict_file', 'segway/synful_tasks/predict.py')
         copyParameter(network_config, config, 'predict_file')
         copyParameter(network_config, config, 'xy_downsample')
-        copyParameter(input_config, config, 'roi_offset')
-        copyParameter(input_config, config, 'roi_shape')
-        copyParameter(input_config, config, 'sub_roi_offset')
-        copyParameter(input_config, config, 'sub_roi_shape')
-        copyParameter(input_config, config, 'delete_section_list')
-        copyParameter(input_config, config, 'replace_section_list')
-        copyParameter(input_config, config, 'overwrite_sections')
-        copyParameter(input_config, config, 'overwrite_mask_f')
-        copyParameter(input_config, config, 'center_roi_offset')
+        copyParameter(input_config_synful, config, 'roi_offset')
+        copyParameter(input_config_synful, config, 'roi_shape')
+        copyParameter(input_config_synful, config, 'sub_roi_offset')
+        copyParameter(input_config_synful, config, 'sub_roi_shape')
+        copyParameter(input_config_synful, config, 'delete_section_list')
+        copyParameter(input_config_synful, config, 'replace_section_list')
+        copyParameter(input_config_synful, config, 'overwrite_sections')
+        copyParameter(input_config_synful, config, 'overwrite_mask_f')
+        copyParameter(input_config_synful, config, 'center_roi_offset')
         copyParameter(network_config, config, 'out_properties')
 
     if "ExtractSynapsesTask" in configs:
@@ -666,27 +660,28 @@ def aggregateConfigs(configs):
 
     if "PredictSynapseDirTask" in configs:
         config = configs["PredictSynapseDirTask"]
-        config['raw_file'] = input_config['raw_file']
-        config['raw_dataset'] = input_config['raw_dataset']
+        os.makedirs(input_config_synful1['log_dir'], exist_ok=True)
+        config['raw_file'] = input_config_synful1['raw_file']
+        config['raw_dataset'] = input_config_synful1['raw_dataset']
         if 'out_file' not in config:
-            config['out_file'] = input_config['output_file']
+            config['out_file'] = input_config_synful1['output_file']
         copyParameter(network_config, config, 'train_dir1', 'train_dir')
         copyParameter(network_config, config, 'iteration1', 'iteration')
         copyParameter(network_config, config, 'out_properties1', 'out_properties')
-        config['log_dir'] = input_config['log_dir']
+        config['log_dir'] = input_config_synful1['log_dir']
         copyParameter(network_config, config, 'net_voxel_size')
         config['predict_file'] = 'segway/synful_tasks/predict.py'
         copyParameter(network_config, config, 'predict_file')
         copyParameter(network_config, config, 'xy_downsample')
-        copyParameter(input_config, config, 'roi_offset')
-        copyParameter(input_config, config, 'roi_shape')
-        copyParameter(input_config, config, 'sub_roi_offset')
-        copyParameter(input_config, config, 'sub_roi_shape')
-        copyParameter(input_config, config, 'delete_section_list')
-        copyParameter(input_config, config, 'replace_section_list')
-        copyParameter(input_config, config, 'overwrite_sections')
-        copyParameter(input_config, config, 'overwrite_mask_f')
-        copyParameter(input_config, config, 'center_roi_offset')
+        copyParameter(input_config_synful1, config, 'roi_offset')
+        copyParameter(input_config_synful1, config, 'roi_shape')
+        copyParameter(input_config_synful1, config, 'sub_roi_offset')
+        copyParameter(input_config_synful1, config, 'sub_roi_shape')
+        copyParameter(input_config_synful1, config, 'delete_section_list')
+        copyParameter(input_config_synful1, config, 'replace_section_list')
+        copyParameter(input_config_synful1, config, 'overwrite_sections')
+        copyParameter(input_config_synful1, config, 'overwrite_mask_f')
+        copyParameter(input_config_synful1, config, 'center_roi_offset')
 
 
 def compute_compatible_roi(
