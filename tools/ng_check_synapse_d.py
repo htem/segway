@@ -8,6 +8,16 @@ from funlib.show.neuroglancer import add_layer
 import segway.tasks.task_helper2 as task_helper
 from segway.gt_scripts import gt_tools
 
+
+def open_ds_wrapper(path, ds_name):
+    """Returns None if ds_name does not exists """
+    try:
+        return daisy.open_ds(path, ds_name)
+    except KeyError:
+        print('dataset %s could not be loaded' % ds_name)
+        return None
+
+
 neuroglancer.set_server_bind_address('0.0.0.0')
 
 try:
@@ -127,14 +137,35 @@ def add(s, a, name, shader=None):
 
 viewer = gt_tools.make_ng_viewer()
 
+
+pred_dirvector = open_ds_wrapper(synful_f1,
+                                 'volumes/pred_partner_vectors')
+
 with viewer.txn() as s:
 
     add_layer(s, raw, 'raw')
 
-    add_layer(s, daisy.open_ds(synful_f, 'volumes/pred_syn_indicator'), 'syn_indicator')
+    # add_layer(s, daisy.open_ds(synful_f, 'volumes/pred_syn_indicator'), 'syn_indicator')
     # try: add_layer(s, daisy.open_ds(f, 'volumes/pred_partner_vectors'), 'vector')
     # except: pass
-    segment = daisy.open_ds(synful_f, 'volumes/pred_syn_indicator')
+
+    if pred_dirvector is not None:
+        scale_factor = 4  # it is 4 in cb2 prediction
+        pred_dirvector.data = np.array(pred_dirvector.data, dtype=np.float32)
+        pred_dirvector.data = pred_dirvector.data*4
+
+        nmfactor = 1 if np.max(
+            pred_dirvector.data) > 10 else 200  # shader scaling assumed dir vecs in nm
+        clipvalue = 100
+        # clamp: values are clipped, otherwise not enough signal
+        pred_shader = """void main() {{ emitRGB(vec3((
+            clamp(getDataValue(0)*{0}., -{1:.2f}, {1:.2f})+{1:.2f})/{2:.2f}, (
+            clamp(getDataValue(1)*{0}., -{1:.2f}, {1:.2f})+{1:.2f})/{2:.2f}, (
+            clamp(getDataValue(2)*{0}., -{1:.2f}, {1:.2f})+{1:.2f})/{2:.2f})); }}""".format(
+            str(nmfactor), clipvalue, clipvalue * 2)
+        add_layer(s, pred_dirvector, 'pred_dirvec', shader=pred_shader)
+
+    segment = daisy.open_ds(synful_f, 'volumes/pred_partner_vectors')
     s.navigation.position.voxelCoordinates = np.flip(
         ((segment.roi.get_begin() + segment.roi.get_end()) / 2 / segment.voxel_size))
 

@@ -112,14 +112,14 @@ def load_config(config_f, no_db=False, no_zarr=False):
             config[f] = file
 
     script_name = config["script_name"]
-
     working_dir = os.path.split(file)[0]
+    # script_dir = os.path.split(config_f)[0]
 
     if "out_file" not in config:
         out_file = working_dir + "/" + script_name + ".zarr"
         config["out_file"] = out_file
-    if not os.path.exists(config["out_file"]):
-        config["out_file"] = os.path.join(script_dir, config["out_file"])
+    # if not os.path.exists(config["out_file"]):
+    #     config["out_file"] = os.path.join(script_dir, config["out_file"])
 
     if "raw_file" not in config:
         raw_file = working_dir + "/" + script_name + ".zarr"
@@ -153,7 +153,10 @@ def load_config(config_f, no_db=False, no_zarr=False):
     return config
 
 
-def add_ng_layer(s, a, name, shader=None):
+def add_ng_layer(s, a, name, shader=None, **kwargs):
+
+    if shader == 'default':
+        shader="""void main() { emitGrayscale(toNormalized(getDataValue())); }"""
 
     if shader == 'rgb':
         shader="""void main() { emitRGB(vec3(toNormalized(getDataValue(0)), toNormalized(getDataValue(1)), toNormalized(getDataValue(2)))); }"""
@@ -164,8 +167,24 @@ def add_ng_layer(s, a, name, shader=None):
     if shader == '1':
         shader="""void main() { emitGrayscale(float(getDataValue().value)*float(255)); }"""
 
-    kwargs = {}
+    if shader == 'thresh_top50percent':
+        shader="""void main() { emitGrayscale(step(0.5, toNormalized(getDataValue()))); }"""
+
+    if shader == 'ramp_top20percent':
+        shader="""void main() { emitGrayscale((toNormalized(getDataValue())-float(0.8))*float(5)); }"""
+
+    if shader == 'overlay_purple':
+        shader="""void main() { emitRGBA(vec4(1, 0, 1, toNormalized(getDataValue()))); }"""
+
+    if shader == 'overlay_purple_ramp_top20percent':
+        shader="""void main() { emitRGBA(vec4(1, 0, 1, (toNormalized(getDataValue())-float(0.8))*float(5))); }"""
+
+    if shader == 'overlay_green':
+        shader="""void main() { emitRGBA(vec4(0, 1, 0, toNormalized(getDataValue()))); }"""
+
+    #kwargs = {}
     if shader is not None:
+       # print(f'Shader: {shader}')
         kwargs['shader'] = shader
 
     s.layers.append(
@@ -193,6 +212,7 @@ def print_ng_link(viewer):
     for alias, ip in ip_mapping:
         if alias in link:
             print(link.replace(alias, ip))
+
 
 def make_ng_viewer(unsynced=False, public=True):
 

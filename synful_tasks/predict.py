@@ -6,6 +6,11 @@ import os
 import glob
 import sys
 
+import gpu_utils
+if "CUDA_VISIBLE_DEVICES" not in os.environ:
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_utils.pick_random_gpu_lowest_memory())
+print("Running script on GPU #%s" % os.environ["CUDA_VISIBLE_DEVICES"])
+
 import gunpowder as gp
 from gunpowder import Coordinate
 # import numpy as np
