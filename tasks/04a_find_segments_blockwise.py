@@ -196,7 +196,9 @@ def find_segments(
         v_array = np.array([0], dtype=np.uint64)
         edges = np.array([[0, 0]], dtype=np.uint64)
 
-        return
+        print(f"ERROR: block {block_id} somehow has no edges, or is not agglomerated")
+
+        return 1
 
     if 'merge_score' in edge_attrs:
         scores = edge_attrs['merge_score'].astype(np.float32)
@@ -325,6 +327,9 @@ if __name__ == "__main__":
 
         for key in run_config:
             globals()['%s' % key] = run_config[key]
+
+        if run_config.get('block_id_add_one_fix', False):
+            daisy.block.Block.BLOCK_ID_ADD_ONE_FIX = True
 
         print("WORKER: Running with context %s"%os.environ['DAISY_CONTEXT'])
         client_scheduler = daisy.Client()

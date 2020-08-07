@@ -1,7 +1,7 @@
 
-f="/n/pure/htem/Segmentation/cb2_v4/output.zarr"
+f="/n/f810/htem/Segmentation/cb2_v4/output.zarr"
 ds="volumes/super_1x2x2_segmentation_0.500"
-output_file='/n/pure/htem/Segmentation/cb2_v4/output.zarr'
+output_file='/n/f810/htem/Segmentation/cb2_v4/output.zarr'
 roi_offset='2800 114688 131072'
 roi_shape='44000 425984 786432'
 

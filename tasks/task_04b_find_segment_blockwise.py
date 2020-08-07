@@ -27,6 +27,7 @@ class FindSegmentsBlockwiseTask2(task_helper.SlurmTask):
     sub_roi_shape = daisy.Parameter(None)
 
     block_size = daisy.Parameter([4000, 4096, 4096])
+    block_id_add_one_fix = daisy.Parameter(False)
 
     def prepare(self):
         '''Daisy calls `prepare` for each task prior to scheduling
@@ -67,7 +68,8 @@ class FindSegmentsBlockwiseTask2(task_helper.SlurmTask):
             'total_roi_shape': total_roi.get_shape(),
             # 'num_workers': self.num_workers,
             'thresholds': self.thresholds,
-            'block_size': self.block_size
+            'block_size': self.block_size,
+            'block_id_add_one_fix': self.block_id_add_one_fix,
         }
         self.slurmSetup(
             config,
@@ -88,7 +90,8 @@ class FindSegmentsBlockwiseTask2(task_helper.SlurmTask):
             fit='shrink')
 
     def requires(self):
-        if self.no_check_dependency and not self.overwrite:
+        # if self.no_check_dependency and not self.overwrite:
+        if self.no_check_dependency:
             return []
         return [FindSegmentsBlockwiseTask(global_config=self.global_config)]
 
@@ -107,6 +110,12 @@ class FindSegmentsBlockwiseTask2(task_helper.SlurmTask):
 if __name__ == "__main__":
 
     user_configs, global_config = task_helper.parseConfigs(sys.argv[1:])
+
+    if global_config["Input"].get('block_id_add_one_fix', False):
+        # fix for cb2_v4 dataset where one (1) was used for the first block id
+        # future datasets should just use zero (0)
+        daisy.block.Block.BLOCK_ID_ADD_ONE_FIX = True
+        global_config["FindSegmentsBlockwiseTask2"]['block_id_add_one_fix'] = True
 
     daisy.distribute(
         [{'task': FindSegmentsBlockwiseTask2(global_config=global_config,

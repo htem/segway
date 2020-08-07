@@ -38,6 +38,7 @@ class PredictIlastikTask(task_helper.SlurmTask):
 
     clamp_threshold = daisy.Parameter(0)
     replace_section_list = daisy.Parameter([])
+    block_id_add_one_fix = daisy.Parameter(False)
 
     # user provided myelin gt
     user_gt = daisy.Parameter(None)
@@ -107,6 +108,7 @@ class PredictIlastikTask(task_helper.SlurmTask):
             'ilastik_project_path': self.ilastik_project_path,
             'clamp_threshold': self.clamp_threshold,
             'replace_section_list': self.replace_section_list,
+            'block_id_add_one_fix': self.block_id_add_one_fix,
         }
 
         self.slurmSetup(

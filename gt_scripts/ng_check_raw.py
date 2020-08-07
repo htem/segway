@@ -13,7 +13,10 @@ else:
 if raw_file[-1] == '/':
     raw_file = raw_file[:-1]
 
-raw = daisy.open_ds(raw_file, 'volumes/raw')
+try:
+   raw = daisy.open_ds(raw_file, 'volumes/raw')
+except:
+   raw = daisy.open_ds(raw_file, 'raw')
 
 viewer = gt_tools.make_ng_viewer()
 

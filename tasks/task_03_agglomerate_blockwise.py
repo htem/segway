@@ -4,6 +4,7 @@ import logging
 import numpy as np
 import sys
 import os
+# sys.path.insert(0, '/n/groups/htem/Segmentation/tmn7/daisy')
 import daisy
 import task_helper2 as task_helper
 from task_02_extract_fragments import ExtractFragmentTask
@@ -83,9 +84,9 @@ class AgglomerateTask(task_helper.SlurmTask):
     merge_function = daisy.Parameter()
     threshold = daisy.Parameter(default=1.0)
     edges_collection = daisy.Parameter() # debug
-    
     sub_roi_offset = daisy.Parameter(None)
     sub_roi_shape = daisy.Parameter(None)
+    block_id_add_one_fix = daisy.Parameter(False)
 
     def prepare(self):
         '''Daisy calls `prepare` for each task prior to scheduling
@@ -170,6 +171,7 @@ class AgglomerateTask(task_helper.SlurmTask):
             'filedb_edges_chunk_size': self.filedb_edges_chunk_size,
             'filedb_roi_offset': self.filedb_roi_offset,
             'filedb_edges_roi_offset': self.filedb_edges_roi_offset,
+            'block_id_add_one_fix': self.block_id_add_one_fix,
         }
         self.slurmSetup(config, 'actor_agglomerate.py')
 
@@ -190,27 +192,20 @@ class AgglomerateTask(task_helper.SlurmTask):
 
     def block_done(self, block):
 
+        db_count = self.completion_db.count({'block_id': block.block_id})
+        if db_count == 0:
+            return False
+
         # checking with DB is somehow not reliable
-        check_db = False
-        if check_db:
-            if self.completion_db.count({'block_id': block.block_id}) >= 1:
-                logger.debug("Skipping block with db check")
-                return True
+        # if db_count:
+        #     logger.debug("Skipping block with db check")
+        #     return True
 
-        for shrink_pct in [.975, .90, .75, .5, 0]:
-
-            roi = shrink_roi(block.write_roi, shrink_pct)
-            if self.rag_provider.has_edges(roi):
-                return True
-
-            if shrink_pct == .5:
-                return False
-
-            if self.rag_provider.num_nodes(roi) >= 2:
-                return False
+        if self.rag_provider.has_edges(block.write_roi):
+            return True
 
         # no nodes found, means an error in fragment extract; skip
-        return True
+        return False
 
     def requires(self):
         if self.no_check_dependency:
@@ -223,6 +218,12 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
     user_configs, global_config = task_helper.parseConfigs(sys.argv[1:])
+
+    if global_config["Input"].get('block_id_add_one_fix', False):
+        # fix for cb2_v4 dataset where one (1) was used for the first block id
+        # future datasets should just use zero (0)
+        daisy.block.Block.BLOCK_ID_ADD_ONE_FIX = True
+        global_config["AgglomerateTask"]['block_id_add_one_fix'] = True
 
     req_roi = None
     if "request_offset" in global_config["Input"]:

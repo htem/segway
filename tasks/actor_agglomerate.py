@@ -4,6 +4,7 @@ import logging
 import numpy as np
 import sys
 
+# sys.path.insert(0, '/home/tmn7/segmentation/tri/daisy')
 import daisy
 # import lsd
 from lsd.parallel_aff_agglomerate import agglomerate_in_block
@@ -22,6 +23,9 @@ if __name__ == "__main__":
 
     for key in run_config:
         globals()['%s' % key] = run_config[key]
+
+    if run_config.get('block_id_add_one_fix', False):
+        daisy.block.Block.BLOCK_ID_ADD_ONE_FIX = True
 
     waterz_merge_function = {
         'hist_quant_10': 'OneMinus<HistogramQuantileAffinity<RegionGraphType, 10, ScoreValue, 256, false>>',
@@ -64,6 +68,7 @@ if __name__ == "__main__":
             edges_roi_offset=filedb_edges_roi_offset,
             )
     else:
+        assert False, "Deprecated"
         rag_provider = daisy.persistence.MongoDbGraphProvider(
             db_name,
             host=db_host,

@@ -28,7 +28,9 @@ def find_segments(
         # total_roi,
         thresholds,
         **kwargs):
-    '''Computing the global connected component LUTs'''
+    '''Computing the global connected component LUTs.
+    This step is only necessary for computing whole-dataset segmentation
+    (as opposed to a block-wise segmentation).'''
 
     lut_dir = os.path.join(
         fragments_file,
@@ -112,6 +114,9 @@ if __name__ == "__main__":
 
         for key in run_config:
             globals()['%s' % key] = run_config[key]
+
+        if run_config.get('block_id_add_one_fix', False):
+            daisy.block.Block.BLOCK_ID_ADD_ONE_FIX = True
 
         print("WORKER: Running with context %s"%os.environ['DAISY_CONTEXT'])
         client_scheduler = daisy.Client()

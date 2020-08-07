@@ -6,6 +6,7 @@ from skimage import measure
 import sys
 import struct
 import time
+import pkg_resources
 
 import daisy
 
@@ -132,6 +133,13 @@ class MeshingTask(LaunchableDaisyTask):
         if not os.path.exists(self.output_dir_frag_mesh):
             logger.info("Creating mesh dir %s" % self.output_dir_frag_mesh)
             os.makedirs(self.output_dir_frag_mesh, exist_ok=True)
+
+        # neuroglancer changed quadric error calculations starting with v2
+        # self.is_neuroglancer_v2 = (
+        #     float(pkg_resources.get_distribution("neuroglancer").version) >= 2)
+        self.is_neuroglancer_v2 = (
+            float(pkg_resources.get_distribution("neuroglancer").version[0]) >= 2)
+        assert not self.is_neuroglancer_v2
 
     def schedule_blockwise(self):
 

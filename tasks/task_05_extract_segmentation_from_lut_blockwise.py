@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 
 class ExtractSegmentationFromLUTBlockwiseTask(task_helper.SlurmTask):
     '''Segment .
-
     These seeds are assumed to belong to the same segment.
+    Deprecated, should use task_05_extract_super_fragment_segmentation instead
     '''
 
     fragments_file = daisy.Parameter()

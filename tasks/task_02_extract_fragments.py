@@ -108,8 +108,10 @@ class ExtractFragmentTask(task_helper.SlurmTask):
     dataset_chunks = daisy.Parameter([1, 1, 1])
     database_chunks = daisy.Parameter([1, 1, 1])
 
-    precheck_use_db = daisy.Parameter(False)
+    # check block completion by counting nodes in DB
+    precheck_with_db = daisy.Parameter(False)
     precheck_use_affs = daisy.Parameter(False)
+    block_id_add_one_fix = daisy.Parameter(False)
 
     def prepare(self):
         '''Daisy calls `prepare` for each task prior to scheduling
@@ -200,6 +202,7 @@ class ExtractFragmentTask(task_helper.SlurmTask):
                 nodes_chunk_size=database_blocksize,
                 )
         else:
+            assert False, "Deprecated"
             self.rag_provider = daisy.persistence.MongoDbGraphProvider(
                 self.db_name,
                 host=self.db_host,
@@ -277,6 +280,7 @@ class ExtractFragmentTask(task_helper.SlurmTask):
             'db_file_name': self.db_file_name,
             'filedb_roi_offset': self.filedb_roi_offset,
             'database_blocksize': database_blocksize,
+            'block_id_add_one_fix': self.block_id_add_one_fix,
         }
 
         self.slurmSetup(config, 'actor_fragment_extract.py')
@@ -306,7 +310,7 @@ class ExtractFragmentTask(task_helper.SlurmTask):
     def check(self, block, precheck):
 
         # write_roi = block.write_roi
-        # precheck_use_db
+        # precheck_with_db
         # precheck_use_affs
         if precheck and self.overwrite_sections is not None:
             read_roi_mask = self.overwrite_mask.roi.intersect(block.read_roi)
@@ -326,7 +330,7 @@ class ExtractFragmentTask(task_helper.SlurmTask):
                 except:
                     return False
 
-        if self.precheck_use_db:
+        if self.precheck_with_db:
             # print("block.write_roi:", block.write_roi)
             center = (block.write_roi.get_begin() + block.write_roi.get_end()) / 2
             # shrinked_roi = shrink_roi(block.write_roi, .95)
@@ -368,6 +372,12 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
     user_configs, global_config = task_helper.parseConfigs(sys.argv[1:])
+
+    if global_config["Input"].get('block_id_add_one_fix', False):
+        # fix for cb2_v4 dataset where one (1) was used for the first block id
+        # future datasets should just use zero (0)
+        daisy.block.Block.BLOCK_ID_ADD_ONE_FIX = True
+        global_config["ExtractFragmentTask"]['block_id_add_one_fix'] = True
 
     req_roi = None
     if "request_offset" in global_config["Input"]:

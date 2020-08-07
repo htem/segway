@@ -156,6 +156,11 @@ class ScalePyramidTask(LaunchableDaisyTask):
 
         self.write_size = self.chunk_shape_voxel*out_voxel_size
 
+        scheduling_block_size = self.write_size
+        if self.scheduling_block_size_mult is not None:
+            scheduling_block_size = scheduling_block_size * tuple(self.scheduling_block_size_mult)
+        self.write_roi = daisy.Roi((0, 0, 0), scheduling_block_size)
+
         if sub_roi is not None:
             # with sub_roi, the coordinates are absolute
             # so we'd need to align total_roi to the write size too
@@ -188,11 +193,11 @@ class ScalePyramidTask(LaunchableDaisyTask):
         assert len(self.chunk_shape_voxel) == 3
 
         logger.info(
-            "Rechunking %s/%s to %s/%s with chunk_shape_voxel %s (write_size %s)"
-            % (self.in_file, self.in_ds_name, self.out_file, self.out_ds_name, self.chunk_shape_voxel, self.write_size))
+            "Rechunking %s/%s to %s/%s with chunk_shape_voxel %s (write_size %s, scheduling_bs %s)"
+            % (self.in_file, self.in_ds_name, self.out_file, self.out_ds_name, self.chunk_shape_voxel, self.write_size, self.write_roi))
         logger.info("ROI: %s" % self.schedule_roi)
 
-        write_roi = daisy.Roi((0, 0, 0), self.write_size)
+        write_roi = self.write_roi
         read_roi = write_roi
         total_roi = self.schedule_roi
 
@@ -246,6 +251,10 @@ if __name__ == "__main__":
             nargs='+', default=None)
         ap.add_argument(
             "--roi_shape", type=int, help='',
+            nargs='+', default=None)
+        ap.add_argument(
+            "--scheduling_block_size_mult", type=int,
+            help='zyx size in pixel, must be multiples of write_size',
             nargs='+', default=None)
 
         config = task.parse_args(ap)

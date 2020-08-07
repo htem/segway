@@ -105,6 +105,11 @@ if __name__ == "__main__":
 
     user_configs, global_config = task_helper.parseConfigs(sys.argv[1:])
 
+    if global_config["Input"].get('block_id_add_one_fix', False):
+        # fix for cb2_v4 dataset where one (1) was used for the first block id
+        # future datasets should just use zero (0)
+        daisy.block.Block.BLOCK_ID_ADD_ONE_FIX = True
+
     daisy.distribute(
         [{'task': FindSegmentsBlockwiseTask3(global_config=global_config,
                                              **user_configs),

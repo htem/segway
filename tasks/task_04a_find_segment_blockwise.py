@@ -40,6 +40,7 @@ class FindSegmentsBlockwiseTask(task_helper.SlurmTask):
     indexing_block_size = daisy.Parameter(None)
 
     ignore_degenerates = daisy.Parameter(False)
+    block_id_add_one_fix = daisy.Parameter(False)
 
     def prepare(self):
         '''Daisy calls `prepare` for each task prior to scheduling
@@ -93,6 +94,7 @@ class FindSegmentsBlockwiseTask(task_helper.SlurmTask):
             'filedb_edges_chunk_size': self.filedb_edges_chunk_size,
             'filedb_roi_offset': self.filedb_roi_offset,
             'filedb_edges_roi_offset': self.filedb_edges_roi_offset,
+            'block_id_add_one_fix': self.block_id_add_one_fix,
         }
         self.slurmSetup(
             config,
@@ -138,6 +140,12 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
     user_configs, global_config = task_helper.parseConfigs(sys.argv[1:])
+
+    if global_config["Input"].get('block_id_add_one_fix', False):
+        # fix for cb2_v4 dataset where one (1) was used for the first block id
+        # future datasets should just use zero (0)
+        daisy.block.Block.BLOCK_ID_ADD_ONE_FIX = True
+        global_config["FindSegmentsBlockwiseTask"]['block_id_add_one_fix'] = True
 
     daisy.distribute(
         [{'task': FindSegmentsBlockwiseTask(global_config=global_config,

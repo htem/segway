@@ -14,6 +14,10 @@ from task_04bb_find_segment_blockwise import FindSegmentsBlockwiseTask2b
 logger = logging.getLogger(__name__)
 
 
+def to_ng_coord(coord):
+    return [coord[2]/4, coord[1]/4, coord[0]/40]
+
+
 class ExtractSuperFragmentSegmentationTask(task_helper.SlurmTask):
     '''Segment .
 
@@ -40,6 +44,11 @@ class ExtractSuperFragmentSegmentationTask(task_helper.SlurmTask):
     write_size = daisy.Parameter()
 
     ds_roi_offset = daisy.Parameter(None)
+    block_id_add_one_fix = daisy.Parameter(False)
+
+    precheck_check_sub_blocks = daisy.Parameter(False)
+    read_write_conflict = daisy.Parameter(False)
+    # fix_missing_blocks = daisy.Parameter(False)
 
     def prepare(self):
         '''Daisy calls `prepare` for each task prior to scheduling
@@ -102,6 +111,8 @@ class ExtractSuperFragmentSegmentationTask(task_helper.SlurmTask):
             'block_size': self.block_size,
             'total_roi_offset': total_roi.get_offset(),
             'total_roi_shape': total_roi.get_shape(),
+            'block_id_add_one_fix': self.block_id_add_one_fix,
+            # 'fix_missing_blocks': self.fix_missing_blocks
         }
 
         self.completion_db_class_name = "Task05"
@@ -110,7 +121,7 @@ class ExtractSuperFragmentSegmentationTask(task_helper.SlurmTask):
             '05_super_fragment_segmentation.py',
             completion_db_name_extra="%d" % int(last_threshold*1000))
 
-        check_function = self.check_block
+        check_function = (self.check_block, lambda b: True)
         if self.overwrite:
             check_function = None
 
@@ -121,9 +132,36 @@ class ExtractSuperFragmentSegmentationTask(task_helper.SlurmTask):
             process_function=self.new_actor,
             check_function=check_function,
             num_workers=self.num_workers,
-            read_write_conflict=False,
-            max_retries=0,
-            fit='shrink')  # TODO: consider if other strategies valid
+            read_write_conflict=self.read_write_conflict,
+            max_retries=3,
+            fit='shrink',
+            )  # TODO: consider if other strategies valid
+
+    def is_empty(self, block):
+
+        center_coord = (block.write_roi.get_begin() +
+                        block.write_roi.get_end()) / 2
+
+        if self.segment_ds[center_coord] != 0:
+            return False
+        if self.segment_ds[block.write_roi.get_begin()] != 0:
+            return False
+
+        end_coord = block.write_roi.get_end()
+        end_coord = (end_coord[0]-1, end_coord[1]-1, end_coord[2]-1)
+        if self.segment_ds[end_coord] != 0:
+            return False
+
+        print(f"center_coord: {to_ng_coord(center_coord)}")
+        print(f"center_coord: {to_ng_coord(block.write_roi.get_begin())}")
+        print(f"center_coord: {to_ng_coord(block.write_roi.get_end())}")
+
+        return True
+
+        # center_values = self.segment_ds[center_coord]
+        # s = np.sum(center_values)
+
+        # logger.debug("Sum of center values in %s is %f" % (block.write_roi, s))
 
     def check_block(self, block):
 
@@ -132,6 +170,19 @@ class ExtractSuperFragmentSegmentationTask(task_helper.SlurmTask):
         if self.segment_ds.roi.intersect(block.write_roi).empty():
             logger.debug("Block outside of output ROI")
             return True
+
+        # if self.precheck_check_sub_blocks:
+        #     sub_blocks = daisy.Block.get_chunks(
+        #         block=block, chunk_div=None,
+        #         chunk_shape=(1000, 4096, 4096)
+        #         )
+        #     for sub_block in sub_blocks:
+        #         is_empty = self.is_empty(sub_block)
+        #         # print(f"sub_block {sub_block} center is {is_empty}")
+        #         if is_empty:
+        #             print(f"sub_block {to_ng_coord(sub_block.write_roi.get_begin())} center is {is_empty}")
+        #             return False
+        #     return True
 
         if self.completion_db.count({'block_id': block.block_id}) >= 1:
             logger.debug("Skipping block with db check")
@@ -166,7 +217,11 @@ if __name__ == "__main__":
 
     user_configs, global_config = task_helper.parseConfigs(sys.argv[1:])
 
-    print(global_config)
+    if global_config["Input"].get('block_id_add_one_fix', False):
+        # fix for cb2_v4 dataset where one (1) was used for the first block id
+        # future datasets should just use zero (0)
+        daisy.block.Block.BLOCK_ID_ADD_ONE_FIX = True
+        global_config["ExtractSuperFragmentSegmentationTask"]['block_id_add_one_fix'] = True
 
     daisy.distribute(
         [{'task': ExtractSuperFragmentSegmentationTask(global_config=global_config,

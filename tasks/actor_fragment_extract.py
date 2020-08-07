@@ -29,6 +29,9 @@ if __name__ == "__main__":
     for key in run_config:
         globals()['%s' % key] = run_config[key]
 
+    if run_config.get('block_id_add_one_fix', False):
+        daisy.block.Block.BLOCK_ID_ADD_ONE_FIX = True
+
     logging.info("Reading affs from %s", affs_file)
     affs = daisy.open_ds(affs_file, affs_dataset, mode='r')
 
@@ -53,8 +56,6 @@ if __name__ == "__main__":
     print(capillary_pred_dataset)
 
     if capillary_pred_file is not None and capillary_pred_dataset is not None:
-        #assert capillary_pred_file is not None
-        #assert capillary_pred_dataset is not None
         capillary_pred_ds = daisy.open_ds(capillary_pred_file, capillary_pred_dataset)
         filter_masks.append(capillary_pred_ds)
 
@@ -106,13 +107,6 @@ if __name__ == "__main__":
             write_roi,
             fragments_out.voxel_size)
 
-        # fragments_out_buffer = fragments_out[write_roi]
-        # print("write_roi:", write_roi)
-        # print("write_roi.get_shape():", write_roi.get_shape())
-        # print("fragments_out.voxel_size:", fragments_out.voxel_size)
-        # print("data_shape:", write_roi.get_shape()/fragments_out.voxel_size)
-        # fragments_out_buffer.data = np.zeros(write_roi.get_shape()/fragments_out.voxel_size, fragments_out.dtype)
-
         for chunk in daisy.Block.get_chunks(
                 block,
                 chunk_div=None,
@@ -120,11 +114,6 @@ if __name__ == "__main__":
                 ):
 
             logging.info("Chunk %s" % chunk)
-
-            # print(fragments_out_buffer[chunk.write_roi])
-
-            # fragments_out_buffer[chunk.write_roi] = np.zeros(chunk.write_roi.get_shape()/fragments_out.voxel_size, fragments_out.dtype)
-
 
             watershed_in_block(affs,
                                chunk,
@@ -137,18 +126,6 @@ if __name__ == "__main__":
                                min_seed_distance=min_seed_distance,
                                filter_masks=filter_masks,
                                )
-
-            # watershed_in_block(affs,
-            #                    block,
-            #                    rag_provider,
-            #                    fragments_out,
-            #                    fragments_in_xy,
-            #                    epsilon_agglomerate,
-            #                    mask,
-            #                    filter_fragments=filter_fragments,
-            #                    min_seed_distance=min_seed_distance,
-            #                    filter_masks=filter_masks,
-            #                    )
 
         print("write_roi:", write_roi)
         fragments_out[write_roi] = fragments_out_buffer[write_roi]

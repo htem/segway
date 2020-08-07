@@ -51,7 +51,6 @@ def segment_in_block(
     chunkwise_luts = {}
     for threshold in thresholds:
 
-
         chunkwise_lut = get_chunkwise_lut(
             block,
             block_size,
@@ -140,6 +139,9 @@ if __name__ == "__main__":
 
         for key in run_config:
             globals()['%s' % key] = run_config[key]
+
+        if run_config.get('block_id_add_one_fix', False):
+            daisy.block.Block.BLOCK_ID_ADD_ONE_FIX = True
 
         print("WORKER: Running with context %s"%os.environ['DAISY_CONTEXT'])
         client_scheduler = daisy.Client()

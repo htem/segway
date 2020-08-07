@@ -112,6 +112,9 @@ if __name__ == "__main__":
     for key in run_config:
         globals()['%s' % key] = run_config[key]
 
+    if run_config.get('block_id_add_one_fix', False):
+        daisy.block.Block.BLOCK_ID_ADD_ONE_FIX = True
+
     logging.info("Reading raw from %s", raw_file)
     raw_ds = daisy.open_ds(raw_file, raw_dataset, mode='r')
     output_ds = daisy.open_ds(out_file, out_dataset, mode="r+")

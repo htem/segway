@@ -198,22 +198,47 @@ def make_ng_viewer(unsynced=False, public=True):
 
     viewer = None
 
-    for i in range(33400, 33500):
-        try:
-            if not public:
-                i = 0
-            neuroglancer.set_server_bind_address('0.0.0.0', i)
-            if unsynced:
-                viewer = neuroglancer.UnsynchronizedViewer()
-            else:
-                viewer = neuroglancer.Viewer()
-            break
-        except socket.error as error:
-            if error.errno != errno.EADDRINUSE:
-                raise RuntimeError("Unknown socket error: %s" % (error))
+    if public:
+        for i in range(33400, 33500):
+            probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            try:
+                probe.bind(('0.0.0.0', i))
+                break
+            except socket.error as error:
+                if error.errno != errno.EADDRINUSE:
+                    raise RuntimeError("Unknown socket error: %s" % (error))
+                continue
+            finally:
+                probe.close()
+    else:
+        i = 0
 
-
+    neuroglancer.set_server_bind_address('0.0.0.0', i)
+    if unsynced:
+        viewer = neuroglancer.UnsynchronizedViewer()
+    else:
+        viewer = neuroglancer.Viewer()
     if viewer is None:
         raise RuntimeError("Cannot make viewer in port range 33400-33500")
 
     return viewer
+
+# def new_viewer():
+#     for i in range(33400, 33500):
+#         probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+#         try:
+#             probe.bind(('0.0.0.0', i))
+#             break
+#         except OSError as err:
+#             if err.errno == 98:
+#                 # Address already in use
+#                 continue
+#             else:
+#                 raise err
+#         finally:
+#             probe.close()
+
+#     print(i)
+#     neuroglancer.set_server_bind_address('0.0.0.0', i)
+#     viewer = neuroglancer.Viewer()
+#     return viewer
