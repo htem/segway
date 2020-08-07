@@ -158,7 +158,7 @@ if __name__ == "__main__":
     segment_ndarray = segment_array.to_ndarray()
     segment_array = daisy.Array(
         segment_ndarray, segment_ds.roi, segment_ds.voxel_size)
-    segment_threshold = float(segment_dataset.split('_')[-1])
+    #segment_threshold = float(segment_dataset.split('_')[-1])
 
     segment_by_skeletons = segment_from_skeleton(
         skeletons, segment_array, nodes)

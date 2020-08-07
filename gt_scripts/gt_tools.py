@@ -38,7 +38,7 @@ def get_db_names(config, file):
         if not db_name:
             db_name = global_config["Input"]["db_name"]
         if not db_edges_collection:
-            db_edges_collection = global_config["SegmentationTask"]["edges_collection"]
+            db_edges_collection = global_config["AgglomerateTask"]["edges_collection"]
 
     print("db_host: ", db_host)
     print("db_name: ", db_name)

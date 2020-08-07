@@ -32,6 +32,9 @@ class LaunchableDaisyTask():
             ap.add_argument(
                 "--no_launch_workers", type=int, help='completion_db_col name',
                 default=0)
+            ap.add_argument(
+                "--config_hash", type=str, help='config string, used to keep track of progress',
+                default=None)
         except argparse.ArgumentError as e:
             print("Conflicting argument naming with LaunchableDaisyTask")
             raise e
@@ -42,17 +45,9 @@ class LaunchableDaisyTask():
         self.launch_process_cmd = multiprocessing.Manager().dict()
 
         for key in config:
-            # globals()['%s' % key] = config[key]
             setattr(self, '%s' % key, config[key])
 
         self.__init_config = copy.deepcopy(config)
-
-        # self.db_host = config['db_host']
-        # self.db_name = config['db_name']
-        # self.completion_db_col = config['completion_db_col']
-        # self.overwrite = config['overwrite']
-        # self.num_workers = config['num_workers']
-        # self.no_launch_workers = config['no_launch_workers']
 
         self._init(config)
 
@@ -109,8 +104,9 @@ class LaunchableDaisyTask():
                 config[k] = extra_config[k]
 
         config_str = ''.join(['%s' % (v,) for v in config.values()])
-        config_hash = abs(int(hashlib.md5(config_str.encode()).hexdigest(), 16))
-        task_id = '%s_%d' % (self.__class__.__name__, config_hash)
+        if self.config_hash is None:
+            self.config_hash = str(abs(int(hashlib.md5(config_str.encode()).hexdigest(), 16)))
+        task_id = '%s_%s' % (self.__class__.__name__, self.config_hash)
         self.config_file = os.path.join(
             '.run_configs', '%s.config' % task_id)
 
@@ -180,6 +176,7 @@ class LaunchableDaisyTask():
             read_roi,
             write_roi,
             check_fn=None,
+            fit='shrink',
             ):
 
         print("Processing total_roi %s with read_roi %s and write_roi %s" % (total_roi, read_roi, write_roi))
@@ -231,7 +228,7 @@ class LaunchableDaisyTask():
             read_write_conflict=False,
             num_workers=self.num_workers,
             max_retries=1,
-            fit='shrink',
+            fit=fit,
             periodic_callback=self._periodic_callback)
 
     def _default_check_fn(self, block):
