@@ -11,12 +11,9 @@ import pkg_resources
 import daisy
 
 from segway.tasks.launchable_daisy_task import LaunchableDaisyTask
-# import os, sys, inspect
-# currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-# parentdir = os.path.dirname(currentdir)
-# sys.path.insert(0, parentdir)
-# from launchable_daisy_task import LaunchableDaisyTask
 
+sys.path.insert(0, '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/neuroglancer_proofread/python')
+sys.path.insert(0, '/n/groups/htem//temcagt/datasets/cb2/segmentation/tri/neuroglancer_proofread/python/neuroglancer')
 import neuroglancer._neuroglancer
 
 logging.basicConfig(level=logging.INFO)
@@ -135,9 +132,12 @@ class MeshingTask(LaunchableDaisyTask):
             os.makedirs(self.output_dir_frag_mesh, exist_ok=True)
 
         # neuroglancer changed quadric error calculations starting with v2
-        self.is_neuroglancer_v2 = (
-            float(pkg_resources.get_distribution("neuroglancer").version) >= 2)
-        
+        neuroglancer_version = float(pkg_resources.get_distribution("neuroglancer").version.split('.')[0])
+        self.is_neuroglancer_v2 = neuroglancer_version >= 2
+
+        if self.is_neuroglancer_v2:
+            raise RuntimeError("This script does not work properly with neuroglancer v2 packages.")
+
         # if self.is_neuroglancer_v2:
         #     # ng_v2 meshing engine multiplies the quad error by voxel volume
         #     # we will reverse that
@@ -148,6 +148,8 @@ class MeshingTask(LaunchableDaisyTask):
 
         #     self.max_quadrics_error /= voxel_vol
         #     print(self.max_quadrics_error); exit()
+        print(f'max_quadrics_error: {self.max_quadrics_error}')
+        print(f'neuroglancer_version: {neuroglancer_version}')
 
     def schedule_blockwise(self):
 

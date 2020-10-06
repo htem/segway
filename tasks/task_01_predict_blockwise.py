@@ -54,6 +54,8 @@ class PredictTask(task_helper.SlurmTask):
     iteration = daisy.Parameter()
     raw_file = daisy.Parameter()
     raw_dataset = daisy.Parameter()
+    mask_file = daisy.Parameter(None)
+    mask_dataset = daisy.Parameter(None)
     roi_offset = daisy.Parameter(None)
     roi_shape = daisy.Parameter(None)
     roi_context = daisy.Parameter(None)
@@ -304,6 +306,8 @@ class PredictTask(task_helper.SlurmTask):
             'meta_file': meta_file,
             'delete_section_list': self.delete_section_list,
             'replace_section_list': self.replace_section_list,
+            'mask_file': self.mask_file,
+            'mask_dataset': self.mask_dataset,
         }
 
         if self.predict_file is not None:
@@ -311,6 +315,8 @@ class PredictTask(task_helper.SlurmTask):
         else:
             # use the one included in folder
             predict_script = '%s/predict.py' % (self.train_dir)
+
+        # print(predict_script); exit()
 
         self.cpu_mem = int(self.cpu_cores*self.mem_per_core)
         self.slurmSetup(config,

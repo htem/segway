@@ -16,7 +16,8 @@ class LaunchableDaisyTask():
         try:
             ap.add_argument(
                 "--db_host", type=str, help='database host',
-                default='10.117.28.250')
+                default='10.117.28.139')
+                # default='10.117.28.250')
             ap.add_argument(
                 "--db_name", type=str, help='database project name',
                 default=None)

@@ -17,7 +17,8 @@ if raw_file[-1] == '/':
 
 raw = daisy.open_ds(raw_file, 'volumes/raw')
 
-viewer = neuroglancer.Viewer()
+# viewer = neuroglancer.Viewer()
+viewer = gt_tools.make_ng_viewer()
 
 with viewer.txn() as s:
 

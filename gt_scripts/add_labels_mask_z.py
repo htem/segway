@@ -94,12 +94,12 @@ def add_split_error_fragments(
         ambiguous_fragments):
 
     '''Algorithm
-        1. Find segments belonging to a local id
-        2. For these segments, get their global id
+        1. Find fragments belonging to a slide id
+        2. For these fragments, get their global id
         3. If more than one, there is at least one split error
         Then
             for each segment
-            get the neighbors that have the same local id
+            get the neighbors that have the same slide id
             if the neighbor has a different global id, there's a split
     '''
 

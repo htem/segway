@@ -53,12 +53,15 @@ class MakeZarrFromTiffTask(LaunchableDaisyTask):
         if self.write_size is None:
             self.write_size = calculateNearIsotropicDimensions(
                 self.voxel_size, self.max_voxel_count)
-            print(self.voxel_size)
-            print(self.write_size)
 
         self.write_size = daisy.Coordinate(tuple(self.write_size))
 
         self.chunk_size = self.write_size*self.voxel_size
+
+        print(f'voxel_size: {self.voxel_size}')
+        print(f'max_voxel_count: {self.max_voxel_count}')
+        print(f'calculated write_size: {self.write_size}')
+        print(f'calculated chunk_size: {self.chunk_size}')
 
         self.roi = self.roi.snap_to_grid(self.voxel_size, 'grow')
         ds_roi = self.roi.snap_to_grid(self.chunk_size, 'grow')
@@ -83,7 +86,8 @@ class MakeZarrFromTiffTask(LaunchableDaisyTask):
             # num_channels=n_channels,
             write_size=self.chunk_size,
             force_exact_write_size=True,
-            compressor={'id': 'lz4'},
+            # compressor={'id': 'lz4'},
+            compressor={'id': 'zlib', 'level': 3},
             )
 
     def schedule_blockwise(self):
@@ -125,7 +129,10 @@ class MakeZarrFromTiffTask(LaunchableDaisyTask):
         # go through and fill block
         for num in sections:
             # dir_name = "%s/%.4d" % (self.aligned_dir_path, num)
-            dir_name = "%s/%d" % (self.aligned_dir_path, num)  # standard format without 0 padding
+            if self.section_dir_name_format:
+                dir_name = self.aligned_dir_path + '/' + self.section_dir_name_format.format(num)
+            else:
+                dir_name = "%s/%d" % (self.aligned_dir_path, num)  # standard format without 0 padding
 
             tif = None
             if self.y_folder_block_size:
@@ -136,7 +143,7 @@ class MakeZarrFromTiffTask(LaunchableDaisyTask):
                 tif = "%s/c%.2dr%.2d.tif" % (dir_name, col, abs_row)
 
             if not os.path.exists(tif):
-                if num not in self.bad_sections:
+                if not self.missing_ok and (num not in self.bad_sections):
                     raise RuntimeError("Cannot read %s" % tif)
                 continue
 
@@ -179,6 +186,10 @@ if __name__ == "__main__":
             nargs='+')
         ap.add_argument("output_file", type=str, help='')
         ap.add_argument("output_dataset", type=str, help='')
+        ap.add_argument("--section_dir_name_format",
+            type=str,
+            help='Use Python string.format() to get the directory of each section. By default the script looks for an unpadded sequence of section numbers, e.g., 0, 1, 2, 3, etc.. E.g., "section_{:04d}" will modify this sequence to section_0000, section_0001, etc...',
+            default=None)
         ap.add_argument(
             "--write_size", type=int, help='zyx size in pixel',
             nargs='+', default=None)
@@ -187,15 +198,16 @@ if __name__ == "__main__":
             # default=256*1024)
             default=1024*1024)
         ap.add_argument(
-            "--roi_offset", type=int, help='',
+            "--roi_offset", type=int, help='In nanometer',
             nargs='+', default=None)
         ap.add_argument(
-            "--roi_shape", type=int, help='',
+            "--roi_shape", type=int, help='In nanometer',
             nargs='+', default=None)
         ap.add_argument(
-            "--bad_sections", type=int, help='',
+            "--bad_sections", type=int, help='Space separated, e.g., "1 34 66"',
             nargs='+', default=[])
         ap.add_argument("--y_folder_block_size", type=int, help='', default=None)
+        ap.add_argument("--missing_ok", type=int, help='Override error when there are missing tiffs. Better to put manually missing/bad sections using the bad_sections argument', default=0)
 
         config = task.parse_args(ap)
 

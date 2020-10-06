@@ -52,15 +52,16 @@ def load_synapses_from_catmaid_json(json_path):
 
 def construct_prediction_graph(min_inference_value, model_data,
                                segmentation_data, extraction_config,
-                               voxel_size,
+                               # voxel_size,
+                               configs
                                ):
     inf_graph_json = model_data['inf_graph_json'].format(min_inference_value)
 
     if os.path.exists(inf_graph_json) and not extraction_config['force_rebuild_db']:
         pred_graph = util.json_to_syn_graph(inf_graph_json)
     else:
-        # print(model_data['postsynaptic'])
-        zarr_f = model_data['postsynaptic']
+
+        zarr_f = model_data["mask"]
         zarr_full_path = zarr_f['zarr_path'] + '/' + zarr_f['dataset']
         if not os.path.exists(zarr_full_path):
             print(zarr_f)
@@ -69,30 +70,37 @@ def construct_prediction_graph(min_inference_value, model_data,
         roi_offset = roi.get_offset()
         roi_shape = roi.get_shape()
 
-        pred_graph = extract_postsynaptic_sites(**model_data['postsynaptic'],
-                                                # voxel_size=voxel_size,
+        pred_graph = extract_mask_sites(**model_data["mask"],
                                                 min_inference_value=min_inference_value,
-                                                materialize=extraction_config['materialize'])
+                                                materialize=extraction_config['materialize'],
+                                                # partner_type="mask",
+                                                )
         pred_graph.graph = {'segmentation': segmentation_data,
                             'synapse_data': {key:model_data[key] for
-                                             key in ['postsynaptic', 'vector']},
+                                             key in ["mask", 'vector']},
                             'min_inference_value': min_inference_value,
-                            'voxel_size': voxel_size,
+                            # 'voxel_size': voxel_size,
                             'roi_offset': roi_offset,
                             'roi_shape': roi_shape,
                             }
-        pred_graph = extract_presynaptic_sites(pred_graph,
-                                               **model_data['vector'],
-                                               # voxel_size=voxel_size,
-                                               materialize=extraction_config['materialize'])
+
+        if configs.mode == "edge_accuracy":
+            pred_graph = extract_partner_sites(pred_graph,
+                                                   **model_data['vector'],
+                                                   # voxel_size=voxel_size,
+                                                   materialize=extraction_config['materialize'])
 
         pred_graph = remove_out_of_roi_synapses(pred_graph, roi)
 
-        pred_graph = add_segmentation_labels(pred_graph,
-                                             **segmentation_data,
-                                             materialize=extraction_config['materialize'])
-        if extraction_config['remove_intraneuron_synapses']:
-            pred_graph = remove_intraneuron_synapses(pred_graph)                                       
+        if configs.mode == "edge_accuracy":
+            if configs.have_segmentation:
+                pred_graph = add_segmentation_labels(pred_graph,
+                                                     **segmentation_data,
+                                                     materialize=extraction_config['materialize'])
+
+                if extraction_config['remove_intraneuron_synapses']:
+                    pred_graph = remove_intraneuron_synapses(pred_graph)
+
     return pred_graph
 
 
@@ -101,11 +109,10 @@ def construct_prediction_graph(min_inference_value, model_data,
 # various scores, each of which is positively correlated with its
 # probability of being an actual synapse.
 # TODO: Maybe consider using mask instead of regionprops
-def extract_postsynaptic_sites(zarr_path, dataset,
-                               # voxel_size,
+def extract_mask_sites(zarr_path, dataset,
                                min_inference_value,
                                materialize):
-    print("Extracting postsynaptic sites from {}".format(dataset),
+    print("Extracting detection sites from {}".format(dataset),
           "at min inference value of {}".format(min_inference_value))
     start_time = time.time()
     prediction_ds = daisy.open_ds(zarr_path, dataset)
@@ -119,7 +126,7 @@ def extract_postsynaptic_sites(zarr_path, dataset,
     inference_array = prediction_ds.to_ndarray()
     labels, _ = ndimage.label(inference_array > min_inference_value)
     extracted_syns = measure.regionprops(labels, inference_array)
-    print("Extracted %d post-synaptic partner" % len(extracted_syns))
+    print("Extracted %d synaptic partner" % len(extracted_syns))
 
     syn_graph = nx.DiGraph()
     for i, syn in enumerate(extracted_syns):
@@ -129,7 +136,7 @@ def extract_postsynaptic_sites(zarr_path, dataset,
                                                voxel_size,
                                                roi.get_offset())
         pixel_coord = util.np_index_to_pixel_xyz(zyx_coord)
-        print(pixel_coord)
+        # print(pixel_coord)
         syn_graph.add_node(syn_id,
                            zyx_coord=zyx_coord,
                            pixel_coord=pixel_coord,
@@ -143,12 +150,11 @@ def extract_postsynaptic_sites(zarr_path, dataset,
     return syn_graph
 
 
-# presynaptic site nodes are negative
-# the fact that this returns post synaptic sites is confusing
-def extract_presynaptic_sites(pred_graph, zarr_path,
+def extract_partner_sites(pred_graph, zarr_path,
                               dataset,
                               # voxel_size,
                               materialize):
+    # TODO: this function assumes postsyn
     print("Extracting vector predictions from {}".format(dataset))
     start_time = time.time()
     prediction_ds = daisy.open_ds(zarr_path, dataset)
@@ -251,6 +257,46 @@ def remove_out_of_roi_synapses(graph, roi):
         #         ))
         # if presyn_neuron == postsyn_neuron:
     print("%s synapses outside of ROI removed" % counter)
+    return graph
+
+
+def remove_out_of_roi_nodes(graph, roi):
+    nodes = []
+    for n in list(graph.nodes):
+        loc_zyx = graph.nodes[n]['zyx_coord']
+        if not roi.contains(loc_zyx):
+            nodes.append(n)
+    graph.remove_nodes_from(nodes)
+        # if 'pixel_coord' in graph.nodes[presyn]:
+        #     presyn_xyz = graph.nodes[presyn]['pixel_coord']
+        #     postsyn_xyz = graph.nodes[postsyn]['pixel_coord']
+        #     print("%s (%d) <- %s (%d)" % (
+        #         postsyn_xyz, postsyn_neuron, presyn_xyz, presyn_neuron
+        #         ))
+        # if presyn_neuron == postsyn_neuron:
+    print("%s synapses outside of ROI removed" % len(nodes))
+    return graph
+
+
+def remove_nodes_of_type(graph, node_type):
+    counter = 0
+    nodes = []
+    for presyn, postsyn in list(graph.edges):
+        n = presyn if node_type == 'presyn' else postsyn
+        nodes.append(n)
+    graph.remove_nodes_from(nodes)
+
+        # graph.remove_nodes_from((presyn, postsyn))
+            # counter += 1
+
+        # if 'pixel_coord' in graph.nodes[presyn]:
+        #     presyn_xyz = graph.nodes[presyn]['pixel_coord']
+        #     postsyn_xyz = graph.nodes[postsyn]['pixel_coord']
+        #     print("%s (%d) <- %s (%d)" % (
+        #         postsyn_xyz, postsyn_neuron, presyn_xyz, presyn_neuron
+        #         ))
+        # if presyn_neuron == postsyn_neuron:
+    # print("%s synapses outside of ROI removed" % counter)
     return graph
 
 

@@ -53,6 +53,19 @@ if __name__ == "__main__":
         print("No fragments to process... Done.")
         exit(0)
 
+    # print(ignored_fragments)
+    try:
+        ignored_fragments.remove(0)
+    except:
+        pass
+    try:
+        ignored_fragments.remove('0')
+    except:
+        pass
+
+    # print(ignored_fragments)
+    # exit()
+
     fragments_ds = daisy.open_ds(file, "volumes/fragments")
     print("Caching fragments_ds...")
     fragments_ndarray = fragments_ds.to_ndarray()

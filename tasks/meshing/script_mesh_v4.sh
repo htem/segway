@@ -1,10 +1,10 @@
 # python segway/tasks/meshing/task_meshing.py /n/vast/htem/Segmentation/cb2_v3/output.zarr volumes/super_1x2x2_segmentation_0.400_mipmap/s3 /n/vast/htem/Segmentation/cb2_v3/output.zarr/meshes_s3/precomputed --block_size 4000 8192 8192 --roi_offset 3800 114688 131072 --roi_shape 42600 524288 524288 --no_launch_workers 1
 # python segway/tasks/meshing/task_meshing.py /n/vast/htem/Segmentation/cb2_v3/output.zarr volumes/super_1x2x2_segmentation_0.400_mipmap/s0 /n/vast/htem/Segmentation/cb2_v3/output.zarr/meshes_new/precomputed --block_size 4000 8192 8192 --roi_offset 3800 114688 131072 --roi_shape 4000 16384 16384 --no_launch_workers 0 --downsample 2 4 4
 
-f="/n/pure/htem/Segmentation/cb2_v4/output.zarr"
+f="/n/f810/htem/Segmentation/cb2_v4/output.zarr"
 # ds="volumes/super_1x2x2_segmentation_0.500"
 ds="volumes/super_1x2x2_segmentation_0.500_mipmap/s2"  # 40x32x32
-output_file='/n/pure/htem/Segmentation/cb2_v4/output.zarr'
+output_file='/n/f810/htem/Segmentation/cb2_v4/output.zarr'
 roi_offset='2800 114688 131072'
 roi_shape='44000 425984 786432'
 block_size='4000 8192 8192'

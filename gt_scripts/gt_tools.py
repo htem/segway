@@ -173,6 +173,9 @@ def add_ng_layer(s, a, name, shader=None, **kwargs):
     if shader == 'ramp_top20percent':
         shader="""void main() { emitGrayscale((toNormalized(getDataValue())-float(0.8))*float(5)); }"""
 
+    if shader == 'purple':
+        shader="""void main() { emitRGB(vec3(toNormalized(getDataValue()), 0, toNormalized(getDataValue()))); }"""
+
     if shader == 'overlay_purple':
         shader="""void main() { emitRGBA(vec4(1, 0, 1, toNormalized(getDataValue()))); }"""
 

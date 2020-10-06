@@ -27,7 +27,7 @@ class FindSegmentsBlockwiseTask(task_helper.SlurmTask):
     lut_dir = daisy.Parameter()
 
     db_file = daisy.Parameter(None)
-    db_file_name = daisy.Parameter(None)
+    db_file_name = daisy.Parameter("db_file")
     filedb_roi_offset = daisy.Parameter(None)
     filedb_edges_roi_offset = daisy.Parameter(None)
     filedb_nodes_chunk_size = daisy.Parameter(None)

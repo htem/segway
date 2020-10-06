@@ -79,11 +79,11 @@ def get_graph(
     return graph
 
 
-try:
-    import graph_tool
-except ImportError:
-    print("Error: graph_tool is not found.")
-    exit(0)
+# try:
+#     import graph_tool
+# except ImportError:
+#     print("Error: graph_tool is not found.")
+#     exit(0)
 
 logging.basicConfig(level=logging.INFO)
 
@@ -276,7 +276,7 @@ if __name__ == "__main__":
         except:
             pass
     if reagglomeration_threshold is None:
-        reagglomeration_threshold = 0.85
+        reagglomeration_threshold = 0.9
 
     print("reagglomeration_threshold:", reagglomeration_threshold)
 

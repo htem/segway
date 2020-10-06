@@ -138,6 +138,18 @@ with viewer.txn() as s:
     s.navigation.position.voxelCoordinates = np.flip(
         ((segment.roi.get_begin() + segment.roi.get_end()) / 2 / segment.voxel_size))
 
+    s.navigation.position.voxelSize = (4, 4, 40)
+    # s.navigation.position.voxelCoordinates = (127774, 85250, 471)  # center
+    # s.navigation.zoomFactor = 600
+    s.layout = 'xy'
+    # s.showSlices = False
+    # s.perspectiveZoom = 3500
+    # s.systemMemoryLimit = 1600000000  # caps memory usage to 16GB (effective ~12.8GB)
+    # s.systemMemoryLimit = 1200000000  # caps memory usage to 8GB
+    # s.systemMemoryLimit = 800000000  # caps memory usage to 8GB
+    # crossSectionRenderScale
+    # s.layers[0].crossSectionRenderScale = 2
+
 
 link = str(viewer)
 print(link)

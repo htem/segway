@@ -254,17 +254,18 @@ def get_connected_components(
                                           use_node_id_as_component_id=1)
 
     else:
-        print("edges_tmp: ", edges_tmp)
-        print("scores_tmp: ", scores_tmp)
-        print("edges: ", edges)
-        print("scores: ", scores)
-        print("len(nodes): ", len(nodes))
-        if not ignore_degenerates:
-            raise RuntimeError(
-                'Empty edges in graph! Likely unfinished agglomeration.')
-        else:
-            logger.info(
-                'Empty edges in graph! Likely unfinished agglomeration.')
+        if len(scores) == 0:
+            print("edges_tmp: ", edges_tmp)
+            print("scores_tmp: ", scores_tmp)
+            print("edges: ", edges)
+            print("scores: ", scores)
+            print("len(nodes): ", len(nodes))
+            if not ignore_degenerates:
+                raise RuntimeError(
+                    'Empty edges in graph! Likely unfinished agglomeration.')
+            else:
+                logger.info(
+                    'Empty edges in graph! Likely unfinished agglomeration.')
         components = nodes
 
     lut = np.array([nodes, components])
@@ -355,6 +356,7 @@ if __name__ == "__main__":
                 block=block,
                 thresholds=thresholds,
                 block_id=block.block_id,
+                ignore_degenerates=ignore_degenerates,
                 )
 
             # recording block done in the database

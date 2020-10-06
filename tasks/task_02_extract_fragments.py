@@ -66,7 +66,7 @@ class ExtractFragmentTask(task_helper.SlurmTask):
     db_host = daisy.Parameter()
     db_name = daisy.Parameter()
     db_file = daisy.Parameter(None)
-    db_file_name = daisy.Parameter(None)
+    db_file_name = daisy.Parameter("db_file")
     filedb_roi_offset = daisy.Parameter(None)
     num_workers = daisy.Parameter()
 
@@ -95,7 +95,7 @@ class ExtractFragmentTask(task_helper.SlurmTask):
     overwrite_mask_f = daisy.Parameter(None)
     overwrite_sections = daisy.Parameter(None)
 
-    min_seed_distance = daisy.Parameter(10)  # default seed size from Jan
+    min_seed_distance = daisy.Parameter(None)  # default seed size from Jan
 
     force_exact_write_size = daisy.Parameter(False)
 
@@ -241,7 +241,7 @@ class ExtractFragmentTask(task_helper.SlurmTask):
                    "capillary_pred_dataset must be defined"
 
         # adjust min seed distance base on voxel size
-        if self.min_seed_distance == 10:
+        if self.min_seed_distance is None:
             if voxel_size[2] == 8:
                 # for 40x8x8
                 self.min_seed_distance = 8
@@ -251,6 +251,8 @@ class ExtractFragmentTask(task_helper.SlurmTask):
             elif voxel_size[2] == 50:
                 # for 50x50x50
                 self.min_seed_distance = 5
+            else:
+                self.min_seed_distance = 10
 
         config = {
             'affs_file': self.affs_file,

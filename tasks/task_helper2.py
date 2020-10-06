@@ -471,9 +471,11 @@ def aggregateConfigs(configs):
         # config['net_voxel_size'] = network_config['net_voxel_size']
         copyParameter(network_config, config, 'net_voxel_size')
         copyParameter(network_config, config, 'predict_file')
-        if 'predict_file' in network_config:
-            config['predict_file'] = network_config['predict_file']
-        else:
+        # if 'predict_file' in network_config:
+        #     config['predict_file'] = network_config['predict_file']
+        # else:
+        #     config['predict_file'] = "predict.py"
+        if 'predict_file' not in config or config['predict_file'] is None:
             config['predict_file'] = "predict.py"
         if 'xy_downsample' in network_config:
             config['xy_downsample'] = network_config['xy_downsample']
@@ -720,7 +722,7 @@ def compute_compatible_roi(
         dataset_roi = source_roi  # total volume ROI
         sched_roi = daisy.Roi(
             tuple(sub_roi_offset), tuple(sub_roi_shape))
-        assert dataset_roi.contains(sched_roi)
+        # assert dataset_roi.contains(sched_roi)
 
         if center_roi_offset:
             raise RuntimeError("Unimplemented")

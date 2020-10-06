@@ -11,12 +11,9 @@ import pkg_resources
 import daisy
 
 from segway.tasks.launchable_daisy_task import LaunchableDaisyTask
-# import os, sys, inspect
-# currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-# parentdir = os.path.dirname(currentdir)
-# sys.path.insert(0, parentdir)
-# from launchable_daisy_task import LaunchableDaisyTask
 
+sys.path.insert(0, '/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/neuroglancer_proofread/python')
+sys.path.insert(0, '/n/groups/htem//temcagt/datasets/cb2/segmentation/tri/neuroglancer_proofread/python/neuroglancer')
 import neuroglancer._neuroglancer
 
 logging.basicConfig(level=logging.INFO)
@@ -111,7 +108,6 @@ class MeshingTask(LaunchableDaisyTask):
         self.downsample = config['downsample']
         self.hierarchical_path_size = config['hierarchical_path_size']
 
-        self.block_size = tuple(self.block_size)
         self.context = tuple(self.context)
 
         assert self.context == (0, 0, 0), "Context for meshing is not supported yet"
@@ -129,17 +125,20 @@ class MeshingTask(LaunchableDaisyTask):
         self.voxel_size = self.ds.voxel_size
         self.roi = self.roi.snap_to_grid(self.voxel_size, 'grow')
 
+        if self.block_size is None:
+            self.block_size = self.roi.get_shape()
+        self.block_size = tuple(self.block_size)
+
         self.output_dir_frag_mesh = os.path.join(self.output_dir, "mesh")
         if not os.path.exists(self.output_dir_frag_mesh):
             logger.info("Creating mesh dir %s" % self.output_dir_frag_mesh)
             os.makedirs(self.output_dir_frag_mesh, exist_ok=True)
 
         # neuroglancer changed quadric error calculations starting with v2
-        # self.is_neuroglancer_v2 = (
-        #     float(pkg_resources.get_distribution("neuroglancer").version) >= 2)
         self.is_neuroglancer_v2 = (
-            float(pkg_resources.get_distribution("neuroglancer").version[0]) >= 2)
-        assert not self.is_neuroglancer_v2
+            float(pkg_resources.get_distribution("neuroglancer").version.split('.')[0]) >= 2)
+
+        assert not self.is_neuroglancer_v2, "This script does not work properly with neuroglancer v2 packages"
 
     def schedule_blockwise(self):
 
@@ -277,7 +276,7 @@ if __name__ == "__main__":
 
         ap.add_argument(
             "--block_size", type=int, help='zyx in nm, should align to the superfragment block size',
-            nargs='+')
+            nargs='+', default=None)
         ap.add_argument(
             "--roi_offset", type=int, help='',
             nargs='+', default=None)

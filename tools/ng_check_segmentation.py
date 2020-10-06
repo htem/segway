@@ -11,8 +11,11 @@ from segway.gt_scripts import gt_tools
 try:
 
     user_configs, global_config = task_helper.parseConfigs(sys.argv[1:])
+    # print(f'global_config["Input"]: {global_config["Input"]}')
     f = global_config["Input"]["output_file"]
     raw_file = global_config["Input"]["raw_file"]
+
+    # print(f'raw_file: {raw_file}')
 
     if "ExtractFragmentTask" in global_config and \
         "affs_file" in global_config["ExtractFragmentTask"]:
@@ -126,7 +129,7 @@ with viewer.txn() as s:
 
     add_layer(s, raw, 'raw')
 
-    add_layer(s, daisy.open_ds(affs_file, 'volumes/affs'), 'affs', shader='rgb')
+    add_layer(s, daisy.open_ds(affs_file, 'volumes/affs'), 'affs', shader='rgb', visible=False)
     try: add_layer(s, daisy.open_ds(f, 'volumes/myelin'), 'myelin', visible=False)
     except: pass
     add_layer(s, daisy.open_ds(f, 'volumes/fragments'), 'frag', visible=False)

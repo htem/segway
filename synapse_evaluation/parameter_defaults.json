@@ -2,7 +2,7 @@
     "Input": {
         "postsynaptic_dataset": "/volumes/pred_syn_indicator",
         "vector_dataset": "volumes/pred_partner_vectors",
-        "voxel_size":[40, 4, 4]
+        "raw_voxel_size":[40, 4, 4]
     },   
     "Output": {
         "colors":["dodgerblue","k","deeppink","limegreen","navy","red","coral","slategray","yellow"],
@@ -17,6 +17,7 @@
         "num_hist_bins": 256
     },
     "Extraction": {
+        "mode": "edge_accuracy",
         "materialize": false,
         "min_inference_value": 60,
         "percentiles": [50, 60, 70, 80, 90],

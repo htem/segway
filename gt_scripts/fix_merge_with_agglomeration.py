@@ -1,52 +1,13 @@
-# import json
 import logging
 import daisy
-# import sys
 import networkx
 import numpy as np
-# import rando# import json
-# import logging
 import daisy
-# import sys
 import networkx
 import numpy as np
-# import random
 import collections
 
 from segway.tasks.segmentation_functions import agglomerate_in_block, segment
-
-# from segway import task_helper
-
-# from funlib.evaluate import split_graph
-# from funlib.segment.arrays import replace_values
-
-# logging.basicConfig(level=logging.INFO)
-
-
-# def get_graph(input, threshold=0.9, rag_weight_attribute="capacity"):
-#     graph = networkx.Graph()
-#     for n, n_data in input.nodes(data=True):
-#         if 'center_z' in n_data:
-#             graph.add_node(n, **n_data)
-
-#     for u, v, data in input.edges(data=True):
-#         if u not in graph or v not in graph:
-#             continue
-#         if (data['merge_score'] is not None and
-#                 data['merge_score'] <= threshold):
-#             graph.add_edge(u, v, capacity=1.0-data['merge_score'])
-
-#     return graph
-
-
-# def get_segment_id(zyx, fragments_array, fragments_lut, segment_array):
-#     fid = fragments_array[zyx]
-#     if fragments_lut is not None and fid in fragments_lut:
-#         ret = fragments_lut[fid]
-#     else:
-#         ret = segment_array[zyx]
-#     assert ret is not None
-#     return ret
 
 
 def fix_merge2(
@@ -150,8 +111,6 @@ def fix_merge2(
     if len(components) <= 1:
         return
 
-    # print(components); exit()
-
     rag = networkx.Graph()
     agglomerate_in_block(
         affs_array,
@@ -160,8 +119,6 @@ def fix_merge2(
         rag,
         unmerge_list=[components]
         )
-
-    # exit()
 
     segment(
         fragments_array,
