@@ -5,7 +5,6 @@ import os
 import sys
 
 import daisy
-# import lsd
 
 import task_helper2 as task_helper
 from task_01_predict_blockwise import PredictTask
@@ -183,7 +182,7 @@ class ExtractFragmentTask(task_helper.SlurmTask):
             # daisy.Roi((0, 0, 0), self.block_size),
             write_size=tuple(dataset_blocksize),
             force_exact_write_size=self.force_exact_write_size,
-            compressor={'id': 'zlib', 'level': 5},
+            compressor={'id': 'zlib', 'level': 3},
             delete=delete_ds,
             )
 

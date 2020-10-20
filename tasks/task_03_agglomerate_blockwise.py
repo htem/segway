@@ -1,6 +1,5 @@
 # import json
 import logging
-# import lsd
 import numpy as np
 import sys
 import os

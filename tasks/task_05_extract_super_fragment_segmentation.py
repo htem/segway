@@ -88,7 +88,7 @@ class ExtractSuperFragmentSegmentationTask(task_helper.SlurmTask):
                 self.fragments.data.dtype,
                 write_size=daisy.Coordinate(tuple(self.write_size)),
                 force_exact_write_size=True,
-                compressor={'id': 'zlib', 'level': 5})
+                compressor={'id': 'zlib', 'level': 3})
 
         last_threshold = self.thresholds[-1]
 

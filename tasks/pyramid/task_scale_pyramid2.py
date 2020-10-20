@@ -48,7 +48,8 @@ def calculateNearIsotropicDimensions(voxel_size, max_voxel_count):
     voxel_dims = [1 for k in voxel_size]
 
     while voxel_count < max_voxel_count:
-        for i in range(dims-1, -1, -1):
+        # for i in range(dims-1, -1, -1):
+        for i in range(0, dims):
             if voxel_count >= max_voxel_count:
                 continue
             if vol_size[i] == min(vol_size):
@@ -185,7 +186,7 @@ class ScalePyramidTask(LaunchableDaisyTask):
             dtype=self.in_ds.dtype,
             num_channels=num_channels,
             force_exact_write_size=True,
-            compressor={'id': 'zlib', 'level': 5},
+            compressor={'id': 'zlib', 'level': 3},
             )
 
     def schedule_blockwise(self):

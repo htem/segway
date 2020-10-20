@@ -9,6 +9,8 @@ import os
 import collections
 import pymongo
 import numpy as np
+from io import StringIO
+from jsmin import jsmin
 
 import daisy
 import ast
@@ -22,9 +24,12 @@ class SlurmTask(daisy.Task):
 
     log_dir = daisy.Parameter()
 
-    cpu_cores = daisy.Parameter(2)
-    cpu_time = daisy.Parameter(0)
-    cpu_mem = daisy.Parameter(4)
+    sbatch_num_cores = daisy.Parameter(1)
+    sbatch_time = daisy.Parameter("1:00:00")
+    sbatch_mem = daisy.Parameter(4)
+    sbatch_partition = daisy.Parameter(None)
+    sbatch_account = daisy.Parameter(None)
+    sbatch_gpu_type  = daisy.Parameter(None)
 
     debug_print_command_only = daisy.Parameter(False)
     overwrite = daisy.Parameter(False)
@@ -102,9 +107,12 @@ class SlurmTask(daisy.Task):
             python_interpreter=python_interpreter,
             log_dir=self.log_dir,
             logname=logname,
-            cpu_cores=self.cpu_cores,
-            cpu_time=self.cpu_time,
-            cpu_mem=self.cpu_mem,
+            sbatch_num_cores=self.sbatch_num_cores,
+            sbatch_time=self.sbatch_time,
+            sbatch_mem=self.sbatch_mem,
+            sbatch_gpu_type=self.sbatch_gpu_type,
+            sbatch_partition=self.sbatch_partition,
+            sbatch_account=self.sbatch_account,
             **kwargs)
         self.started_jobs = multiprocessing.Manager().list()
         self.started_jobs_local = []
@@ -252,25 +260,34 @@ def generateSbatchScript(
         run_cmd,
         log_dir,
         logname,
-        cpu_time=0,
-        queue='short',
-        cpu_cores=1,
-        cpu_mem=6,
-        gpu=None):
+        sbatch_time="1:00:00",
+        sbatch_num_cores=1,
+        sbatch_mem=6,
+        sbatch_gpu_type=None,
+        sbatch_partition=None,
+        sbatch_account=None,
+        ):
     text = []
     text.append("#!/bin/bash")
-    text.append("#SBATCH -t %d:40:00" % cpu_time)
+    text.append("#SBATCH -t %s" % sbatch_time)
 
-    if gpu is not None:
-        text.append("#SBATCH -p gpu")
-        if gpu == '' or gpu == 'any':
+    if sbatch_gpu_type is not None:
+        if sbatch_partition is None:
+            sbatch_partition = 'gpu'
+        if sbatch_gpu_type == '' or sbatch_gpu_type == 'any':
             text.append("#SBATCH --gres=gpu:1")
         else:
-            text.append("#SBATCH --gres=gpu:{}:1".format(gpu))
-    else:
-        text.append("#SBATCH -p %s" % queue)
-    text.append("#SBATCH -c %d" % cpu_cores)
-    text.append("#SBATCH --mem=%dGB" % cpu_mem)
+            text.append("#SBATCH --gres=gpu:{}:1".format(sbatch_gpu_type))
+
+    if sbatch_partition is None:
+        sbatch_partition = 'short'
+    text.append("#SBATCH -p %s" % sbatch_partition)
+
+    if sbatch_account:
+        text.append("#SBATCH --account %s" % sbatch_account)
+
+    text.append("#SBATCH -c %d" % sbatch_num_cores)
+    text.append("#SBATCH --mem=%dGB" % sbatch_mem)
     text.append("#SBATCH -o {}/{}_%j.out".format(log_dir, logname))
     text.append("#SBATCH -e {}/{}_%j.err".format(log_dir, logname))
     # text.append("#SBATCH -o .logs_sbatch/{}_%j.out".format(logname))
@@ -294,12 +311,14 @@ def parseConfigs(args, aggregate_configs=True):
     try:
         config_file = "segway/tasks/task_defaults.json"
         with open(config_file, 'r') as f:
-            global_configs = {**json.load(f), **global_configs}
+            # global_configs = {**json.load(f), **global_configs}
+            global_configs = {**json.load(StringIO(jsmin(f.read()))), **global_configs}
     except Exception:
         try:
             config_file = "/n/groups/htem/temcagt/datasets/cb2/segmentation/tri/cb2_segmentation/segway/tasks/task_defaults.json"
             with open(config_file, 'r') as f:
-                global_configs = {**json.load(f), **global_configs}
+                # global_configs = {**json.load(f), **global_configs}
+                global_configs = {**json.load(StringIO(jsmin(f.read()))), **global_configs}
         except:
             logger.info("Default task config not loaded")
 
@@ -321,7 +340,9 @@ def parseConfigs(args, aggregate_configs=True):
         else:
             with open(config, 'r') as f:
                 # print("helper: loading %s" % config)
-                new_configs = json.load(f)
+                # new_configs = json.load(f)
+                new_configs = json.load(StringIO(jsmin(f.read())))
+                print(new_configs)
                 keys = set(list(global_configs.keys())).union(list(new_configs.keys()))
                 for k in keys:
                     if k in global_configs:
@@ -839,41 +860,3 @@ def check_block(
         return done
     else:
         return False
-
-    # TODO: this should be filtered by post check and not pre check
-    # if (s == 0):
-    #     self.log_error_block(block)
-
-
-# def get_rois(
-#         sub_roi_offset,
-#         sub_roi_shape,
-#         block_size,
-#         context,
-#         source_ds=None,
-#         prev_ds=None,
-#         ):
-
-#     if (sub_roi_offset is not None and sub_roi_shape is not None and
-#             source_ds is not None):
-#         # use source ROI and trim to sub_roi
-#         ds_roi = source_ds.roi
-
-#         total_roi = daisy.Roi(tuple(sub_roi_offset), tuple(sub_roi_shape))
-#         total_roi = total_roi.grow(context, context)
-#         read_roi = daisy.Roi((0,)*total_roi.dims(),
-#                              block_size).grow(context, context)
-#         write_roi = daisy.Roi((0,)*total_roi.dims(), block_size)
-
-#     else:
-#         # use prev dataset ROIs
-#         assert sub_roi_offset is None and sub_roi_shape is None
-#         assert prev_ds is not None
-
-#         ds_roi = prev_ds.roi
-#         total_roi = prev_ds.roi.grow(context, context)
-#         read_roi = daisy.Roi((0,)*prev_ds.roi.dims(),
-#                              block_size).grow(context, context)
-#         write_roi = daisy.Roi((0,)*prev_ds.roi.dims(), block_size)
-
-#     return (total_roi, read_roi, write_roi)

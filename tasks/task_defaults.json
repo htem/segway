@@ -84,8 +84,8 @@
             "filedb_nodes_chunk_size": [1000, 2048, 2048],
             "filedb_edges_chunk_size": [8960, 8192, 8192],
             "num_workers": 2,
-            "cpu_mem": 32,
-            "cpu_time": 0,
+            "sbatch_mem": 32,
+            "sbatch_time": "1:00:00",
             "max_retries": 1
         },
 
@@ -94,8 +94,8 @@
             "fragments_dataset": "/volumes/fragments",
             "out_dataset": "volumes/segmentation",
             "thresholds": [0.6, 0.7, 0.8, 0.9],
-            "cpu_mem": 32,
-            "cpu_time": 1,
+            "sbatch_mem": 32,
+            "sbatch_time": "1:00:00",
             "num_workers": 1
         },
 

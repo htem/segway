@@ -145,7 +145,8 @@ def predict(
                 net_config['raw']: raw
             },
             outputs=outputs,
-            graph=os.path.join(setup_dir, meta_file)
+            graph=os.path.join(setup_dir, meta_file),
+            shared_memory_per_worker_MB=256,
         )
     pipeline += IntensityScaleShift(affs, 255, 0)
 

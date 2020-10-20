@@ -86,8 +86,9 @@ class PredictTask(task_helper.SlurmTask):
     log_to_stdout = daisy.Parameter(default=True)
     log_to_files = daisy.Parameter(default=False)
 
-    cpu_cores = daisy.Parameter(4)
-    mem_per_core = daisy.Parameter(1.75)
+    num_cores_per_worker = daisy.Parameter(4)
+    mem_per_core = daisy.Parameter(2)
+    sbatch_gpu_type = daisy.Parameter('any')
     myelin_prediction = daisy.Parameter(0)
 
     delete_section_list = daisy.Parameter([])
@@ -237,12 +238,10 @@ class PredictTask(task_helper.SlurmTask):
             dataset_roi,
             voxel_size,
             out_dtype,
-            # write_roi=daisy.Roi((0, 0, 0), chunk_size),
-            # write_size=chunk_size,
             write_size=write_size,
             force_exact_write_size=True,
             num_channels=out_dims,
-            compressor={'id': 'zlib', 'level': 5},
+            compressor={'id': 'zlib', 'level': 3},
             delete=delete_ds,
             )
 
@@ -253,9 +252,8 @@ class PredictTask(task_helper.SlurmTask):
                 dataset_roi,
                 voxel_size,
                 out_dtype,
-                # write_roi=daisy.Roi((0, 0, 0), chunk_size),
                 write_size=chunk_size,
-                compressor={'id': 'zlib', 'level': 5},
+                compressor={'id': 'zlib', 'level': 3},
                 delete=delete_ds,
                 )
 
@@ -301,7 +299,7 @@ class PredictTask(task_helper.SlurmTask):
             'write_begin': 0,
             'write_size': 0,
             'xy_downsample': self.xy_downsample,
-            'predict_num_core': self.cpu_cores,
+            'predict_num_core': self.num_cores_per_worker,
             'config_file': config_file,
             'meta_file': meta_file,
             'delete_section_list': self.delete_section_list,
@@ -318,10 +316,12 @@ class PredictTask(task_helper.SlurmTask):
 
         # print(predict_script); exit()
 
-        self.cpu_mem = int(self.cpu_cores*self.mem_per_core)
+        self.sbatch_mem = int(self.num_cores_per_worker*self.mem_per_core)
+        if self.sbatch_num_cores is None:
+            self.sbatch_num_cores = self.num_cores_per_worker
         self.slurmSetup(config,
                         predict_script,
-                        gpu='any')
+                        )
 
         check_function = (
                 lambda b: task_helper.check_block(
