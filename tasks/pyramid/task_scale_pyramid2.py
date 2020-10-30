@@ -63,7 +63,8 @@ def calculateNearIsotropicDimensions(voxel_size, max_voxel_count):
 def calculateNextIsotropicScaleFactor(voxel_size,
         max_downsampling=2,
         downsampling_mult=2,
-        preferred_axis=[0],
+        # preferred_axis=[0],
+        preferred_axis=[],
         ):
 
     dims = len(voxel_size)
@@ -177,6 +178,8 @@ class ScalePyramidTask(LaunchableDaisyTask):
         print("out_voxel_size:", out_voxel_size)
         # exit(0)
 
+        delete = self.overwrite == 2
+
         self.out_ds = daisy.prepare_ds(
             self.out_file,
             self.out_ds_name,
@@ -187,6 +190,7 @@ class ScalePyramidTask(LaunchableDaisyTask):
             num_channels=num_channels,
             force_exact_write_size=True,
             compressor={'id': 'zlib', 'level': 3},
+            delete=delete,
             )
 
     def schedule_blockwise(self):
