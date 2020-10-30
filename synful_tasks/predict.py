@@ -190,7 +190,8 @@ def predict(
             net_config['raw']: raw
         },
         outputs=predict_outputs,
-        graph=os.path.join(setup_dir, meta_file)
+        graph=os.path.join(setup_dir, meta_file),
+        shared_memory_per_worker_MB=512,
     )
 
     d_scale = parameters['d_scale'] if 'd_scale' in parameters else None

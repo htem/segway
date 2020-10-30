@@ -43,8 +43,9 @@ class PredictSynapseTask(task_helper.SlurmTask):
     net_voxel_size = daisy.Parameter(None)
     xy_downsample = daisy.Parameter(1)
 
-    cpu_cores = daisy.Parameter(4)
-    mem_per_core = daisy.Parameter(1.75)
+    num_cores_per_worker = daisy.Parameter(4)
+    mem_per_core = daisy.Parameter(2)
+    sbatch_gpu_type = daisy.Parameter('any')
     myelin_prediction = daisy.Parameter(0)
 
     delete_section_list = daisy.Parameter([])
@@ -191,7 +192,7 @@ class PredictSynapseTask(task_helper.SlurmTask):
             'xy_downsample': self.xy_downsample,
             'out_file': self.out_file,
             'out_properties': self.out_properties,
-            'predict_num_core': self.cpu_cores,
+            'predict_num_core': self.num_cores_per_worker,
             'config_file': config_file,
             'meta_file': meta_file,
             'delete_section_list': self.delete_section_list,
@@ -205,9 +206,12 @@ class PredictSynapseTask(task_helper.SlurmTask):
             # use the one included in folder
             predict_script = '%s/predict.py' % (self.train_dir)
 
+        self.sbatch_mem = int(self.num_cores_per_worker*self.mem_per_core)
+        if self.sbatch_num_cores is None:
+            self.sbatch_num_cores = self.num_cores_per_worker
         self.slurmSetup(config,
                         predict_script,
-                        gpu='any')
+                        )
 
         check_function = (
                 lambda b: task_helper.check_block(
