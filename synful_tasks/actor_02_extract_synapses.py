@@ -7,6 +7,7 @@ import sys
 import daisy
 import pymongo
 import time
+import functools
 # import math
 import synapse
 import detection
@@ -14,10 +15,30 @@ from database_synapses import SynapseDatabase
 from database_superfragments import SuperFragmentDatabase, SuperFragment
 from daisy import Coordinate
 
+from downscale import convert_affs
+
+sys.path.insert(0, '/n/groups/htem/Segmentation/tmn7/segway.synapse.area')
+from segway.synapse.area.realign import Realigner
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+# logger.setLevel('WARNING')
+logger.setLevel('INFO')
+# logger.setLevel('DEBUG')
 
+# debug = True
+debug = False
+
+# def to_abs_ng_coord(zyx, block_offset):
+#     zyx += block_offset
+#     return (zyx[2]/40, zyx[1]/4, zyx[0]/4)
+def to_abs_xyz_ng_coord(zyx, block_offset):
+    zyx = zyx.copy()
+    zyx += block_offset
+    # return (zyx[0]/4, zyx[1]/4, zyx[2]/40)
+    return (int(zyx[2]/4),
+            int(zyx[1]/4),
+            int(zyx[0]/40))
 
 def __create_unique_syn_id(zyx):
 
@@ -58,15 +79,36 @@ def extract_synapses(ind_pred_ds,
                      segment_ds,
                      parameters,
                      block,
-                     prediction_post_to_pre=True,
+                     prediction_mode,
+                     remove_z_dir,
+                     d_vector_scale,
+                     affs_ds=None,
+                     local_realigner=None,
+                     local_alignment_offsets_xy=None,
                      ):
     """Extract synapses from the block and write in the DB"""
     ##### EXTRACT SYNAPSES
     start_time = time.time()
 
-    pred_roi = ind_pred_ds.intersect(block.read_roi).roi
-    logger.debug('reading roi %s' % pred_roi)
-    zchannel = ind_pred_ds.to_ndarray(roi=pred_roi)
+    read_roi = ind_pred_ds.roi.intersect(block.read_roi)
+    logger.debug('read_roi: %s' % read_roi)
+
+
+    affs_ndarray = None
+    if affs_ds:
+        read_roi = read_roi.intersect(affs_ds.roi)
+        logger.debug(f'reducing roi to {read_roi} because of affs roi {affs_ds.roi}')
+        # affs_array = affs_ds.to_ndarray(roi=read_roi)
+        affs_array = affs_ds[read_roi]
+        affs_array = convert_affs(affs_array, ind_pred_ds.voxel_size)
+        affs_ndarray = affs_array.to_ndarray()
+
+    zchannel = ind_pred_ds.to_ndarray(roi=read_roi)
+
+    assert read_roi.contains(block.write_roi)
+
+    if local_realigner is not None:
+        local_realigner.set_local_offset(read_roi.get_offset())
 
     if len(zchannel.shape) == 4:
         zchannel = np.squeeze(zchannel[3, :])
@@ -76,30 +118,23 @@ def extract_synapses(ind_pred_ds,
         logger.debug('Rescaling z channel with 255')
 
     voxel_size = np.array(ind_pred_ds.voxel_size)
-    predicted_syns, scores, areas = detection.find_locations(zchannel, parameters,
-                                                      voxel_size)  # In world units.
+    predicted_locs, predicted_props = detection.find_locations(
+                                                    zchannel, parameters,
+                                                    voxel_size,
+                                                    score_threshold=parameters.score_thr,
+                                                    affs_ndarray=affs_ndarray,
+                                                    local_realigner=local_realigner,
+                                                    local_alignment_offsets_xy=local_alignment_offsets_xy,
+                                                    )
 
-    # Filter synapses for scores.
-    new_scorelist = []
-    new_arealist = []
-    if parameters.score_thr is not None:
-        filtered_list = []
-        for ii, loc in enumerate(predicted_syns):
-            score = scores[ii]
-            area = areas[ii]
-            if score > parameters.score_thr:
-                filtered_list.append(loc)
-                new_scorelist.append(score)
-                new_arealist.append(area)
-
-        logger.info(
-            'filtered out %i out of %d' % (len(predicted_syns) - len(filtered_list), len(predicted_syns)))
-        predicted_syns = filtered_list
-        scores = new_scorelist
-        areas = new_arealist
+    # for l, p in zip(predicted_locs, predicted_props):
+    #     print(to_abs_xyz_ng_coord(l, read_roi.get_begin()))
+    #     for k in p:
+    #         print(f'{k}: {p[k]}')
+    #     print('')
 
     # Load direction vectors and find target location
-    dirmap = dir_pred_ds.to_ndarray(roi=pred_roi)
+    dirmap = dir_pred_ds.to_ndarray(roi=read_roi)
 
     # Before rescaling, convert back to float
     dirmap = dirmap.astype(np.float32)
@@ -111,88 +146,116 @@ def extract_synapses(ind_pred_ds,
             'Scale attribute of dir vectors not set. Assuming dir vectors unit: nm, max value {}'.format(
                 np.max(dirmap)))
 
-    target_sites = detection.find_targets(predicted_syns, dirmap,
-                                          voxel_size=voxel_size)
+    find_targets = functools.partial(detection.find_targets,
+                                     dirvectors=dirmap,
+                                     voxel_size=voxel_size,
+                                     remove_z_dir=remove_z_dir,
+                                     d_vector_scale=d_vector_scale,
+                                     )
+
+    predicted_partner_locs = find_targets(predicted_locs)
+
+    # correct pre/post locs for different prediction modes
+    if debug:
+        assert prediction_mode == "cleft_to_pre"
+    if prediction_mode == "cleft_to_pre":
+        # post is actually cleft
+        predicted_cleft_locs = predicted_locs
+        predicted_pre_locs = predicted_partner_locs
+        predicted_post_locs = find_targets(predicted_cleft_locs, reverse_dir=True)
+    elif prediction_mode == "pre_to_post":
+        predicted_pre_locs = predicted_locs
+        predicted_post_locs = predicted_partner_locs
+        predicted_cleft_locs = __create_syn_locations(predicted_pre_locs, predicted_post_locs)
+    elif prediction_mode == "post_to_pre":
+        predicted_post_locs = predicted_locs
+        predicted_pre_locs = predicted_partner_locs
+        predicted_cleft_locs = __create_syn_locations(predicted_pre_locs, predicted_post_locs)
+        pass
+    else:
+        raise RuntimeError(f'Invalid prediction_mode: {prediction_mode}')
+
     # Synapses need to be shifted to the global ROI
-    # (currently aligned with block.roi)
-    for loc in predicted_syns:
-        loc += np.array(pred_roi.get_begin())
-    for loc in target_sites:
-        loc += np.array(pred_roi.get_begin())
+    # (currently aligned to block.roi)
+    for loc in predicted_post_locs:
+        loc += np.array(read_roi.get_begin())
+    for loc in predicted_pre_locs:
+        loc += np.array(read_roi.get_begin())
+    for loc in predicted_cleft_locs:
+        loc += np.array(read_roi.get_begin())
 
-    # Filter post synaptic location not incuded in the block: do not compute syynapses
-    post_syns = []
+    # because the synapse_id is created based on cleft loc, only keep those within `write_roi`
+    # also, we cannot keep synapses with pre/post locs outside of `read_roi`; make sure that
+    # it is big enough in the config
     filt_ind = []
-    for i, (pred_loc, target_loc) in enumerate(zip(predicted_syns, target_sites)):
-        if block.write_roi.contains(pred_loc) and \
-                pred_roi.contains(target_loc):
-            # note: ideally target_loc should have been contained in read_roi
-            # (if not, context should be increased)
-            # but corner cases where the block_roi is at the end of the volume
-            # can give rise to errors
-            post_syns.append(pred_loc)
-            filt_ind.append(i)
+    for i, (post_loc, pre_loc, cleft_loc) in enumerate(zip(predicted_post_locs, predicted_pre_locs, predicted_cleft_locs)):
+        if not block.write_roi.contains(cleft_loc):
+            logger.debug(f'{cleft_loc} not in block.write_roi')
+            continue
+        if not read_roi.contains(pre_loc) or not read_roi.contains(post_loc):
+            logger.debug(f'pre_loc {pre_loc} or post_loc {post_loc} not in read_roi')
+            continue
+        filt_ind.append(i)
+    logger.debug(f'read_roi: {read_roi}')
+    logger.debug(f'write_roi: {block.write_roi}')
+    logger.debug(f'{len(predicted_cleft_locs)-len(filt_ind)}/{len(predicted_cleft_locs)} got filtered out')
 
-    pre_syns = list(np.array(target_sites)[filt_ind])
+    post_syn_locs = list(np.array(predicted_post_locs)[filt_ind])
+    pre_syn_locs = list(np.array(predicted_pre_locs)[filt_ind])
+    # cleft_syn_locs = list(np.array(predicted_cleft_locs)[filt_ind])
+    props = list(np.array(predicted_props)[filt_ind])
 
-    assert(prediction_post_to_pre)
-    if not prediction_post_to_pre:
-        pre_syns_tmp = pre_syns
-        pre_syns = copy.deepcopy(post_syns)
-        post_syns = copy.deepcopy(pre_syns_tmp)
-
-    segment_ds = segment_ds[pred_roi]
+    segment_ds = segment_ds[read_roi]
     segment_ds.materialize()
 
     # Superfragments IDs
     ids_sf_pre = []
-    for pre_syn in pre_syns:
+    for pre_syn in pre_syn_locs:
         pre_syn = Coordinate(pre_syn)
         pre_super_fragment_id = segment_ds[pre_syn]
         assert pre_super_fragment_id is not None
         ids_sf_pre.append(pre_super_fragment_id)
-    # print("Pre super fragment ID: ", ids_sf_pre)
 
     ids_sf_post = []
-    for post_syn in post_syns:
+    for post_syn in post_syn_locs:
         post_syn = Coordinate(post_syn)
         post_super_fragment_id = segment_ds[post_syn]
         assert post_super_fragment_id is not None
         ids_sf_post.append(post_super_fragment_id)
-    # print("Post super fragment ID: ", ids_sf_post)
+
+    assert len(pre_syn_locs) == len(post_syn_locs)
+    assert len(pre_syn_locs) == len(props)
 
     # filter false positives
     pre_syns_f = []
     post_syns_f = []
-    scores_f = []
-    areas_f = []
+    props_f = []
     i_f = [] # indices to consider
     for i in range(len(ids_sf_pre)):
         if ids_sf_pre[i] == ids_sf_post[i]:
             continue
         if ids_sf_pre[i] == 0 or ids_sf_post[i] == 0:
             continue
-        pre_syns_f.append(pre_syns[i])
-        post_syns_f.append(post_syns[i])
-        scores_f.append(scores[i])
-        areas_f.append(areas[i])
+        pre_syns_f.append(pre_syn_locs[i])
+        post_syns_f.append(post_syn_locs[i])
+        props_f.append(props[i])
         i_f.append(i)
 
     ids_sf_pre = list(np.array(ids_sf_pre)[i_f])
     ids_sf_post = list(np.array(ids_sf_post)[i_f])
     # Create xyz locations
-    zyx = __create_syn_locations(pre_syns_f, post_syns_f)
+    cleft_syn_locs = __create_syn_locations(pre_syns_f, post_syns_f)
     # Create IDs for synpses from volume coordinates
-    # ids = __create_syn_ids(zyx)
-    ids = __create_syn_ids(post_syns_f)  # make ID based on post for uniqueness
-    # print("Synapses IDs: ", ids)
+    ids = __create_syn_ids(cleft_syn_locs)  # make ID based on cleft for uniqueness
 
     synapses = synapse.create_synapses(pre_syns_f, post_syns_f,
-                                   scores=scores_f, areas=areas_f, ID=ids, zyx=zyx,
+                                   props=props_f, ID=ids, zyx=cleft_syn_locs,
                                    ids_sf_pre=ids_sf_pre,
                                    ids_sf_post=ids_sf_post)
 
-    # print("Extraction synapses execution time = %f s" % (time.time() - start_time))
+    if debug:
+        for syn in synapses:
+            print(syn)
 
     return synapses 
 
@@ -235,12 +298,6 @@ if __name__ == "__main__":
     with open(config_file, 'r') as f:
         run_config = json.load(f)
 
-    mask_fragments = False
-    mask_file = None
-    mask_dataset = None
-    epsilon_agglomerate = 0
-    use_mahotas = False
-
     for key in run_config:
         globals()['%s' % key] = run_config[key]
 
@@ -252,20 +309,24 @@ if __name__ == "__main__":
 
     db_client = pymongo.MongoClient(db_host)
     db = db_client[db_name]
-
     completion_db = db[completion_db_name]
-    print("db_name: ", db_name)
-    print("db_host: ", db_host)
-    print("db collection names: ", db_col_name_syn, db_col_name_sf)
-    
-    print("super_fragments_file: ", super_fragments_file)
-    print("super_fragments_dataset: ", super_fragments_dataset)
-    print("syn_indicator_file: ", syn_indicator_file)
-    print("syn_indicator_dataset: ", syn_indicator_dataset)
-    print("syn_dir_file: ", syn_dir_file)
-    print("syn_dir_dataset: ", syn_dir_dataset)
-    print("score_threshold: ", score_threshold)
+    logger.debug(f"db_name: {db_name}")
+    logger.debug(f"db_host: {db_host}")
+    logger.debug(f"db collection names: {db_col_name_syn}, {db_col_name_sf}")
+    logger.debug(f"super_fragments_file: {super_fragments_file}")
+    logger.debug(f"super_fragments_dataset: {super_fragments_dataset}")
+    logger.debug(f"syn_indicator_file: {syn_indicator_file}")
+    logger.debug(f"syn_indicator_dataset: {syn_indicator_dataset}")
+    logger.debug(f"syn_dir_file: {syn_dir_file}")
+    logger.debug(f"syn_dir_dataset: {syn_dir_dataset}")
+    logger.debug(f"score_threshold: {score_threshold}")
+    logger.debug(f"prediction_mode: {prediction_mode}")
+    logger.debug(f"remove_z_dir: {remove_z_dir}")
+    logger.debug(f"d_vector_scale: {d_vector_scale}")
 
+    if debug:
+        assert prediction_mode == "cleft_to_pre"
+        assert remove_z_dir is True
 
     parameters = detection.SynapseExtractionParameters(
         extract_type=extract_type,
@@ -273,23 +334,36 @@ if __name__ == "__main__":
         loc_type=loc_type,
         score_thr=score_threshold,
         score_type=score_type,
-        nms_radius=None
+        nms_radius=None,
     )
 
-    print("WORKER: Running with context %s"%os.environ['DAISY_CONTEXT'])
+    logger.info("WORKER: Running with context %s"%os.environ['DAISY_CONTEXT'])
     client_scheduler = daisy.Client()
 
     syn_db = SynapseDatabase(db_name, db_host, db_col_name_syn,
                  mode='r+')
-    # print(syn_db.read_synapses())
-    # for syn in syn_db.read_synapses():
-        # print(syn)
-
     superfrag_db = SuperFragmentDatabase(db_name, db_host, db_col_name_sf,
                  mode='r+')
     ind_pred_ds = daisy.open_ds(syn_indicator_file, syn_indicator_dataset, 'r') 
     dir_pred_ds = daisy.open_ds(syn_dir_file, syn_dir_dataset, 'r')
     segment_ds = daisy.open_ds(super_fragments_file, super_fragments_dataset, 'r')
+    affs_ds = None
+    if affs_file or affs_dataset:
+        assert affs_file and affs_dataset
+        affs_ds = daisy.open_ds(affs_file, affs_dataset, 'r')
+
+    local_realigner = None
+    if raw_file or raw_dataset:
+        assert raw_file and raw_dataset
+        local_realigner = Realigner(raw_file, raw_dataset,
+                                    # xy_context_nm=realignment_xy_context_nm,
+                                    xy_context_nm=0,
+                                    xy_stride_nm=realignment_xy_stride_nm,
+                                    )
+        raw_ds = daisy.open_ds(raw_file, raw_dataset, 'r')
+
+    else:
+        asdf
 
     while True:
         block = client_scheduler.acquire_block()
@@ -298,24 +372,33 @@ if __name__ == "__main__":
 
         logging.info("Running synapse extraction for block %s" % block)
 
+        realign_roi = raw_ds.roi.intersect(block.read_roi)
+        # local_alignment_offsets_xy = local_realigner.multipass_realign(block.write_roi, [1, 2, 3])
+        local_alignment_offsets_xy = local_realigner.multipass_realign(realign_roi, [1, 2, 3, 4, 5])
+
         synapses = extract_synapses(ind_pred_ds,
                                     dir_pred_ds,
                                     segment_ds,
                                     parameters,
-                                    block)
-
-        syn_db.write_synapses(synapses)
+                                    block,
+                                    prediction_mode=prediction_mode,
+                                    remove_z_dir=remove_z_dir,
+                                    d_vector_scale=d_vector_scale,
+                                    affs_ds=affs_ds,
+                                    # local_realigner=local_realigner,
+                                    local_realigner=None,
+                                    local_alignment_offsets_xy=local_alignment_offsets_xy,
+                                    )
 
         superfragments = extract_superfragments(synapses, block.write_roi)
-        superfrag_db.write_superfragments(superfragments)
 
-        testing = False
-        if testing:
-            # FOR TESTING PURPOSES, DON'T RETURN THE BLOCK
-            # AND JUST QUIT
-
+        if debug:
+            # FOR debug PURPOSES, DON'T RETURN THE BLOCK AND JUST QUIT
             time.sleep(1)
             sys.exit(1)
+
+        syn_db.write_synapses(synapses)
+        superfrag_db.write_superfragments(superfragments)
 
         # write block completion
         document = {

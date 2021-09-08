@@ -7,34 +7,53 @@ from itertools import product, starmap
 import h5py
 import numpy as np
 from scipy.sparse.csgraph import csgraph_from_dense, connected_components
-import neuroglancer
+# import neuroglancer
 
 logger = logging.getLogger(__name__)
 
+def to_xyz_pixel(coord):
+    return [
+        int(coord[2]/4),
+        int(coord[1]/4),
+        int(coord[0]/40),
+        ]
 
 class Synapse(object):
     """Represents a single synapse.
     """
 
     def __init__(self, id=None, id_superfrag_pre=None, id_superfrag_post=None,
-                 location_pre=None, location_post=None, score=None, area=None, zyx=None):
+                 location_pre=None, location_post=None, score=None, zyx=None,
+                 # z_length=None, major_axis_length=None,
+                 props=None,
+                 ):
         self.id = id
         self.id_superfrag_pre = id_superfrag_pre
         self.id_superfrag_post = id_superfrag_post
         self.location_pre = location_pre
         self.location_post = location_post
         self.score = score
-        self.area = area
+        # self.area = area
         self.zyx = zyx
+        # self.z_length = int(z_length)
+        # self.major_axis_length = int(major_axis_length)
+        self.props = props
 
     def __repr__(self):
-        output_str = 'id: %s, sf_ids: [%s, %s], score: %s, area: %s' % (
-            str(self.id),
-            str(self.id_superfrag_pre),
-            str(self.id_superfrag_post),
-            '{:0.3f}'.format(self.score) if self.score is not None else None,
-            '{:0.3f}'.format(self.area) if self.area is not None else None
-            )
+        # output_str = 'id: %s, sf_ids: [%s, %s], score: %s, area: %s' % (
+        #     str(self.id),
+        #     str(self.id_superfrag_pre),
+        #     str(self.id_superfrag_post),
+        #     '{:0.3f}'.format(self.score) if self.score is not None else None,
+        #     '{:0.3f}'.format(self.area) if self.area is not None else None
+        #     )
+                     # f'sf_ids: [{self.id_superfrag_pre}, {self.id_superfrag_post}]\n' \
+                     # f'score: {self.score}, area: {self.area}\n' \
+                     # f'z_length: {self.z_length}\n' \
+                     # f'major_axis_length: {self.major_axis_length}\n' \
+        output_str = f'id: {self.id}\n' \
+                     f'({to_xyz_pixel(self.location_pre)} to {to_xyz_pixel(self.location_post)}]\n'
+
         return output_str
 
 def create_synapses_from_db(synapses_dic):
@@ -59,7 +78,7 @@ def create_synapses_from_db(synapses_dic):
     return synapses
 
 
-def create_synapses(sources, targets, scores=None, areas=None, ID=None, zyx=None,
+def create_synapses(sources, targets, props=None, ID=None, zyx=None,
                     ids_sf_pre=None, ids_sf_post=None):
     """Creates a list of synapses.
 
@@ -75,12 +94,15 @@ def create_synapses(sources, targets, scores=None, areas=None, ID=None, zyx=None
     loc_zyx = None
     id_sf_post = None
     id_sf_pre = None
+    prop = None
     counter = 0
     for presite, postsite in zip(*[sources, targets]):
-        if scores is not None:
-            score = scores[counter]
-        if areas is not None:
-            area = areas[counter]
+        if props is not None:
+            prop = props[counter]
+            score = prop.get('score', None)
+            # area = prop.get('area', None)
+            # z_length = prop.get('z_length', None)
+            # major_axis_length = prop.get('major_axis_length', None)
         if ID is not None:
             Id = ID[counter]    
         if zyx is not None:
@@ -92,11 +114,15 @@ def create_synapses(sources, targets, scores=None, areas=None, ID=None, zyx=None
         synapses.append(Synapse(location_pre=presite,
                                 location_post=postsite,
                                 score=score,
-                                area=area,
+                                # area=area,
+                                # z_length=z_length,
+                                # major_axis_length=major_axis_length,
                                 id = Id,
                                 zyx=loc_zyx,
                                 id_superfrag_pre=id_sf_pre,
-                                id_superfrag_post=id_sf_post))
+                                id_superfrag_post=id_sf_post,
+                                props=prop,
+                                ))
         counter += 1
     return synapses
 

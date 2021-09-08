@@ -134,7 +134,8 @@ class PredictSynapseTask(task_helper.SlurmTask):
                 source_roi=source.roi,
                 center_roi_offset=self.center_roi_offset,
                 chunk_size=chunk_size,
-                sched_roi_outside_roi_ok=self.sched_roi_outside_roi_ok
+                sched_roi_outside_roi_ok=self.sched_roi_outside_roi_ok,
+                voxel_size=voxel_size,
             )
 
         write_size = chunk_size
@@ -170,7 +171,7 @@ class PredictSynapseTask(task_helper.SlurmTask):
                 write_size=write_size,
                 force_exact_write_size=True,
                 num_channels=out_dims,
-                compressor={'id': 'gzip', 'level': 5},
+                compressor={'id': 'gzip', 'level': 3},
                 delete=delete
             )
             if scale is not None:

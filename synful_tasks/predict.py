@@ -203,16 +203,21 @@ def predict(
         if m_property['scale'] != 1:
             pipeline += gp.IntensityScaleShift(pred_post_indicator,
                                                m_property['scale'], 0)
-    if d_property is not None and 'scale' in d_property:
+    if d_property and 'scale' in d_property:
         pipeline += gp.IntensityScaleShift(pred_postpre_vectors,
                                            d_property['scale'], 0)
-    if d_property is not None and 'dtype' in d_property:
-        assert d_property['dtype'] == 'int8' or d_property[
-            'dtype'] == 'float32', 'predict not adapted to dtype {}'.format(
-            d_property['dtype'])
-        if d_property['dtype'] == 'int8':
+    if d_property and 'dtype' in d_property:
+        d_dtype = d_property['dtype']
+        if d_dtype == 'float32':
+            pass  # nothing to do
+        elif d_dtype == 'int8':
             pipeline += IntensityScaleShiftClip(pred_postpre_vectors,
                                                 1, 0, clip=(-128, 127))
+        elif d_dtype == 'int16':
+            pipeline += IntensityScaleShiftClip(pred_postpre_vectors,
+                                                1, 0, clip=(-32768, 32768-1))
+        else:
+            raise RuntimeError(f'predict not adated to dtype {d_dtype}')
 
     pipeline += gp.ZarrWrite(
         dataset_names=out_datasets,

@@ -80,63 +80,78 @@ class SynapseDatabase(object):
             }
             if syn.score is not None:
                 syn_dic['score'] = float(syn.score)
-            if syn.area is not None:
-                syn_dic['area'] = int(syn.area)
+            # if syn.area is not None:
+            #     syn_dic['area'] = int(syn.area)
             if syn.id_superfrag_pre is not None:
                 syn_dic['id_superfrag_pre'] = int(syn.id_superfrag_pre)
             if syn.id_superfrag_post is not None:
                 syn_dic['id_superfrag_post'] = int(syn.id_superfrag_post)
+            # if syn.major_axis_length is not None:
+            #     syn_dic['major_axis_length'] = int(syn.major_axis_length)
+            # else:
+            #     assert False, "Debug"
+            # if syn.z_length is not None:
+            #     syn_dic['z_length'] = int(syn.z_length)
+            # else:
+            #     assert False, "Debug"
+            if syn.props is not None:
+                syn_dic['props'] = syn.props
+            else:
+                raise RuntimeError("Debugging")
 
             db_list.append(syn_dic)
 
             # print("Inserting synapse: ID", syn_dic['id'])
-            # self.synapses.insert_one(syn_dic)
-        
-        # print("Inserting synapses Ids: ", syn_dic_id)
+            # try:
+            #     self.synapses.insert_one(syn_dic)
+            # except Exception as e:
+            #     print(e)
+            #     print(syn_dic)
+            #     asdf
+        logger.info("Inserting %d synapses..." % len(synapses))
         self.synapses.insert_many(db_list)
-        
-        logger.debug("Insert %d synapses" % len(synapses))
+        # asdf
 
 
-    def read_synapses(self, roi=None):
-        """ Read synapses from database.
+    # def read_synapses(self, roi=None):
+    #     """ Read synapses from database.
 
-        Args:
-            roi (``daisy.Roi``, optional):
-                If given, restrict reading synapses to ROI. If not given, all synapses are read.
-        Returns:
-            ``list`` of ``dic``: List of synapses in dictionary format.
-        """
+    #     Args:
+    #         roi (``daisy.Roi``, optional):
+    #             If given, restrict reading synapses to ROI. If not given, all synapses are read.
+    #     Returns:
+    #         ``list`` of ``dic``: List of synapses in dictionary format.
+    #     """
 
-        if roi is None:
-            logger.debug("No roi provided, querying all synapses in database")
-            synapses_dic = self.synapses.find({})
-        elif roi is not None:
-            logger.debug("Querying synapses in %s", roi)
-            bz, by, bx = roi.get_begin()
-            ez, ey, ex = roi.get_end()
-            synapses_dic = self.synapses.find(
-                {
-                    'z': {'$gte': bz, '$lt': ez},
-                    'y': {'$gte': by, '$lt': ey},
-                    'x': {'$gte': bx, '$lt': ex}
-                })
+    #     if roi is None:
+    #         logger.debug("No roi provided, querying all synapses in database")
+    #         synapses_dic = self.synapses.find({})
+    #     elif roi is not None:
+    #         logger.debug("Querying synapses in %s", roi)
+    #         bz, by, bx = roi.get_begin()
+    #         ez, ey, ex = roi.get_end()
+    #         synapses_dic = self.synapses.find(
+    #             {
+    #                 'z': {'$gte': bz, '$lt': ez},
+    #                 'y': {'$gte': by, '$lt': ey},
+    #                 'x': {'$gte': bx, '$lt': ex}
+    #             })
 
-        return synapses_dic
+    #     return synapses_dic
 
     def __create_synapses_collection(self):
 
         indexes = self.synapses.index_information()
 
-        if 'zyx_position' not in indexes:
-            self.synapses.create_index(
-                [
-                    ('z', ASCENDING),
-                    ('y', ASCENDING),
-                    ('x', ASCENDING)
+        # if 'zyx_position' not in indexes:
+        #     self.synapses.create_index(
+        #         [
+        #             ('z', ASCENDING),
+        #             ('y', ASCENDING),
+        #             ('x', ASCENDING)
 
-                ],
-                name='zyx_position')
+        #         ],
+        #         name='zyx_position')
 
         if 'id' not in indexes:
             self.synapses.create_index(
@@ -145,19 +160,19 @@ class SynapseDatabase(object):
                 ],
                 name='id', unique=True)
 
-        if 'proofread' not in indexes:
-            self.synapses.create_index(
-                [
-                    ('proofread', ASCENDING)
-                ],
-                name='proofread')
+        # if 'proofread' not in indexes:
+        #     self.synapses.create_index(
+        #         [
+        #             ('proofread', ASCENDING)
+        #         ],
+        #         name='proofread')
 
-        if 'pr_false_positive' not in indexes:
-            self.synapses.create_index(
-                [
-                    ('pr_false_positive', ASCENDING)
-                ],
-                name='pr_false_positive')
+        # if 'pr_false_positive' not in indexes:
+        #     self.synapses.create_index(
+        #         [
+        #             ('pr_false_positive', ASCENDING)
+        #         ],
+        #         name='pr_false_positive')
 
     def __connect(self):
         '''Connects to Mongo client'''

@@ -26,6 +26,11 @@ class ExtractSynapsesTask(task_helper.SlurmTask):
     super_fragments_file = daisy.Parameter()
     super_fragments_dataset = daisy.Parameter()
 
+    raw_file = daisy.Parameter(None)
+    raw_dataset = daisy.Parameter(None)
+    affs_file = daisy.Parameter(None)
+    affs_dataset = daisy.Parameter(None)
+
     syn_indicator_file = daisy.Parameter()
     syn_indicator_dataset = daisy.Parameter()
 
@@ -56,7 +61,12 @@ class ExtractSynapsesTask(task_helper.SlurmTask):
     db_col_name_sf = daisy.Parameter('superfragments')
     # nms_radius = daisy.Parameter()
 
-    prediction_post_to_pre = daisy.Parameter(True)
+    prediction_mode = daisy.Parameter("post_to_pre")
+    remove_z_dir = daisy.Parameter(False)
+    d_vector_scale = daisy.Parameter(None)
+
+    realignment_xy_context_nm = daisy.Parameter(1024)
+    realignment_xy_stride_nm = daisy.Parameter(1024)
 
     def prepare(self):
         '''Daisy calls `prepare` for each task prior to scheduling
@@ -73,6 +83,16 @@ class ExtractSynapsesTask(task_helper.SlurmTask):
         # print("self.db_host: ", self.db_host)
         # print("self.db_col_name_syn: ", self.db_col_name_syn)
         # print("mode: ", mode)
+
+        affs_ds = None
+        if self.affs_file or self.affs_dataset:
+            assert self.affs_file and self.affs_dataset
+            affs_ds = daisy.open_ds(self.affs_file, self.affs_dataset, 'r') 
+
+        raw_ds = None
+        if self.raw_file or self.raw_dataset:
+            assert self.raw_file and self.raw_dataset
+            raw_ds = daisy.open_ds(self.raw_file, self.raw_dataset, 'r') 
 
         if self.context is None:
             self.context = daisy.Coordinate((0,)*self.affs.roi.dims())
@@ -93,10 +113,16 @@ class ExtractSynapsesTask(task_helper.SlurmTask):
             syn_indicator_ds = daisy.open_ds(
                 self.syn_indicator_file, self.syn_indicator_dataset, 'r')
 
-            total_roi = syn_indicator_ds.roi.grow(self.context, self.context)
-            read_roi = daisy.Roi((0,)*syn_indicator_ds.roi.dims(),
+            roi = syn_indicator_ds.roi
+            if affs_ds:
+                roi = roi.intersect(affs_ds.roi)
+            if raw_ds:
+                roi = roi.intersect(raw_ds.roi)
+
+            total_roi = roi.grow(self.context, self.context)
+            read_roi = daisy.Roi((0,)*roi.dims(),
                                  self.block_size).grow(self.context, self.context)
-            write_roi = daisy.Roi((0,)*syn_indicator_ds.roi.dims(), self.block_size)
+            write_roi = daisy.Roi((0,)*roi.dims(), self.block_size)
 
         '''Illaria TODO
             1. Check for different thresholds
@@ -111,12 +137,20 @@ class ExtractSynapsesTask(task_helper.SlurmTask):
             'db_host': self.db_host,
             'db_name': self.db_name,
             'num_workers': self.num_workers,
+
             'super_fragments_file': self.super_fragments_file,
             'super_fragments_dataset': self.super_fragments_dataset,
             'syn_indicator_file': self.syn_indicator_file,
             'syn_indicator_dataset': self.syn_indicator_dataset,
             'syn_dir_file': self.syn_dir_file,
             'syn_dir_dataset': self.syn_dir_dataset,
+            'affs_file': self.affs_file,
+            'affs_dataset': self.affs_dataset,
+            'raw_file': self.raw_file,
+            'raw_dataset': self.raw_dataset,
+            'realignment_xy_context_nm': self.realignment_xy_context_nm,
+            'realignment_xy_stride_nm': self.realignment_xy_stride_nm,
+
             'score_threshold': self.score_threshold,
             'extract_type' : self.extract_type,
             'cc_threshold' : self.cc_threshold,
@@ -124,7 +158,9 @@ class ExtractSynapsesTask(task_helper.SlurmTask):
             'score_type' : self.score_type,
             'db_col_name_syn' : self.db_col_name_syn,
             'db_col_name_sf': self.db_col_name_sf,
-            'prediction_post_to_pre': self.prediction_post_to_pre,
+            'prediction_mode': self.prediction_mode,
+            'remove_z_dir': self.remove_z_dir,
+            'd_vector_scale': self.d_vector_scale,
         }
 
         self.slurmSetup(config, 'segway/synful_tasks/actor_02_extract_synapses.py')
@@ -145,7 +181,9 @@ class ExtractSynapsesTask(task_helper.SlurmTask):
             check_function=check_function,
             read_write_conflict=False,
             fit='shrink',
-            num_workers=self.num_workers)
+            num_workers=self.num_workers,
+            max_retries=self.max_retries,
+            )
 
     def check(self, block, precheck):
         '''By default only check the `completion_db` database that gets
